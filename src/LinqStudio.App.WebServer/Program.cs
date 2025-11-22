@@ -9,7 +9,9 @@ builder.AddServiceDefaults();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-builder.Services.AddLinqStudio();
+builder.Services
+    .AddLinqStudio()
+    .AddLinqStudioBlazor();
 
 var app = builder.Build();
 
