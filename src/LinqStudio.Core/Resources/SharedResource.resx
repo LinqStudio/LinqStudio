@@ -120,6 +120,39 @@
   <data name="AppBar.Button.Settings" xml:space="preserve">
     <value>Settings</value>
   </data>
+  <data name="Global.MessageBox.No" xml:space="preserve">
+    <value>No</value>
+  </data>
+  <data name="Global.MessageBox.Yes" xml:space="preserve">
+    <value>Yes</value>
+  </data>
+  <data name="SettingsPage.Button.SaveAll" xml:space="preserve">
+    <value>Save all</value>
+  </data>
+  <data name="SettingsPage.Error.ErrorParsingSetting" xml:space="preserve">
+    <value>Error parsing setting JSON</value>
+  </data>
+  <data name="SettingsPage.Error.ErrorParsingSettingX" xml:space="preserve">
+    <value>Error parsing setting JSON for {0}</value>
+  </data>
+  <data name="SettingsPage.Error.ErrorSavingSetting" xml:space="preserve">
+    <value>Error saving settings</value>
+  </data>
+  <data name="SettingsPage.MessageBox.Always" xml:space="preserve">
+    <value>Always</value>
+  </data>
+  <data name="SettingsPage.MessageBox.ReloadSettings" xml:space="preserve">
+    <value>Settings have changed outside the editor, do you want to reload?</value>
+  </data>
+  <data name="SettingsPage.MessageBox.ReloadTitle" xml:space="preserve">
+    <value>Reload settings?</value>
+  </data>
+  <data name="UserSettings.UISettings" xml:space="preserve">
+    <value>UI Settings</value>
+  </data>
+  <data name="UserSettings.UISettings.AlwaysReloadSettingsInSettingsPage" xml:space="preserve">
+    <value>Automatically reload the UI in the settings page when the settings are changed from outside</value>
+  </data>
   <data name="UserSettings.UISettings.IsDarkMode" xml:space="preserve">
     <value>True to set the UI in dark mode</value>
   </data>

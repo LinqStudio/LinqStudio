@@ -70,6 +70,105 @@ namespace LinqStudio.Core.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to No.
+        /// </summary>
+        public static string Global_MessageBox_No {
+            get {
+                return ResourceManager.GetString("Global.MessageBox.No", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Yes.
+        /// </summary>
+        public static string Global_MessageBox_Yes {
+            get {
+                return ResourceManager.GetString("Global.MessageBox.Yes", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Save all.
+        /// </summary>
+        public static string SettingsPage_Button_SaveAll {
+            get {
+                return ResourceManager.GetString("SettingsPage.Button.SaveAll", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Error parsing setting JSON.
+        /// </summary>
+        public static string SettingsPage_Error_ErrorParsingSetting {
+            get {
+                return ResourceManager.GetString("SettingsPage.Error.ErrorParsingSetting", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Error parsing setting JSON for {0}.
+        /// </summary>
+        public static string SettingsPage_Error_ErrorParsingSettingX {
+            get {
+                return ResourceManager.GetString("SettingsPage.Error.ErrorParsingSettingX", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Error saving settings.
+        /// </summary>
+        public static string SettingsPage_Error_ErrorSavingSetting {
+            get {
+                return ResourceManager.GetString("SettingsPage.Error.ErrorSavingSetting", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Always.
+        /// </summary>
+        public static string SettingsPage_MessageBox_Always {
+            get {
+                return ResourceManager.GetString("SettingsPage.MessageBox.Always", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Settings have changed outside the editor, do you want to reload?.
+        /// </summary>
+        public static string SettingsPage_MessageBox_ReloadSettings {
+            get {
+                return ResourceManager.GetString("SettingsPage.MessageBox.ReloadSettings", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Reload settings?.
+        /// </summary>
+        public static string SettingsPage_MessageBox_ReloadTitle {
+            get {
+                return ResourceManager.GetString("SettingsPage.MessageBox.ReloadTitle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to UI Settings.
+        /// </summary>
+        public static string UserSettings_UISettings {
+            get {
+                return ResourceManager.GetString("UserSettings.UISettings", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Automatically reload the UI in the settings page when the settings are changed from outside.
+        /// </summary>
+        public static string UserSettings_UISettings_AlwaysReloadSettingsInSettingsPage {
+            get {
+                return ResourceManager.GetString("UserSettings.UISettings.AlwaysReloadSettingsInSettingsPage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to True to set the UI in dark mode.
         /// </summary>
         public static string UserSettings_UISettings_IsDarkMode {

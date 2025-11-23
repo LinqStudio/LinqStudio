@@ -34,10 +34,10 @@ public static class ServiceCollectionExtensions
     /// since service.AddOptions doesn't have an overload that takes a "Type" parameter.
     /// </summary>
     private static void AddOptions<TSettings>(IServiceCollection services) 
-        where TSettings : class, IUserSettingsSection
+        where TSettings : class, IUserSettingsSection, new()
     {
         services
             .AddOptions<TSettings>()
-            .BindConfiguration(TSettings.SectionName);
+            .BindConfiguration(new TSettings().SectionName);
     }
 }

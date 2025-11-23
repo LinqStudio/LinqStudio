@@ -120,6 +120,39 @@
   <data name="AppBar.Button.Settings" xml:space="preserve">
     <value>Settings</value>
   </data>
+  <data name="Global.MessageBox.No" xml:space="preserve">
+    <value>Non</value>
+  </data>
+  <data name="Global.MessageBox.Yes" xml:space="preserve">
+    <value>Oui</value>
+  </data>
+  <data name="SettingsPage.Button.SaveAll" xml:space="preserve">
+    <value>Sauvegarder le tout</value>
+  </data>
+  <data name="SettingsPage.Error.ErrorParsingSetting" xml:space="preserve">
+    <value>Erreur lors du parsing des paramètres JSON</value>
+  </data>
+  <data name="SettingsPage.Error.ErrorParsingSettingX" xml:space="preserve">
+    <value>Error lors du parsing des paramètres {0}</value>
+  </data>
+  <data name="SettingsPage.Error.ErrorSavingSetting" xml:space="preserve">
+    <value>Error lors de la sauvegarde des paramètres</value>
+  </data>
+  <data name="SettingsPage.MessageBox.Always" xml:space="preserve">
+    <value>Toujours</value>
+  </data>
+  <data name="SettingsPage.MessageBox.ReloadSettings" xml:space="preserve">
+    <value>Les paramètres ont changés, voulez-vous les rechargers ?</value>
+  </data>
+  <data name="SettingsPage.MessageBox.ReloadTitle" xml:space="preserve">
+    <value>Recharger les paramètres?</value>
+  </data>
+  <data name="UserSettings.UISettings" xml:space="preserve">
+    <value>Paramètres d'interface</value>
+  </data>
+  <data name="UserSettings.UISettings.AlwaysReloadSettingsInSettingsPage" xml:space="preserve">
+    <value>Recharger automatiquement l'interface de la page de paramètres lorsque ceux-ci sont modifiés de l'extérieur</value>
+  </data>
   <data name="UserSettings.UISettings.IsDarkMode" xml:space="preserve">
     <value>"True"pour activer le mode sombre</value>
   </data>

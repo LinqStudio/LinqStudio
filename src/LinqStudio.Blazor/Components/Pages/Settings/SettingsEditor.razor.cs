@@ -3,20 +3,104 @@ using BlazorMonaco.Editor;
 using BlazorMonaco.Languages;
 using LinqStudio.Blazor.Services;
 using LinqStudio.Core.Abstractions;
+using LinqStudio.Core.Extensions;
 using LinqStudio.Core.Resources;
+using LinqStudio.Core.Settings;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Options;
 using System.Text;
 using System.Text.Json;
 
 namespace LinqStudio.Blazor.Components.Pages.Settings;
 
-public partial class SettingsEditor<TSettings> : ComponentBase, IDisposable
-    where TSettings : IUserSettingsSection
+public partial class SettingsEditor : ComponentBase, IDisposable
 {
     private IDisposable? _providerDisposable;
     private bool _disposed = false;
     private StandaloneCodeEditor? _editor;
     private bool _loaded = false;
+
+    private string PanelHeaderText => SharedResource.ResourceManager.GetString($"UserSettings.{Setting.SectionName}", SharedResource.Culture) ?? Setting.SectionName;
+
+    [Parameter, EditorRequired]
+    public IUserSettingsSection Setting { get; set; }
+
+    [Parameter, EditorRequired]
+    public Settings SettingsPage { get; set; }
+
+    private IUserSettingsSection? _previousSetting;
+
+    public async Task<string?> GetText()
+    {
+        if (_editor == null)
+            return null;
+
+        return await _editor.GetValue();
+    }
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+
+        SettingsPage.AddEditor(this); 
+    }
+
+    private bool _popupVisible = false;
+    protected override async Task OnParametersSetAsync()
+    {
+        await base.OnParametersSetAsync();
+
+        if (_previousSetting != Setting)
+        {
+            if (_previousSetting == null || _popupVisible)
+            {
+                // First time initialization, no need to prompt
+                _previousSetting = Setting;
+                return;
+            }
+
+            _previousSetting = Setting;
+
+            _popupVisible = true;
+            try
+            {
+                bool? result = true;
+                if (!UISettings.CurrentValue.AlwaysReloadSettingsInSettingsPage)
+                {
+                    result = await DialogService.ShowMessageBox(
+                        SharedResource.SettingsPage_MessageBox_ReloadTitle,
+                        SharedResource.SettingsPage_MessageBox_ReloadSettings,
+                        yesText: SharedResource.Global_MessageBox_Yes, noText: SharedResource.SettingsPage_MessageBox_Always, cancelText: SharedResource.Global_MessageBox_No);
+                }
+
+                if (result != null && _editor != null)
+                {
+                    if (result == false)
+                    {
+                        // User selected "Always"
+                        await SettingsService.Save(UISettings.CurrentValue with
+                        {
+                            AlwaysReloadSettingsInSettingsPage = true
+                        });
+                    }
+
+                    // reload the JSON
+                    await _editor.SetValue(JsonSerializer.Serialize((object)Setting, JsonSerializerOptions.Indented));
+
+                    await _editor.UpdateOptions(new()
+                    {
+                        Theme = UISettings.CurrentValue.IsDarkMode ? "vs-dark" : "vs-white"
+                    });
+
+                    StateHasChanged();
+                }
+            }
+            finally
+            {
+                _popupVisible = false;
+            }
+        }
+    }
 
     private StandaloneEditorConstructionOptions EditorConstructionOptions(StandaloneCodeEditor editor)
     {
@@ -24,7 +108,8 @@ public partial class SettingsEditor<TSettings> : ComponentBase, IDisposable
         {
             AutomaticLayout = true,
             Language = "json",
-            Value = JsonSerializer.Serialize(UISettings.CurrentValue, new JsonSerializerOptions() { WriteIndented = true }),
+            Theme = UISettings.CurrentValue.IsDarkMode ? "vs-dark" : null,
+            Value = JsonSerializer.Serialize((object)Setting, JsonSerializerOptions.Indented),
             Hover = new()
             {
                 Enabled = true
@@ -50,7 +135,7 @@ public partial class SettingsEditor<TSettings> : ComponentBase, IDisposable
             if (word == null)
                 return null;
 
-            var settingsProperty = typeof(TSettings).GetProperty(word.Word);
+            var settingsProperty = Setting.GetType().GetProperty(word.Word);
             if (settingsProperty == null) // We want to be sure it's actually a setting
                 return null;
 
@@ -58,7 +143,7 @@ public partial class SettingsEditor<TSettings> : ComponentBase, IDisposable
             if (!await IsFirstLevelJsonKey(word))
                 return null;
 
-            var translatedDescription = SharedResource.ResourceManager.GetString($"UserSettings.{TSettings.SectionName}.{word.Word}", SharedResource.Culture);
+            var translatedDescription = SharedResource.ResourceManager.GetString($"UserSettings.{Setting.SectionName}.{word.Word}", SharedResource.Culture);
             return new Hover
             {
                 Contents =
@@ -126,8 +211,8 @@ public partial class SettingsEditor<TSettings> : ComponentBase, IDisposable
         if (!_loaded)
         {
             _loaded = true;
-            await Task.Delay(100); // Give it a moment to load monaco resources
-
+            await Task.Delay(500); // Give it a moment to load monaco resources.. probably a better way to do this.. right ?
+            
             StateHasChanged();
         }
     }
@@ -139,6 +224,7 @@ public partial class SettingsEditor<TSettings> : ComponentBase, IDisposable
 
         _disposed = true;
         _providerDisposable?.Dispose();
+        SettingsPage.RemoveEditor(this);
         GC.SuppressFinalize(this);
     }
 }

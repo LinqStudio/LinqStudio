@@ -1,15 +1,18 @@
-﻿@typeparam TSettings
-@inject IOptionsMonitor<UISettings> UISettings;
-@inject IJSRuntime JSRuntime;
+﻿@inject IJSRuntime JSRuntime;
 @inject MonacoProvidersService MonacoProvidersService;
+@inject SettingsService SettingsService;
+@inject IDialogService DialogService;
+@inject IOptionsMonitor<UISettings> UISettings;
 
 @using BlazorMonaco
 @using BlazorMonaco.Editor
 @using BlazorMonaco.Languages
 
-<div class="pa-2 editorParent" style="height: 100%; width: 100%">
-    @if (_loaded) // Workaround for BlazorMonaco rendering issue, must give it time to load
-    {
-        <StandaloneCodeEditor @ref="_editor" CssClass="editor" ConstructionOptions="EditorConstructionOptions" OnDidInit="OnEditorInitialized" />
-    }
-</div>
+<MudTabPanel Text="@PanelHeaderText">
+    <div class="pa-2 editorParent" style="height: 100%; width: 100%">
+        @if (_loaded) // Workaround for BlazorMonaco rendering issue, must give it time to load
+        {
+            <StandaloneCodeEditor @ref="_editor" Id="@($"settings{Setting.SectionName}")" CssClass="editor" ConstructionOptions="EditorConstructionOptions" OnDidInit="OnEditorInitialized" />
+        }
+    </div>
+</MudTabPanel>

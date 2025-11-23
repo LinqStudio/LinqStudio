@@ -1,12 +1,16 @@
 ﻿
 using LinqStudio.Core.Abstractions;
+using System.Text.Json.Serialization;
 
 namespace LinqStudio.Core.Settings;
 
-public record class UISettings: IUserSettingsSection
+public record class UISettings : IUserSettingsSection
 {
-    public static string SectionName => nameof(UISettings);
+    [JsonIgnore]
+    public string SectionName => nameof(UISettings);
 
-    public bool IsDarkMode { get; init; } = true;
+    public bool IsDarkMode { get; set; } = true;
+
+    public bool AlwaysReloadSettingsInSettingsPage { get; set; } = true;
 
 }
