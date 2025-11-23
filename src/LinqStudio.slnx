@@ -4,6 +4,9 @@
     <Project Path="LinqStudio.ServiceDefaults/LinqStudio.ServiceDefaults.csproj" />
   </Folder>
   <Project Path="../build/_build.csproj" />
+  <Project Path="../tests/LinqStudio.App.WebServer.Tests/LinqStudio.App.WebServer.Tests.csproj" Id="2ac4de95-e33c-4118-ae94-0c657c203170" />
+  <Project Path="../tests/LinqStudio.Blazor.Tests/LinqStudio.Blazor.Tests.csproj" Id="ca332bbf-b7f3-410b-a277-7b55bc801e2d" />
+  <Project Path="../tests/LinqStudio.Core.Tests/LinqStudio.Core.Tests.csproj" Id="cca8ae44-d6d8-48a8-958f-6c49ab38efea" />
   <Project Path="LinqStudio.App.WebServer/LinqStudio.App.WebServer.csproj" />
   <Project Path="LinqStudio.Blazor/LinqStudio.Blazor.csproj" />
   <Project Path="LinqStudio.Core/LinqStudio.Core.csproj" Id="1b217e6d-11d2-4b80-be0b-5b1e6aedffd4" />
