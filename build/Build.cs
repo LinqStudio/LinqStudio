@@ -7,14 +7,6 @@ using System.Linq;
 using static Nuke.Common.Tools.DotNet.DotNetTasks;
 
 [GitHubActions(
-    "build",
-    GitHubActionsImage.UbuntuLatest,
-    On = new[] { GitHubActionsTrigger.Push },
-    InvokedTargets = new[] { nameof(Compile) },
-    EnableGitHubToken = true,
-    FetchDepth = 0)]
-
-[GitHubActions(
     "build-and-test",
     GitHubActionsImage.UbuntuLatest,
     OnPullRequestBranches = new[] { "main" },
@@ -71,6 +63,8 @@ class Build : NukeBuild
         {
             DotNetTest(s => s
                 .SetProjectFile(Solution)
-                .EnableNoBuild());
+                .SetConfiguration(Configuration)
+                .EnableNoBuild()
+                .EnableNoRestore());
         });
 }
