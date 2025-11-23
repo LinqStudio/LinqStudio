@@ -1,20 +1,31 @@
-﻿@inherits LayoutComponentBase
+﻿@inherits LayoutComponentBase;
+@implements IDisposable
+@inject IOptionsMonitor<UISettings> UISettings;
+@inject SettingsService SettingsService;
+@inject ILogger<MainLayout> Logger;
 
-<MudThemeProvider Theme="@_theme" IsDarkMode="_isDarkMode" />
+<MudThemeProvider Theme="@_theme" IsDarkMode="UISettings.CurrentValue.IsDarkMode" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
 <MudLayout>
     <MudAppBar Elevation="1">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@DrawerToggle" />
-        <MudText Typo="Typo.h5" Class="ml-3">Recipe Parser</MudText>
+        <MudText Typo="Typo.h5" Class="ml-3">LinqStudio</MudText>
         <MudSpacer />
+
+        <MudTooltip Text="@SharedResource.AppBar_Button_Settings">
+            <MudIconButton Href="/settings" Icon="@Icons.Material.Filled.Settings" Color="Color.Inherit" />
+        </MudTooltip>
+
         <MudIconButton Icon="@(DarkLightModeButtonIcon)" Color="Color.Inherit" OnClick="@DarkModeToggle" />
     </MudAppBar>
+
     <MudDrawer id="nav-drawer" @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
         <NavMenu />
     </MudDrawer>
-    <MudMainContent Class="pt-16 pa-4">
+
+    <MudMainContent Class="mainBody pt-16 pa-4">
         @Body
     </MudMainContent>
 </MudLayout>
@@ -27,8 +38,8 @@
 
 @code {
     private bool _drawerOpen = true;
-    private bool _isDarkMode = true;
     private MudTheme? _theme = null;
+    private IDisposable? _SettingsDisposable;
 
     protected override void OnInitialized()
     {
@@ -40,6 +51,13 @@
             PaletteDark = _darkPalette,
             LayoutProperties = new LayoutProperties()
         };
+
+        _SettingsDisposable = UISettings.OnChange(_ => InvokeAsync(StateHasChanged));
+    }
+
+    public void Dispose()
+    {
+        _SettingsDisposable?.Dispose();
     }
 
     private void DrawerToggle()
@@ -47,9 +65,21 @@
         _drawerOpen = !_drawerOpen;
     }
 
-    private void DarkModeToggle()
+    private async Task DarkModeToggle()
     {
-        _isDarkMode = !_isDarkMode;
+        var newSettings = UISettings.CurrentValue with
+        {
+            IsDarkMode = !UISettings.CurrentValue.IsDarkMode
+        };
+
+        try
+        {
+            await SettingsService.Save(newSettings);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to update UI settings.");
+        }
     }
 
     private readonly PaletteLight _lightPalette = new()
@@ -91,7 +121,7 @@
         OverlayLight = "#1e1e2d80",
     };
 
-    public string DarkLightModeButtonIcon => _isDarkMode switch
+    public string DarkLightModeButtonIcon => UISettings.CurrentValue.IsDarkMode switch
     {
         true => Icons.Material.Rounded.AutoMode,
         false => Icons.Material.Outlined.DarkMode,

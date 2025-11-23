@@ -1,0 +1,113 @@
+﻿@using LinqStudio.Core.Abstractions
+@using Microsoft.Extensions.DependencyInjection
+@page "/settings"
+@implements IDisposable
+@inject ILogger<Settings> Logger;
+@inject SettingsService SettingsService;
+@inject IServiceProvider ServiceProvider;
+@inject ISnackbar Snackbar;
+
+<div class="settings">
+
+    <div class="tabs ma-1">
+        @* Wrap each one in a tab or left menu list *@
+        <MudTabs Position="Position.Left" KeepPanelsAlive="true" Style="height: 100%">
+            @foreach (var setting in GetOptions())
+            {
+                // The tab itself is created inside the SettingsEditor, This is done since we can access the IUserSettingsSection.SectionName in type safe waysetting
+                <SettingsEditor Setting="(IUserSettingsSection)setting.CurrentValue" SettingsPage="this"></SettingsEditor>
+            }
+        </MudTabs>
+    </div>
+
+    <div class="actions ma-1">
+        <MudButton Variant="Variant.Outlined" OnClick="SaveAll">@SharedResource.SettingsPage_Button_SaveAll</MudButton>
+    </div>
+
+</div>
+
+@code {
+
+    private List<SettingsEditor> _editors { get; } = [];
+    private List<IDisposable> _optionsDisposable = [];
+
+    public void AddEditor(SettingsEditor action)
+    {
+        _editors.Add(action);
+    }
+    public void RemoveEditor(SettingsEditor action)
+    {
+        _editors.Remove(action);
+    }
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+
+        foreach (var options in GetOptions())
+        {
+            var disposable = options.OnChange(_ => InvokeAsync(StateHasChanged));
+            if (disposable != null)
+                _optionsDisposable.Add(disposable);
+        }
+    }
+
+    private async Task SaveAll()
+    {
+        var settingsSections = new List<IUserSettingsSection>();
+        // first try to parse them all to make sure everything is fine
+        // This will also remove any unnecessary property
+        foreach (var editor in _editors)
+        {
+            try
+            {
+                var text = await editor.GetText();
+                if (text == null)
+                {
+                    continue;
+                }
+
+                var deserialized = (IUserSettingsSection?)System.Text.Json.JsonSerializer.Deserialize(text, editor.Setting.GetType());
+                if (deserialized == null)
+                {
+                    Snackbar.Add(string.Format(SharedResource.SettingsPage_Error_ErrorParsingSettingX, editor.Setting.SectionName), Severity.Error);
+                    return;
+                }
+
+                settingsSections.Add(deserialized);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, SharedResource.SettingsPage_Error_ErrorParsingSetting);
+                Snackbar.Add(string.Format(SharedResource.SettingsPage_Error_ErrorParsingSettingX, editor.Setting.SectionName), Severity.Error);
+                return; // we don't even want to continue
+            }
+        }
+
+        try
+        {
+            await SettingsService.Save(settingsSections);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, SharedResource.SettingsPage_Error_ErrorSavingSetting);
+        }
+    }
+
+
+    private IEnumerable<IOptionsMonitor<object>> GetOptions()
+    {
+        return typeof(UISettings).Assembly
+                        .GetTypes()
+                        .Where(x => typeof(IUserSettingsSection).IsAssignableFrom(x) && !x.IsInterface && !x.IsAbstract)
+                        .Select(x => (IOptionsMonitor<object>)ServiceProvider.GetRequiredService(typeof(IOptionsMonitor<>).MakeGenericType(x)));
+    }
+
+    public void Dispose()
+    {
+        foreach (var disposable in _optionsDisposable)
+        {
+            disposable.Dispose();
+        }
+    }
+}

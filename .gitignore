@@ -1,4 +1,5 @@
 ﻿**/.vs
 **bin/
 **obj
+/src/LinqStudio.App.WebServer/usersettings.json
 /.nuke/temp

@@ -1,0 +1,5 @@
+﻿[*.cs]
+
+# CA1822: Mark members as static
+# Removed since the implementation is often a detail and doesn't need to be known to the calling code
+dotnet_diagnostic.CA1822.severity = none
