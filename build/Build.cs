@@ -7,9 +7,19 @@ using System.Linq;
 using static Nuke.Common.Tools.DotNet.DotNetTasks;
 
 [GitHubActions(
+    "build",
+    GitHubActionsImage.UbuntuLatest,
+    On = new[] { GitHubActionsTrigger.Push },
+    InvokedTargets = new[] { nameof(Compile) },
+    EnableGitHubToken = true)]
+
+[GitHubActions(
     "build-and-test",
     GitHubActionsImage.UbuntuLatest,
-    On = new[] { GitHubActionsTrigger.Push, GitHubActionsTrigger.PullRequest })]
+    OnPullRequestBranches = new[] { "main" },
+    InvokedTargets = new[] { nameof(Test) },
+    EnableGitHubToken = true)]
+
 class Build : NukeBuild
 {
     public static int Main() => Execute<Build>(x => x.Test);
