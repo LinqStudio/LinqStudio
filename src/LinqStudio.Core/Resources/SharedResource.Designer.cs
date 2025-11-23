@@ -68,5 +68,14 @@ namespace LinqStudio.Core.Resources {
                 return ResourceManager.GetString("AppBar.Button.Settings", resourceCulture);
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to True to set the UI in dark mode.
+        /// </summary>
+        public static string UserSettings_UISettings_IsDarkMode {
+            get {
+                return ResourceManager.GetString("UserSettings.UISettings.IsDarkMode", resourceCulture);
+            }
+        }
     }
 }

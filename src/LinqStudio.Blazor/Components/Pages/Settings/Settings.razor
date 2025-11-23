@@ -1,0 +1,14 @@
+﻿@page "/settings"
+@using LinqStudio.Core.Abstractions
+
+
+@* Wrap each one in a tab or left menu list *@
+@foreach (var settingType in typeof(UISettings).Assembly
+                .GetTypes()
+                .Where(x => typeof(IUserSettingsSection).IsAssignableFrom(x) && !x.IsInterface && !x.IsAbstract))
+{
+    <DynamicComponent Type="typeof(SettingsEditor<>).MakeGenericType(settingType)"></DynamicComponent>
+}
+
+@code {
+}

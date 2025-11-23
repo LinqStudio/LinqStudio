@@ -1,0 +1,9 @@
+.editorParent {
+    height: 100%;
+    width: 100%;
+}
+
+::deep .editor {
+    height: 100%;
+    width: 100%
+}

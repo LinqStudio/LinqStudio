@@ -120,4 +120,7 @@
   <data name="AppBar.Button.Settings" xml:space="preserve">
     <value>Settings</value>
   </data>
+  <data name="UserSettings.UISettings.IsDarkMode" xml:space="preserve">
+    <value>True to set the UI in dark mode</value>
+  </data>
 </root>
