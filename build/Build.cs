@@ -11,14 +11,16 @@ using static Nuke.Common.Tools.DotNet.DotNetTasks;
     GitHubActionsImage.UbuntuLatest,
     On = new[] { GitHubActionsTrigger.Push },
     InvokedTargets = new[] { nameof(Compile) },
-    EnableGitHubToken = true)]
+    EnableGitHubToken = true,
+    FetchDepth = 0)]
 
 [GitHubActions(
     "build-and-test",
     GitHubActionsImage.UbuntuLatest,
     OnPullRequestBranches = new[] { "main" },
     InvokedTargets = new[] { nameof(Test) },
-    EnableGitHubToken = true)]
+    EnableGitHubToken = true,
+    FetchDepth = 0)]
 
 class Build : NukeBuild
 {
