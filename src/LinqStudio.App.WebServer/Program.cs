@@ -1,9 +1,13 @@
 using LinqStudio.App.WebServer;
 using LinqStudio.Blazor.Extensions;
+using LinqStudio.Core.Extensions;
+using LinqStudio.Core.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
+
+builder.Configuration.AddJsonFile(SettingsService.FILE_NAME, optional: true, reloadOnChange: true);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()

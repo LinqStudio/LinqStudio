@@ -1,6 +1,7 @@
 ﻿@page "/settings"
+@inject IOptionsSnapshot<UISettings> UISettings;
 
-<h3>Settings</h3>
+@UISettings.Value.IsDarkMode
 
 @code {
 
