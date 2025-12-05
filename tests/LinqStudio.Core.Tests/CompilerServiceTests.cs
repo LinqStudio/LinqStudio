@@ -3,7 +3,7 @@ using System.Reflection;
 
 namespace LinqStudio.Core.Tests;
 
-public class UnitTest1
+public class CompilerServiceTests
 {
     [Fact]
     public async Task GetCompletionsAsync_ReturnsCompletions_ForUserQuery()
