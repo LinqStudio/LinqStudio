@@ -20,8 +20,8 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<Compile Remove="Generated\*.cs" />
-	  <EmbeddedResource Include="Generated\*.cs" />
+		<Compile Remove="TestFiles\*.cs" />
+	  <EmbeddedResource Include="TestFiles\*.cs" />
 	</ItemGroup>
 
 	<ItemGroup>

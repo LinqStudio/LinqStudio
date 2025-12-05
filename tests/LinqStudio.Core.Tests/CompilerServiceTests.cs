@@ -10,8 +10,8 @@ public class CompilerServiceTests
     {
         var projectNamespace = "Test";
         // Load generated files from the embedded resources
-        var modelCode = ReadEmbeddedFile("Generated.Person.cs");
-        var dbContextCode = ReadEmbeddedFile("Generated.TestDbContext.cs");
+        var modelCode = ReadEmbeddedFile("TestFiles.Person.cs");
+        var dbContextCode = ReadEmbeddedFile("TestFiles.TestDbContext.cs");
 
         var userQuery = "context.People.";
 
