@@ -11,10 +11,11 @@ public class CompilerService
     private readonly ProjectId _projectId;
     private Solution _solution;
     private readonly string _contextTypeName;
+    private readonly string _projectNamespace;
     private const string _beforeUserQuery = ""; // Hardcoded, can be changed as needed
     private const string _afterUserQuery = "";  // Hardcoded, can be changed as needed
 
-    public CompilerService(string contextTypeName)
+    public CompilerService(string contextTypeName, string projectNamespace)
     {
         _workspace = new AdhocWorkspace();
         var solutionInfo = SolutionInfo.Create(SolutionId.CreateNewId(), VersionStamp.Create());
@@ -29,13 +30,16 @@ public class CompilerService
         );
         _solution = _solution.AddProject(projectInfo);
         _contextTypeName = contextTypeName;
+        _projectNamespace = projectNamespace;
 
-        // Add EF Core references
+        // Add EF Core references and basic assemblies
         var efCoreAssemblies = new[]
         {
             "Microsoft.EntityFrameworkCore",
             "Microsoft.EntityFrameworkCore.Relational",
-            "Microsoft.EntityFrameworkCore.SqlServer"
+            "Microsoft.EntityFrameworkCore.SqlServer",
+            "System.Linq",
+            "System.Linq.Queryable"
         };
         var references = new List<MetadataReference>();
         foreach (var asmName in efCoreAssemblies)
@@ -54,10 +58,20 @@ public class CompilerService
                 references.Add(MetadataReference.CreateFromFile(asm.Location));
             }
         }
-        // Add basic system references
-        references.Add(MetadataReference.CreateFromFile(typeof(object).Assembly.Location));
-        references.Add(MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location));
-        references.Add(MetadataReference.CreateFromFile(typeof(Task).Assembly.Location));
+
+        // add all left over assemblies from current domain
+        foreach(var asm in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            try
+            {
+                if (!asm.IsDynamic && !string.IsNullOrEmpty(asm.Location) && !efCoreAssemblies.Contains(asm.GetName().Name))
+                {
+                    references.Add(MetadataReference.CreateFromFile(asm.Location));
+                }
+            }
+            catch { }
+        }
+
         _solution = _solution.WithProjectMetadataReferences(_projectId, references);
     }
 
@@ -105,6 +119,8 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 
+namespace {{_projectNamespace}};
+
 public class QueryContainer
 {
     public async Task<IQueryable<object>> Query({{_contextTypeName}} context)
@@ -123,7 +139,7 @@ public class QueryContainer
         // Adjust cursor position to account for the wrapper
         var thisHere = "__THIS_HERE__";
         var prefix = WrapUserQuery(thisHere);
-        var wrappedCursorPosition = prefix.IndexOf(thisHere) + thisHere.Length + _beforeUserQuery.Length;
+        var wrappedCursorPosition = prefix.IndexOf(thisHere) + _beforeUserQuery.Length;
         var document = AddOrUpdateFile("UserQuery.cs", wrapped);
 
         var completionService = CompletionService.GetService(document);

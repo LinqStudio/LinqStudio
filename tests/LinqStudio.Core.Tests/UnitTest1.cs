@@ -1,4 +1,5 @@
 ﻿using LinqStudio.Core.Services;
+using System.Reflection;
 
 namespace LinqStudio.Core.Tests;
 
@@ -7,30 +8,18 @@ public class UnitTest1
     [Fact]
     public async Task GetCompletionsAsync_ReturnsCompletions_ForUserQuery()
     {
-        // Arrange: minimal EF Core model and DbContext
-        var modelCode = """
-            namespace Test;
+        var projectNamespace = "Test";
+        // Load generated files from the embedded resources
+        var modelCode = ReadEmbeddedFile("Generated.Person.cs");
+        var dbContextCode = ReadEmbeddedFile("Generated.TestDbContext.cs");
 
-            public class Person
-            {
-                public int Id { get; set; }
-                public string Name { get; set; }
-            }
-            """;
-        var dbContextCode = """
-            using Microsoft.EntityFrameworkCore;
+        var userQuery = "context.People.";
 
-            namespace Test;
-            public class TestDbContext : DbContext
-            {
-                public DbSet<Person> People { get; set; }
-            }
-            """;
         var models = new Dictionary<string, string> { { "Person", modelCode } };
-        var service = new CompilerService("TestDbContext");
+        var service = new CompilerService("TestDbContext", projectNamespace);
+
         service.Initialize(models, dbContextCode);
 
-        var userQuery = "var x = context.People.Where( x => x.";
         var cursorPosition = userQuery.Length;
 
         // Act
@@ -39,5 +28,12 @@ public class UnitTest1
         // Assert
         Assert.NotNull(completions);
         Assert.NotEmpty(completions); // Should return some completions
+    }
+
+    private string ReadEmbeddedFile(string path)
+    {
+        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream($"LinqStudio.Core.Tests.{path}") ?? throw new FileNotFoundException($"Resource not found: {path}");
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
     }
 }
