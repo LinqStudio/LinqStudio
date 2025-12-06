@@ -232,8 +232,7 @@ public class EditorE2ETests
         await page.Keyboard.PressAsync("Control+A");
         await page.Keyboard.TypeAsync("context.");
         
-        // Wait a moment then type 'P' to start typing 'People'
-        await Task.Delay(500);
+        // Type 'P' to start typing 'People' - completion should trigger
         await page.Keyboard.TypeAsync("P");
         
         // Wait for completion widget to appear showing 'People'
