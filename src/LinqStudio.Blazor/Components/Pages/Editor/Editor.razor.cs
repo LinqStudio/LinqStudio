@@ -1,3 +1,4 @@
+using BlazorMonaco;
 using BlazorMonaco.Editor;
 using BlazorMonaco.Languages;
 using LinqStudio.Blazor.Services;
@@ -13,12 +14,14 @@ public partial class Editor : ComponentBase, IDisposable
 {
     private StandaloneCodeEditor? _editor;
     private IDisposable? _providerDisposable;
+    private IDisposable? _hoverProviderDisposable;
 
     private StandaloneEditorConstructionOptions EditorConstructionOptions(StandaloneCodeEditor ed) => new()
     {
         AutomaticLayout = true,
         Language = "csharp",
         Theme = UISettings.CurrentValue.IsDarkMode ? "vs-dark" : null,
+        Hover = new() { Enabled = true },
         Value = SampleCode
     };
 
@@ -32,7 +35,7 @@ public partial class Editor : ComponentBase, IDisposable
         await Task.Delay(250); // slight delay to ensure Monaco is ready
 
         // register a completion provider that asks the CompilerService for completions
-        _providerDisposable = await MonacoProvidersService.RegisterCompletionProviderAsync(_editor, "csharp", async (modelUri, position, context) =>
+        _providerDisposable = await MonacoProvidersService.RegisterCompletionProviderAsync(_editor, async (modelUri, position, context) =>
         {
             try
             {
@@ -64,6 +67,45 @@ public partial class Editor : ComponentBase, IDisposable
                 {
                     Suggestions = items,
                     Incomplete = false
+                };
+            }
+            catch
+            {
+                return null;
+            }
+        });
+
+        // register a hover provider that asks the CompilerService for richer hover information
+        _hoverProviderDisposable = await MonacoProvidersService.RegisterHoverProviderAsync(_editor, async (uri, position, context) =>
+        {
+            try
+            {
+                var text = await _editor.GetValue();
+                var model = await _editor.GetModel();
+                if (model == null)
+                    return null;
+
+                var cursorOffset = await model.GetOffsetAt(position);
+
+                var compiler = await CompilerServiceFactory.CreateAsync();
+                var hover = await compiler.GetHoverAsync(text, cursorOffset);
+                if (hover == null)
+                    return null;
+
+                // map offsets back to Monaco positions
+                var startPos = await model.GetPositionAt(hover.StartOffset);
+                var endPos = await model.GetPositionAt(hover.StartOffset + hover.Length);
+
+                return new Hover
+                {
+                    Contents = [ new MarkdownString { Value = hover.Markdown ?? string.Empty, SupportThemeIcons = false } ],
+                    Range = new BlazorMonaco.Range
+                    {
+                        StartLineNumber = startPos.LineNumber,
+                        EndLineNumber = endPos.LineNumber,
+                        StartColumn = startPos.Column,
+                        EndColumn = endPos.Column
+                    }
                 };
             }
             catch
@@ -105,6 +147,7 @@ public partial class Editor : ComponentBase, IDisposable
     public void Dispose()
     {
         _providerDisposable?.Dispose();
+        _hoverProviderDisposable?.Dispose();
         GC.SuppressFinalize(this);
     }
 }

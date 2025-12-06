@@ -19,7 +19,7 @@ internal class MonacoProvidersService(IJSRuntime jSRuntime)
 
     private bool _registered = false;
 
-    internal async Task<IDisposable> RegisterHoverProviderAsync(StandaloneCodeEditor editor, string language, HoverProvider.ProvideDelegate provideDelegate)
+    internal async Task<IDisposable> RegisterHoverProviderAsync(StandaloneCodeEditor editor, HoverProvider.ProvideDelegate provideDelegate)
     {
         await RegisterAll();
 
@@ -29,7 +29,7 @@ internal class MonacoProvidersService(IJSRuntime jSRuntime)
         return new UnregisterProviderDisposable(this, model.Uri);
     }
 
-    internal async Task<IDisposable> RegisterCompletionProviderAsync(StandaloneCodeEditor editor, string language, CompletionItemProvider.ProvideDelegate provideDelegate)
+    internal async Task<IDisposable> RegisterCompletionProviderAsync(StandaloneCodeEditor editor, CompletionItemProvider.ProvideDelegate provideDelegate)
     {
         await RegisterAll();
 
@@ -63,6 +63,7 @@ internal class MonacoProvidersService(IJSRuntime jSRuntime)
         }
 
 
+        await BlazorMonaco.Languages.Global.RegisterHoverProviderAsync(_jSRuntime, "json", ProvideDelegate);
         await BlazorMonaco.Languages.Global.RegisterCompletionItemProvider(_jSRuntime, "csharp", ProvideCompletionDelegate);
         _registered = true;
     }

@@ -122,7 +122,7 @@ public partial class SettingsEditor : ComponentBase, IDisposable
 			return;
 		}
 
-		_providerDisposable = await MonacoProvidersService.RegisterHoverProviderAsync(_editor, "json", async (uri, position, context) =>
+		_providerDisposable = await MonacoProvidersService.RegisterHoverProviderAsync(_editor, async (uri, position, context) =>
 		{
 			var model = await BlazorMonaco.Editor.Global.GetModel(JSRuntime, uri);
 			if (model == null)
