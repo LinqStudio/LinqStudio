@@ -68,7 +68,8 @@ public partial class Editor : ComponentBase, IDisposable
                 if (completions == null || completions.Count == 0)
                     return null;
 
-                // Get the word at the current position to determine the replacement range
+                // Get the word before the cursor to determine the replacement range
+                // This is required for auto-triggered completions to display properly
                 var word = await model.GetWordUntilPosition(position);
                 
                 var items = completions.Select(c => new CompletionItem
@@ -79,13 +80,13 @@ public partial class Editor : ComponentBase, IDisposable
                     Detail = c.Item.InlineDescription,
                     Kind = MapCompletionItemKind(c.Item.Tags),
                     DocumentationAsString = c.Description,
-                    // Set the range for replacement - this is required for auto-triggered completions
+                    // Set the range for replacement - Monaco requires this for auto-triggered completions
                     RangeAsObject = new BlazorMonaco.Range
                     {
                         StartLineNumber = position.LineNumber,
-                        StartColumn = word.StartColumn,
+                        StartColumn = word?.StartColumn ?? position.Column,
                         EndLineNumber = position.LineNumber,
-                        EndColumn = word.EndColumn
+                        EndColumn = word?.EndColumn ?? position.Column
                     }
                 }).ToList();
 
