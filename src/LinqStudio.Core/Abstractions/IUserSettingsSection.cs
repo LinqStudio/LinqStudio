@@ -6,5 +6,5 @@
 /// </summary>
 public interface IUserSettingsSection
 {
-    public string SectionName { get; }
+	public string SectionName { get; }
 }

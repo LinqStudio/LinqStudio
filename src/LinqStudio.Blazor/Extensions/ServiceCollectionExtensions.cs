@@ -6,12 +6,12 @@ namespace LinqStudio.Blazor.Extensions;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddLinqStudioBlazor(this IServiceCollection services)
-    {
-        services.AddMudServices();
+	public static IServiceCollection AddLinqStudioBlazor(this IServiceCollection services)
+	{
+		services.AddMudServices();
 
-        services.AddScoped<MonacoProvidersService>();
+		services.AddScoped<MonacoProvidersService>();
 
-        return services;
-    }
+		return services;
+	}
 }
