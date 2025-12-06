@@ -1,0 +1,47 @@
+@inject IDialogService DialogService
+
+<MudDialog>
+	<TitleContent>
+		<MudText Typo="Typo.h6">
+			<MudIcon Icon="@Icons.Material.Filled.Error" Class="mr-3" Color="Color.Error" />
+			Error
+		</MudText>
+	</TitleContent>
+	<DialogContent>
+		<MudStack Spacing="3">
+			<MudAlert Severity="Severity.Error" Variant="Variant.Outlined">
+				<MudText Typo="Typo.body1">@Message</MudText>
+			</MudAlert>
+
+			@if (!string.IsNullOrWhiteSpace(StackTrace))
+			{
+				<MudExpansionPanels>
+					<MudExpansionPanel Text="Technical Details">
+						<MudPaper Elevation="0" Class="pa-3" Style="background-color: var(--mud-palette-background-grey); max-height: 400px; overflow-y: auto;">
+							<MudText Typo="Typo.body2" Style="font-family: monospace; white-space: pre-wrap; word-break: break-word;">@StackTrace</MudText>
+						</MudPaper>
+					</MudExpansionPanel>
+				</MudExpansionPanels>
+			}
+		</MudStack>
+	</DialogContent>
+	<DialogActions>
+		<MudButton OnClick="Close" Variant="Variant.Filled" Color="Color.Primary">Close</MudButton>
+	</DialogActions>
+</MudDialog>
+
+@code {
+	[CascadingParameter]
+	private IMudDialogInstance? MudDialog { get; set; }
+
+	[Parameter]
+	public string Message { get; set; } = string.Empty;
+
+	[Parameter]
+	public string? StackTrace { get; set; }
+
+	private void Close()
+	{
+		MudDialog?.Close();
+	}
+}
