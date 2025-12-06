@@ -1,7 +1,6 @@
 ﻿using BlazorMonaco.Editor;
 using BlazorMonaco.Languages;
 using Microsoft.JSInterop;
-using System;
 using System.Collections.Concurrent;
 
 namespace LinqStudio.Blazor.Services;
@@ -13,47 +12,47 @@ namespace LinqStudio.Blazor.Services;
 /// </summary>
 internal class MonacoProvidersService(IJSRuntime jSRuntime)
 {
-    private readonly IJSRuntime _jSRuntime = jSRuntime;
+	private readonly IJSRuntime _jSRuntime = jSRuntime;
 
-    private readonly ConcurrentDictionary<string, HoverProvider.ProvideDelegate> _hoverProviders = [];
+	private readonly ConcurrentDictionary<string, HoverProvider.ProvideDelegate> _hoverProviders = [];
 
-    private bool _registered = false;
+	private bool _registered = false;
 
-    internal async Task<IDisposable> RegisterHoverProviderAsync(StandaloneCodeEditor editor, string language, HoverProvider.ProvideDelegate provideDelegate)
-    {
-        if (!_registered)
-        {
-            _registered = true;
-            await BlazorMonaco.Languages.Global.RegisterHoverProviderAsync(_jSRuntime, language, ProvideDelegate);
-        }
+	internal async Task<IDisposable> RegisterHoverProviderAsync(StandaloneCodeEditor editor, string language, HoverProvider.ProvideDelegate provideDelegate)
+	{
+		if (!_registered)
+		{
+			_registered = true;
+			await BlazorMonaco.Languages.Global.RegisterHoverProviderAsync(_jSRuntime, language, ProvideDelegate);
+		}
 
-        var model = await editor.GetModel();
-        _hoverProviders[model.Uri] = provideDelegate;
+		var model = await editor.GetModel();
+		_hoverProviders[model.Uri] = provideDelegate;
 
-        return new UnregisterProviderDisposable(this, model.Uri);
-    }
+		return new UnregisterProviderDisposable(this, model.Uri);
+	}
 
-    private Task<Hover?> ProvideDelegate(string modelUri, BlazorMonaco.Position position, HoverContext context)
-    {
-        if (!_hoverProviders.TryGetValue(modelUri, out var provideDelegate))
-            return Task.FromResult<Hover?>(null);
+	private Task<Hover?> ProvideDelegate(string modelUri, BlazorMonaco.Position position, HoverContext context)
+	{
+		if (!_hoverProviders.TryGetValue(modelUri, out var provideDelegate))
+			return Task.FromResult<Hover?>(null);
 
-        return provideDelegate(modelUri, position, context);
-    }
+		return provideDelegate(modelUri, position, context);
+	}
 
-    private void UnregisterHoverProvider(string modelUri)
-    {
-        _hoverProviders.TryRemove(modelUri, out var _);
-    }
+	private void UnregisterHoverProvider(string modelUri)
+	{
+		_hoverProviders.TryRemove(modelUri, out var _);
+	}
 
-    private class UnregisterProviderDisposable(MonacoProvidersService monacoProvidersService, string uri) : IDisposable
-    {
-        private readonly MonacoProvidersService _monacoProvidersService = monacoProvidersService;
-        private readonly string _uri = uri;
+	private class UnregisterProviderDisposable(MonacoProvidersService monacoProvidersService, string uri) : IDisposable
+	{
+		private readonly MonacoProvidersService _monacoProvidersService = monacoProvidersService;
+		private readonly string _uri = uri;
 
-        public void Dispose()
-        {
-            _monacoProvidersService.UnregisterHoverProvider(_uri);
-        }
-    }
+		public void Dispose()
+		{
+			_monacoProvidersService.UnregisterHoverProvider(_uri);
+		}
+	}
 }
