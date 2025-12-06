@@ -64,7 +64,12 @@ internal class MonacoProvidersService(IJSRuntime jSRuntime)
 
 
         await BlazorMonaco.Languages.Global.RegisterHoverProviderAsync(_jSRuntime, "json", ProvideDelegate);
-        await BlazorMonaco.Languages.Global.RegisterCompletionItemProvider(_jSRuntime, "csharp", ProvideCompletionDelegate);
+        
+        // Register completion provider with C# trigger characters (., (, <, [, space)
+        var triggerCharacters = new List<string> { ".", "(", "<", "[", " " };
+        var completionProvider = new CompletionItemProvider(triggerCharacters, ProvideCompletionDelegate);
+        await BlazorMonaco.Languages.Global.RegisterCompletionItemProvider(_jSRuntime, "csharp", completionProvider);
+        
         _registered = true;
     }
 
