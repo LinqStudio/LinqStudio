@@ -15,6 +15,7 @@ internal class MonacoProvidersService(IJSRuntime jSRuntime)
 	private readonly IJSRuntime _jSRuntime = jSRuntime;
 
 	private readonly ConcurrentDictionary<string, HoverProvider.ProvideDelegate> _hoverProviders = [];
+	private readonly ConcurrentDictionary<string, CompletionItemProvider.ProvideDelegate> _completionProviders = [];
 
 	private bool _registered = false;
 
@@ -32,6 +33,20 @@ internal class MonacoProvidersService(IJSRuntime jSRuntime)
 		return new UnregisterProviderDisposable(this, model.Uri);
 	}
 
+	internal async Task<IDisposable> RegisterCompletionProviderAsync(StandaloneCodeEditor editor, string language, CompletionItemProvider.ProvideDelegate provideDelegate)
+	{
+		if (!_registered)
+		{
+			_registered = true;
+			await BlazorMonaco.Languages.Global.RegisterCompletionItemProvider(_jSRuntime, language, ProvideCompletionDelegate);
+		}
+
+		var model = await editor.GetModel();
+		_completionProviders[model.Uri] = provideDelegate;
+
+		return new UnregisterProviderDisposable(this, model.Uri);
+	}
+
 	private Task<Hover?> ProvideDelegate(string modelUri, BlazorMonaco.Position position, HoverContext context)
 	{
 		if (!_hoverProviders.TryGetValue(modelUri, out var provideDelegate))
@@ -40,9 +55,18 @@ internal class MonacoProvidersService(IJSRuntime jSRuntime)
 		return provideDelegate(modelUri, position, context);
 	}
 
+	private Task<CompletionList?> ProvideCompletionDelegate(string modelUri, BlazorMonaco.Position position, CompletionContext context)
+	{
+		if (!_completionProviders.TryGetValue(modelUri, out var provideDelegate))
+			return Task.FromResult<CompletionList?>(null);
+
+		return provideDelegate(modelUri, position, context);
+	}
+
 	private void UnregisterHoverProvider(string modelUri)
 	{
 		_hoverProviders.TryRemove(modelUri, out var _);
+		_completionProviders.TryRemove(modelUri, out var _);
 	}
 
 	private class UnregisterProviderDisposable(MonacoProvidersService monacoProvidersService, string uri) : IDisposable

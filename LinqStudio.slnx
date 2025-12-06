@@ -5,6 +5,7 @@
   </Folder>
   <Folder Name="/Solution Files/">
     <File Path=".editorconfig" />
+    <File Path=".github/copilot-instructions.md" />
   </Folder>
   <Project Path="build/_build.csproj" />
   <Project Path="src/LinqStudio.App.WebServer/LinqStudio.App.WebServer.csproj" />
