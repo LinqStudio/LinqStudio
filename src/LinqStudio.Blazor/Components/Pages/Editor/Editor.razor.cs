@@ -23,7 +23,18 @@ public partial class Editor : ComponentBase, IDisposable
         Language = "csharp",
         Theme = UISettings.CurrentValue.IsDarkMode ? "vs-dark" : null,
         Hover = new() { Enabled = true },
-        Value = SampleCode
+        Value = SampleCode,
+        // Enable quick suggestions to show completion widget on trigger characters
+        QuickSuggestions = new QuickSuggestionsOptions
+        {
+            Other = "on",
+            Comments = "off",
+            Strings = "off"
+        },
+        // Ensure suggest widget is properly configured
+        SuggestOnTriggerCharacters = true,
+        AcceptSuggestionOnCommitCharacter = true,
+        AcceptSuggestionOnEnter = "on"
     };
 
     private string SampleCode = "context.People.Where(p => p.";
@@ -57,6 +68,9 @@ public partial class Editor : ComponentBase, IDisposable
                 if (completions == null || completions.Count == 0)
                     return null;
 
+                // Get the word at the current position to determine the replacement range
+                var word = await model.GetWordUntilPosition(position);
+                
                 var items = completions.Select(c => new CompletionItem
                 {
                     InsertText = GetInsertText(c.Item),
@@ -65,6 +79,14 @@ public partial class Editor : ComponentBase, IDisposable
                     Detail = c.Item.InlineDescription,
                     Kind = MapCompletionItemKind(c.Item.Tags),
                     DocumentationAsString = c.Description,
+                    // Set the range for replacement - this is required for auto-triggered completions
+                    RangeAsObject = new BlazorMonaco.Range
+                    {
+                        StartLineNumber = position.LineNumber,
+                        StartColumn = word.StartColumn,
+                        EndLineNumber = position.LineNumber,
+                        EndColumn = word.EndColumn
+                    }
                 }).ToList();
 
                 return new CompletionList
