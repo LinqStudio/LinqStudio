@@ -6,8 +6,10 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace LinqStudio.Core.Services;
 
-public class CompilerService
+public class CompilerService : IDisposable
 {
+    private readonly SemaphoreSlim _lock = new(1, 1);
+    private bool _disposed;
     private readonly AdhocWorkspace _workspace;
     private readonly ProjectId _projectId;
     private Solution _solution;
@@ -74,24 +76,48 @@ public class CompilerService
         }
 
         _solution = _solution.WithProjectMetadataReferences(_projectId, references);
+
+        // Ensure the C# parser includes documentation comments so XML docs are available on symbols
+        try
+        {
+            var parseOptions = new Microsoft.CodeAnalysis.CSharp.CSharpParseOptions(documentationMode: Microsoft.CodeAnalysis.DocumentationMode.Diagnose);
+            _solution = _solution.WithProjectParseOptions(_projectId, parseOptions);
+        }
+        catch { }
     }
 
     #region Init / Add files
 
-    public void Initialize(Dictionary<string, string> tableModelFiles, string dbContextCode)
+    public async Task Initialize(Dictionary<string, string> tableModelFiles, string dbContextCode)
     {
-        foreach ((var tableName, var modelCode) in tableModelFiles)
+        await _lock.WaitAsync();
+        try
         {
-            var documentName = tableName + ".cs";
-            AddOrUpdateFile(documentName, modelCode);
+            foreach ((var tableName, var modelCode) in tableModelFiles)
+            {
+                var documentName = tableName + ".cs";
+                AddOrUpdateFile(documentName, modelCode);
+            }
+            AddOrUpdateFile("DbContext.cs", dbContextCode);
         }
-        AddOrUpdateFile("DbContext.cs", dbContextCode);
+        finally
+        {
+            _lock.Release();
+        }
     }
 
-    public void AddUserQuery(string content)
+    public async Task AddUserQuery(string content)
     {
-        var wrapped = WrapUserQuery(content);
-        AddOrUpdateFile("UserQuery.cs", wrapped);
+        await _lock.WaitAsync();
+        try
+        {
+            var wrapped = WrapUserQuery(content);
+            AddOrUpdateFile("UserQuery.cs", wrapped);
+        }
+        finally
+        {
+            _lock.Release();
+        }
     }
 
     private Document AddOrUpdateFile(string name, string content)
@@ -138,18 +164,24 @@ public class QueryContainer
 
     public async Task<IReadOnlyList<(CompletionItem Item, string? Description)>> GetCompletionsAsync(string userQueryContent, int cursorPosition)
     {
-        var wrapped = WrapUserQuery(userQueryContent);
+        // serialize access so multiple concurrent Monaco callbacks don't mutate the workspace concurrently
+        await _lock.WaitAsync();
+        try
+        {
+            var wrapped = WrapUserQuery(userQueryContent);
         // Adjust cursor position to account for the wrapper
         var thisHere = "__THIS_HERE__";
         var prefix = WrapUserQuery(thisHere);
         var wrappedCursorPosition = prefix.IndexOf(thisHere);
-        var document = AddOrUpdateFile("UserQuery.cs", wrapped);
+            var document = AddOrUpdateFile("UserQuery.cs", wrapped);
 
         var completionService = CompletionService.GetService(document);
         if (completionService == null)
             return [];
 
-        var completionList = await completionService.GetCompletionsAsync(document, wrappedCursorPosition + cursorPosition);
+        // clamp cursorPosition to a safe range inside the user's content
+        var safeCursor = Math.Clamp(cursorPosition, 0, (userQueryContent ?? string.Empty).Length);
+        var completionList = await completionService.GetCompletionsAsync(document, wrappedCursorPosition + safeCursor);
         if (completionList == null)
             return [];
 
@@ -160,7 +192,12 @@ public class QueryContainer
             results.Add((completion, description?.Text));
         }
 
-        return results;
+            return results;
+        }
+        finally
+        {
+            _lock.Release();
+        }
     }
 
     // Simple hover information result returned to callers
@@ -168,14 +205,17 @@ public class QueryContainer
 
     public async Task<HoverInfo?> GetHoverAsync(string userQueryContent, int cursorPosition)
     {
-        var wrapped = WrapUserQuery(userQueryContent);
+        await _lock.WaitAsync();
+        try
+        {
+            var wrapped = WrapUserQuery(userQueryContent);
 
         // determine the start of the user query inside the wrapped document
         var thisHere = "__THIS_HERE__";
         var prefix = WrapUserQuery(thisHere);
         var wrappedCursorPosition = prefix.IndexOf(thisHere);
 
-        var document = AddOrUpdateFile("UserQuery.cs", wrapped);
+            var document = AddOrUpdateFile("UserQuery.cs", wrapped);
 
         var root = await document.GetSyntaxRootAsync();
         if (root == null)
@@ -185,10 +225,15 @@ public class QueryContainer
         if (semanticModel == null)
             return null;
 
-        var absolutePos = wrappedCursorPosition + cursorPosition;
+        // clamp cursorPosition so invalid values won't crash Roslyn
+        var safeCursor = Math.Clamp(cursorPosition, 0, (userQueryContent ?? string.Empty).Length);
+        var absolutePos = wrappedCursorPosition + safeCursor;
+
+        if (absolutePos < 0 || absolutePos > root.FullSpan.End)
+            return null;
 
         var token = root.FindToken(absolutePos);
-        
+
         if (token == default)
             return null;
 
@@ -419,6 +464,29 @@ public class QueryContainer
         if (userStart < 0)
             return null;
 
-        return new HoverInfo(markdown, userStart, length);
+            return new HoverInfo(markdown, userStart, length);
+        }
+        finally
+        {
+            _lock.Release();
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+
+        try
+        {
+            _workspace?.Dispose();
+        }
+        catch { }
+
+        try
+        {
+            _lock?.Dispose();
+        }
+        catch { }
     }
 }

@@ -16,9 +16,9 @@ public class CompilerServiceTests
 		var userQuery = "context.People.";
 
 		var models = new Dictionary<string, string> { { "Person", modelCode } };
-		var service = new CompilerService("TestDbContext", projectNamespace);
+		using var service = new CompilerService("TestDbContext", projectNamespace);
 
-		service.Initialize(models, dbContextCode);
+		await service.Initialize(models, dbContextCode);
 
 		var cursorPosition = userQuery.Length;
 
@@ -41,9 +41,9 @@ public class CompilerServiceTests
 		var userQuery = "context.People";
 
 		var models = new Dictionary<string, string> { { "Person", modelCode } };
-		var service = new CompilerService("TestDbContext", projectNamespace);
+		using var service = new CompilerService("TestDbContext", projectNamespace);
 
-		service.Initialize(models, dbContextCode);
+		await service.Initialize(models, dbContextCode);
 
 		// position somewhere inside 'People'
 		var cursorPosition = userQuery.IndexOf("People") + 1;
@@ -71,9 +71,9 @@ public class CompilerServiceTests
 		var userQuery = "context.People.Where(p => p.Name == \"Bob\")";
 
 		var models = new Dictionary<string, string> { { "Person", modelCode } };
-		var service = new CompilerService("TestDbContext", projectNamespace);
+		using var service = new CompilerService("TestDbContext", projectNamespace);
 
-		service.Initialize(models, dbContextCode);
+		await service.Initialize(models, dbContextCode);
 
 		var cursorPosition = userQuery.IndexOf("Where") + 1;
 

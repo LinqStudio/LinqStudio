@@ -16,7 +16,7 @@ public class CompilerServiceFactory
     /// <summary>
     /// Create a new CompilerService instance and initialize it with a small hard-coded model.
     /// </summary>
-    public Task<CompilerService> CreateAsync()
+    public async Task<CompilerService> CreateAsync()
     {
         // Hard-coded example model files and a DbContext. These are intentionally minimal so the
         // editor has types and a context to provide completions for.
@@ -60,8 +60,8 @@ public class TestDbContext : DbContext
 ";
 
         var svc = new CompilerService(_defaultContextTypeName, _defaultProjectNamespace);
-        svc.Initialize(models, dbContext);
+        await svc.Initialize(models, dbContext);
 
-        return Task.FromResult(svc);
+        return svc;
     }
 }

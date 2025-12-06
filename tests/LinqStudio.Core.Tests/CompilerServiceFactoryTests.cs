@@ -9,7 +9,7 @@ public class CompilerServiceFactoryTests
     {
         var factory = new CompilerServiceFactory();
 
-        var svc = await factory.CreateAsync();
+        using var svc = await factory.CreateAsync();
 
         Assert.NotNull(svc);
 
@@ -25,7 +25,7 @@ public class CompilerServiceFactoryTests
     {
         var factory = new CompilerServiceFactory();
 
-        var svc = await factory.CreateAsync();
+        using var svc = await factory.CreateAsync();
 
         Assert.NotNull(svc);
 
@@ -43,7 +43,7 @@ public class CompilerServiceFactoryTests
     {
         var factory = new CompilerServiceFactory();
 
-        var svc = await factory.CreateAsync();
+        using var svc = await factory.CreateAsync();
 
         Assert.NotNull(svc);
 

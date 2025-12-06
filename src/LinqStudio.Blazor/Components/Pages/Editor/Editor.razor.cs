@@ -15,6 +15,7 @@ public partial class Editor : ComponentBase, IDisposable
     private StandaloneCodeEditor? _editor;
     private IDisposable? _providerDisposable;
     private IDisposable? _hoverProviderDisposable;
+    private CompilerService? _compiler;
 
     private StandaloneEditorConstructionOptions EditorConstructionOptions(StandaloneCodeEditor ed) => new()
     {
@@ -34,6 +35,9 @@ public partial class Editor : ComponentBase, IDisposable
 
         await Task.Delay(250); // slight delay to ensure Monaco is ready
 
+        // create a compiler service (hard-coded model inside factory) once for the Editor instance
+        _compiler = await CompilerServiceFactory.CreateAsync();
+
         // register a completion provider that asks the CompilerService for completions
         _providerDisposable = await MonacoProvidersService.RegisterCompletionProviderAsync(_editor, async (modelUri, position, context) =>
         {
@@ -46,10 +50,10 @@ public partial class Editor : ComponentBase, IDisposable
 
                 var cursorOffset = await model.GetOffsetAt(position);
 
-                // create a compiler service (hard-coded model inside factory)
-                var compiler = await CompilerServiceFactory.CreateAsync();
+                if (_compiler == null)
+                    return null;
 
-                var completions = await compiler.GetCompletionsAsync(text, cursorOffset);
+                var completions = await _compiler.GetCompletionsAsync(text, cursorOffset);
                 if (completions == null || completions.Count == 0)
                     return null;
 
@@ -87,8 +91,10 @@ public partial class Editor : ComponentBase, IDisposable
 
                 var cursorOffset = await model.GetOffsetAt(position);
 
-                var compiler = await CompilerServiceFactory.CreateAsync();
-                var hover = await compiler.GetHoverAsync(text, cursorOffset);
+                if (_compiler == null)
+                    return null;
+
+                var hover = await _compiler.GetHoverAsync(text, cursorOffset);
                 if (hover == null)
                     return null;
 
@@ -148,6 +154,12 @@ public partial class Editor : ComponentBase, IDisposable
     {
         _providerDisposable?.Dispose();
         _hoverProviderDisposable?.Dispose();
+        // dispose the shared compiler service after unregistering providers
+        try
+        {
+            _compiler?.Dispose();
+        }
+        catch { }
         GC.SuppressFinalize(this);
     }
 }
