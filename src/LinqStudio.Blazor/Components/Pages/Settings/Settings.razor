@@ -6,6 +6,7 @@
 @inject SettingsService SettingsService;
 @inject IServiceProvider ServiceProvider;
 @inject ISnackbar Snackbar;
+@inject ErrorHandlingService ErrorHandlingService;
 
 <div class="settings">
 
@@ -79,7 +80,7 @@
             catch (Exception ex)
             {
                 Logger.LogError(ex, SharedResource.SettingsPage_Error_ErrorParsingSetting);
-                Snackbar.Add(string.Format(SharedResource.SettingsPage_Error_ErrorParsingSettingX, editor.Setting.SectionName), Severity.Error);
+                await ErrorHandlingService.HandleErrorAsync(ex, string.Format(SharedResource.SettingsPage_Error_ErrorParsingSettingX, editor.Setting.SectionName));
                 return; // we don't even want to continue
             }
         }
@@ -91,6 +92,7 @@
         catch (Exception ex)
         {
             Logger.LogError(ex, SharedResource.SettingsPage_Error_ErrorSavingSetting);
+            await ErrorHandlingService.HandleErrorAsync(ex, SharedResource.SettingsPage_Error_ErrorSavingSetting);
         }
     }
 

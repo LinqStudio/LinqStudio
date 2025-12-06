@@ -3,6 +3,7 @@
 @inject IOptionsMonitor<UISettings> UISettings;
 @inject SettingsService SettingsService;
 @inject ILogger<MainLayout> Logger;
+@inject ErrorHandlingService ErrorHandlingService;
 
 <MudThemeProvider Theme="@_theme" IsDarkMode="UISettings.CurrentValue.IsDarkMode" />
 <MudPopoverProvider />
@@ -79,6 +80,7 @@
         catch (Exception ex)
         {
             Logger.LogError(ex, "Failed to update UI settings.");
+            await ErrorHandlingService.HandleErrorAsync(ex, "Failed to update UI settings.");
         }
     }
 
