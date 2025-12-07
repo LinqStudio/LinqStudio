@@ -4,23 +4,19 @@ using Xunit;
 
 namespace LinqStudio.App.WebServer.E2ETests;
 
-[CollectionDefinition("E2E-Completions")]
-public class E2ECompletionsCollection : ICollectionFixture<AppServerFixture>, ICollectionFixture<PlaywrightFixture>
+[CollectionDefinition("E2E")]
+public class E2ECollection : ICollectionFixture<AppServerFixture>, ICollectionFixture<PlaywrightFixture>
 {
+    // collection shared between tests
 }
 
-[CollectionDefinition("E2E-Hover")]
-public class E2EHoverCollection : ICollectionFixture<AppServerFixture>, ICollectionFixture<PlaywrightFixture>
-{
-}
-
-[Collection("E2E-Completions")]
-public class EditorCompletionsE2ETests
+[Collection("E2E")]
+public class EditorE2ETests
 {
     private readonly AppServerFixture _app;
     private readonly PlaywrightFixture _pw;
 
-    public EditorCompletionsE2ETests(AppServerFixture app, PlaywrightFixture pw)
+    public EditorE2ETests(AppServerFixture app, PlaywrightFixture pw)
     {
         _app = app;
         _pw = pw;
@@ -67,6 +63,8 @@ public class EditorCompletionsE2ETests
         foreach (var s in suggestions)
         {
             var t = await s.InnerTextAsync();
+            // The default code is "context.People.Where(p => p."
+            // So we expect property completions on the Person object
             if (t.Length > 0) // Any completion is good enough
             {
                 any = true;
@@ -75,21 +73,8 @@ public class EditorCompletionsE2ETests
         }
         Assert.True(any, "Expected at least one completion suggestion");
     }
-}
 
-[Collection("E2E-Hover")]
-public class EditorHoverE2ETests
-{
-    private readonly AppServerFixture _app;
-    private readonly PlaywrightFixture _pw;
-
-    public EditorHoverE2ETests(AppServerFixture app, PlaywrightFixture pw)
-    {
-        _app = app;
-        _pw = pw;
-    }
-
-    [Fact(Timeout = 120_000, Skip = "Hover provider not working in E2E tests")]
+    [Fact(Timeout = 120_000, Skip = "Hover tooltips don't appear in E2E tests - hover provider investigation needed")]
     public async Task Editor_Hover_ShowsSymbolInfo()
     {
         if (_pw.Browser == null)
@@ -112,23 +97,20 @@ public class EditorHoverE2ETests
         // Wait for Monaco container to appear
         await page.WaitForSelectorAsync("#editor-top .monaco-editor");
 
-        // Find a token span with 'Where' text and hover it
-        // Monaco renders token texts in .view-lines .mtk elements; look for a span that includes 'Where'
-        var token = await page.WaitForSelectorAsync("text=Where", new() { Timeout = 10000 });
-        if (token == null)
-        {
-            // As a fallback, focus editor and type 'Where' to ensure it exists
-            await page.ClickAsync("#editor-top .monaco-editor");
-            await page.Keyboard.TypeAsync("Where");
-            token = await page.WaitForSelectorAsync("text=Where");
-        }
+        // Wait for the editor content to be rendered
+        await page.WaitForSelectorAsync(".view-lines .view-line");
 
-        await token.HoverAsync();
+        // Find a Monaco token element containing "Where" and hover over it
+        var whereToken = page.Locator(".view-lines .view-line span").Filter(new() { HasText = "Where" }).First;
+        
+        // Hover over the token
+        await whereToken.HoverAsync();
 
-        // Wait for the hover widget
-        var hover = await page.WaitForSelectorAsync(".monaco-hover .hover-contents", new() { Timeout = 10000 });
-        var content = await hover.InnerTextAsync();
-        Assert.False(string.IsNullOrWhiteSpace(content));
-        Assert.Contains("Where", content, System.StringComparison.OrdinalIgnoreCase);
+        // Wait for the hover widget to appear and get its content
+        var hoverContent = await page.Locator(".monaco-hover .hover-contents").InnerTextAsync();
+        
+        // Verify hover content exists and contains "Where"
+        Assert.False(string.IsNullOrWhiteSpace(hoverContent));
+        Assert.Contains("Where", hoverContent, System.StringComparison.OrdinalIgnoreCase);
     }
 }
