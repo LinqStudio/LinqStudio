@@ -179,14 +179,14 @@ public class EditorE2ETests
         await page.ClickAsync("#editor-top .monaco-editor");
         await page.Keyboard.PressAsync("End");
 
-        // Clear and type code that will trigger completion on '('
+        // Clear and type code
         await page.Keyboard.PressAsync("Control+A");
         await page.Keyboard.TypeAsync("context.People.Where");
 
-        // Type an open paren - this should trigger parameter hints
+        // Type an open paren - '(' is a trigger character that shows parameter hints
         await page.Keyboard.TypeAsync("(");
 
-        // Wait for parameter hints widget to appear (Monaco shows parameter info for '(')
+        // Verify parameter hints widget appears (Monaco shows parameter info widget for '(' trigger)
         var parameterHints = await page.WaitForSelectorAsync(".parameter-hints-widget", new() { Timeout = 5000 });
         Assert.NotNull(parameterHints);
     }
