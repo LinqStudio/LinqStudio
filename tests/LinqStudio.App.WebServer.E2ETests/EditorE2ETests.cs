@@ -25,23 +25,11 @@ public class EditorE2ETests
     [Fact(Timeout = 120_000)]
     public async Task Editor_ShowsCompletions_WhenTyping()
     {
-        if (_pw.Browser == null)
-        {
-            Console.WriteLine("Skipping test because Playwright browsers are not installed in the environment.");
-            return;
-        }
-
         await using var context = await _pw.Browser!.NewContextAsync();
         var page = await context.NewPageAsync();
 
-        if (_pw.Browser == null)
-        {
-            // Playwright browsers are not available in this environment — skip the interactive checks.
-            Console.WriteLine("Skipping test because Playwright browsers are not installed in the environment.");
-            return;
-        }
-
-        await page.GotoAsync(_app.BaseUrl + "/editor");
+        // Navigate to editor with cache-busting parameter to ensure fresh page load
+        await page.GotoAsync(_app.BaseUrl + $"/editor?_t={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}");
 
         // Wait for Monaco container to appear
         await page.WaitForSelectorAsync("#editor-top .monaco-editor");
@@ -57,15 +45,13 @@ public class EditorE2ETests
         var text = await suggest.InnerTextAsync();
         Assert.False(string.IsNullOrWhiteSpace(text));
 
-        // ensure we have some likely completion
+        // Ensure we have some likely completion
         var suggestions = await page.QuerySelectorAllAsync(".suggest-widget .monaco-list-row");
         var any = false;
         foreach (var s in suggestions)
         {
             var t = await s.InnerTextAsync();
-            // The default code is "context.People.Where(p => p."
-            // So we expect property completions on the Person object
-            if (t.Length > 0) // Any completion is good enough
+            if (t.Length > 0)
             {
                 any = true;
                 break;
@@ -74,25 +60,17 @@ public class EditorE2ETests
         Assert.True(any, "Expected at least one completion suggestion");
     }
 
-    [Fact(Timeout = 120_000, Skip = "Hover tooltips don't appear in E2E tests - hover provider investigation needed")]
+    [Fact(Timeout = 120_000)]
     public async Task Editor_Hover_ShowsSymbolInfo()
     {
-        if (_pw.Browser == null)
-        {
-            Console.WriteLine("Skipping test because Playwright browsers are not installed in the environment.");
-            return;
-        }
-
         await using var context = await _pw.Browser!.NewContextAsync();
         var page = await context.NewPageAsync();
 
-        if (_pw.Browser == null)
-        {
-            Console.WriteLine("Skipping test because Playwright browsers are not installed in the environment.");
-            return;
-        }
-
-        await page.GotoAsync(_app.BaseUrl + "/editor");
+        // Navigate to editor with cache-busting parameter
+        await page.GotoAsync(_app.BaseUrl + $"/editor?_t={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}");
+        
+        // Reload page to ensure fresh Blazor SignalR connection
+        await page.ReloadAsync();
 
         // Wait for Monaco container to appear
         await page.WaitForSelectorAsync("#editor-top .monaco-editor");

@@ -11,15 +11,10 @@ public class PlaywrightFixture : IAsyncLifetime
     public async Task InitializeAsync()
     {
         Playwright = await Microsoft.Playwright.Playwright.CreateAsync();
-        try
-        {
-            Browser = await Playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Headless = true });
-        }
-        catch (Microsoft.Playwright.PlaywrightException)
-        {
-            // Browsers are probably not installed in this environment. Leave Browser null so tests can skip gracefully.
-            Browser = null;
-        }
+        // NOTE: If browsers are not installed, this will throw and tests will fail.
+        // This is intentional - E2E tests require browsers to be installed.
+        // To install: pwsh playwright.ps1 install --with-deps chromium
+        Browser = await Playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Headless = true });
     }
 
     public async Task DisposeAsync()
