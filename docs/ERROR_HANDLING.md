@@ -4,7 +4,10 @@ This document describes the error handling mechanism implemented in LinqStudio f
 
 ## Overview
 
-LinqStudio provides a centralized error handling service that displays errors in a clean, professional MudBlazor dialog with the error message and expandable technical details (stack trace).
+LinqStudio provides a comprehensive error handling solution that includes:
+- A centralized error handling service that displays errors in clean, professional MudBlazor dialogs
+- An error boundary component that catches unhandled exceptions globally
+- Automatic logging of all errors
 
 ## Components
 
@@ -31,6 +34,18 @@ A MudBlazor dialog component that displays:
 - The error message in a prominent alert box
 - An expandable "Technical Details" section with the full exception details and stack trace
 - A "Close" button to dismiss the dialog
+
+### AppErrorBoundary Component
+
+Located at: `src/LinqStudio.Blazor/Components/AppErrorBoundary.razor`
+
+A custom error boundary component that:
+- Catches unhandled exceptions globally in the application
+- Automatically displays the error dialog using `ErrorHandlingService`
+- Shows a fallback error alert in case the error dialog fails to display
+- Logs all unhandled exceptions
+
+The error boundary is automatically applied to the entire application via the `Routes.razor` component.
 
 ## Usage
 
@@ -91,28 +106,16 @@ catch (Exception ex)
 }
 ```
 
-### Example 2: Test Page
+### Example 2: Unhandled Exceptions
 
-A test page (`/test-error`) is included to demonstrate the error handling functionality:
+Unhandled exceptions are automatically caught by the `AppErrorBoundary` component:
 
 ```csharp
-@page "/test-error"
-@inject ErrorHandlingService ErrorHandlingService
-
-<MudButton OnClick="@TriggerError">Show Error</MudButton>
-
-@code {
-    private async Task TriggerError()
-    {
-        try
-        {
-            throw new InvalidOperationException("Something went wrong!");
-        }
-        catch (Exception ex)
-        {
-            await ErrorHandlingService.HandleErrorAsync(ex);
-        }
-    }
+// No try-catch needed - unhandled exceptions are automatically caught
+// and displayed using the error dialog
+private void SomeMethod()
+{
+    throw new InvalidOperationException("This will be caught by AppErrorBoundary");
 }
 ```
 
@@ -128,14 +131,25 @@ This registers:
 - `ErrorHandlingService` as a scoped service
 - MudBlazor services (including `IDialogService` used by the error handling service)
 
+The error boundary is automatically applied in `Routes.razor`:
+```csharp
+<AppErrorBoundary>
+    <Router AppAssembly="..." NotFoundPage="...">
+        ...
+    </Router>
+</AppErrorBoundary>
+```
+
 ## Features
 
 ✅ **User-Friendly Error Messages**: Display clear, concise error messages to users
 ✅ **Technical Details**: Expandable section with full exception details and stack trace for debugging
+✅ **Automatic Error Catching**: AppErrorBoundary catches all unhandled exceptions globally
 ✅ **Logging**: Automatically logs all errors using `ILogger<ErrorHandlingService>`
 ✅ **MudBlazor Integration**: Uses MudBlazor's dialog system for consistent UI
 ✅ **Customizable**: Supports custom error messages while preserving technical details
 ✅ **Keyboard Accessible**: Dialog can be closed with the Escape key
+✅ **Fallback UI**: Shows error alert if dialog fails to display
 
 ## Dialog Appearance
 
@@ -151,16 +165,32 @@ The error dialog features:
 
 ## Testing
 
+### Unit Tests
+
 Unit tests are available in `tests/LinqStudio.Blazor.Tests/ErrorHandlingServiceTests.cs`:
 
 ```bash
 dotnet test tests/LinqStudio.Blazor.Tests/LinqStudio.Blazor.Tests.csproj
 ```
 
-The tests verify:
+The unit tests verify:
 - Service creation and dependency injection
 - Error handling without throwing exceptions
 - Support for custom error messages
+
+### E2E Tests
+
+End-to-end tests are available in `tests/LinqStudio.App.WebServer.E2ETests/ErrorHandlingE2ETests.cs`:
+
+```bash
+dotnet test tests/LinqStudio.App.WebServer.E2ETests/LinqStudio.App.WebServer.E2ETests.csproj
+```
+
+The E2E tests verify:
+- Error boundary catches unhandled exceptions
+- Error dialogs are displayed correctly
+- Error handling service is available in all pages
+- Error dialogs can be closed properly
 
 ## Best Practices
 
@@ -169,6 +199,18 @@ The tests verify:
 3. **Use the service consistently** throughout the application for uniform error handling
 4. **Log exceptions** - The service automatically logs all errors
 5. **Don't expose sensitive information** in custom error messages
+6. **Let the error boundary handle unexpected errors** - No need to add try-catch everywhere
+
+## Architecture
+
+The error handling system is designed with multiple layers:
+
+1. **ErrorHandlingService**: Manual error handling for expected exceptions
+2. **AppErrorBoundary**: Automatic catching of unhandled exceptions
+3. **ErrorDialog**: Consistent UI for all error displays
+4. **Logging**: All errors are automatically logged for diagnostics
+
+This ensures that no errors slip through unnoticed and all errors are presented consistently to users.
 
 ## Future Enhancements
 
