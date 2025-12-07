@@ -152,16 +152,9 @@ public class EditorE2ETests
         Assert.True(suggestions.Count > 0, "Expected completion suggestions to appear after typing '.'");
 
         // Check for typical LINQ methods
-        var hasLinqMethod = false;
-        foreach (var s in suggestions)
-        {
-            var t = await s.InnerTextAsync();
-            if (t.Contains("Where") || t.Contains("Select") || t.Contains("First") || t.Contains("Any"))
-            {
-                hasLinqMethod = true;
-                break;
-            }
-        }
+        var innerTexts = await Task.WhenAll(suggestions.Select(s => s.InnerTextAsync()));
+        var hasLinqMethod = innerTexts.Any(t =>
+            t.Contains("Where") || t.Contains("Select") || t.Contains("First") || t.Contains("Any"));
         Assert.True(hasLinqMethod, "Expected at least one LINQ method in completions");
     }
 
@@ -190,22 +183,12 @@ public class EditorE2ETests
         await page.Keyboard.PressAsync("Control+A");
         await page.Keyboard.TypeAsync("context.People.Where");
 
-        // Type an open paren - this should trigger completion automatically
+        // Type an open paren - this should trigger parameter hints
         await page.Keyboard.TypeAsync("(");
 
-        // Wait briefly for suggest widget to appear (it should show parameter hints or completions)
-        // Note: '(' might show parameter info widget instead of completion widget
-        try
-        {
-            var suggest = await page.WaitForSelectorAsync(".suggest-widget .monaco-list-row, .parameter-hints-widget", new() { Timeout = 5000 });
-            Assert.NotNull(suggest);
-        }
-        catch
-        {
-            // It's OK if parameter hints appear instead of completions for '('
-            // The important thing is that it's triggered automatically
-            Console.WriteLine("Note: '(' triggered parameter hints or no widget (expected behavior)");
-        }
+        // Wait for parameter hints widget to appear (Monaco shows parameter info for '(')
+        var parameterHints = await page.WaitForSelectorAsync(".parameter-hints-widget", new() { Timeout = 5000 });
+        Assert.NotNull(parameterHints);
     }
 
     [Fact(Timeout = 120_000)]
@@ -228,36 +211,21 @@ public class EditorE2ETests
         // Click to focus the editor
         await page.ClickAsync("#editor-top .monaco-editor");
         
-        // Clear and type partial code
+        // Clear and type code ending with a space to trigger completion
         await page.Keyboard.PressAsync("Control+A");
-        await page.Keyboard.TypeAsync("context.");
+        await page.Keyboard.TypeAsync("context.People.Where ");
         
-        // Type 'P' to start typing 'People' - completion should trigger
-        await page.Keyboard.TypeAsync("P");
+        // Wait for completion widget to appear after typing space
+        var suggest = await page.WaitForSelectorAsync(".suggest-widget .monaco-list-row", new() { Timeout = 5000 });
+        Assert.NotNull(suggest);
         
-        // Wait for completion widget to appear showing 'People'
-        try
-        {
-            var suggest = await page.WaitForSelectorAsync(".suggest-widget .monaco-list-row", new() { Timeout = 5000 });
-            Assert.NotNull(suggest);
-            
-            // Check that 'People' is in the suggestions
-            var suggestions = await page.QuerySelectorAllAsync(".suggest-widget .monaco-list-row");
-            var hasPeople = false;
-            foreach (var s in suggestions)
-            {
-                var t = await s.InnerTextAsync();
-                if (t.Contains("People"))
-                {
-                    hasPeople = true;
-                    break;
-                }
-            }
-            Assert.True(hasPeople, "Expected 'People' in completions");
-        }
-        catch
-        {
-            Console.WriteLine("Note: Space trigger test - completion may not always trigger on every character");
-        }
+        // Check that completion suggestions are present
+        var suggestions = await page.QuerySelectorAllAsync(".suggest-widget .monaco-list-row");
+        Assert.True(suggestions.Count > 0, "Expected completion suggestions to appear after typing space");
+        
+        // Verify we have lambda parameter suggestions (like 'p =>')
+        var innerTexts = await Task.WhenAll(suggestions.Select(s => s.InnerTextAsync()));
+        var hasLambdaParam = innerTexts.Any(t => t.Contains("=>") || t.Contains("predicate"));
+        Assert.True(hasLambdaParam, "Expected lambda parameter or predicate suggestions after space");
     }
 }
