@@ -14,6 +14,20 @@ using static Nuke.Common.Tools.DotNet.DotNetTasks;
 	InvokedTargets = new[] { nameof(Test) },
 	EnableGitHubToken = true,
 	FetchDepth = 0)]
+[GitHubActions(
+	"manual-unit-tests",
+	GitHubActionsImage.UbuntuLatest,
+	On = new[] { GitHubActionsTrigger.WorkflowDispatch },
+	InvokedTargets = new[] { nameof(UnitTests) },
+	EnableGitHubToken = true,
+	FetchDepth = 0)]
+[GitHubActions(
+	"manual-e2e-tests",
+	GitHubActionsImage.UbuntuLatest,
+	On = new[] { GitHubActionsTrigger.WorkflowDispatch },
+	InvokedTargets = new[] { nameof(E2ETests) },
+	EnableGitHubToken = true,
+	FetchDepth = 0)]
 class Build : NukeBuild
 {
 	public static int Main() => Execute<Build>(x => x.Test);
