@@ -109,14 +109,25 @@ public class EditorHoverE2ETests
             // As a fallback, focus editor and type 'Where' to ensure it exists
             await page.ClickAsync("#editor-top .monaco-editor");
             await page.Keyboard.TypeAsync("Where");
-            token = await page.WaitForSelectorAsync("text=Where");
+            token = await page.WaitForSelectorAsync("text=Where", new() { Timeout = 10000 });
         }
 
-        await token!.HoverAsync();
+        // At this point token should be non-null, but check defensively
+        if (token == null)
+        {
+            throw new InvalidOperationException("Could not find 'Where' text in Monaco editor after typing it");
+        }
+
+        await token.HoverAsync();
 
         // Wait for the hover widget
         var hover = await page.WaitForSelectorAsync(".monaco-hover .hover-contents", new() { Timeout = 10000 });
-        var content = await hover!.InnerTextAsync();
+        if (hover == null)
+        {
+            throw new InvalidOperationException("Hover widget did not appear after hovering over 'Where' text");
+        }
+
+        var content = await hover.InnerTextAsync();
         Assert.False(string.IsNullOrWhiteSpace(content));
         Assert.Contains("Where", content, System.StringComparison.OrdinalIgnoreCase);
     }
