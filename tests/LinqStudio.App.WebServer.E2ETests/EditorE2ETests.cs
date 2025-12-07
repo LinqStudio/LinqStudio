@@ -4,19 +4,25 @@ using Xunit;
 
 namespace LinqStudio.App.WebServer.E2ETests;
 
-[CollectionDefinition("E2E")]
-public class E2ECollection : ICollectionFixture<AppServerFixture>, ICollectionFixture<PlaywrightFixture>
+[CollectionDefinition("E2E-Completions")]
+public class E2ECompletionsCollection : ICollectionFixture<AppServerFixture>, ICollectionFixture<PlaywrightFixture>
 {
-    // collection shared between tests
+    // collection shared between completion tests
 }
 
-[Collection("E2E")]
-public class EditorE2ETests
+[CollectionDefinition("E2E-Hover")]
+public class E2EHoverCollection : ICollectionFixture<AppServerFixture>, ICollectionFixture<PlaywrightFixture>
+{
+    // collection shared between hover tests
+}
+
+[Collection("E2E-Completions")]
+public class EditorCompletionsE2ETests
 {
     private readonly AppServerFixture _app;
     private readonly PlaywrightFixture _pw;
 
-    public EditorE2ETests(AppServerFixture app, PlaywrightFixture pw)
+    public EditorCompletionsE2ETests(AppServerFixture app, PlaywrightFixture pw)
     {
         _app = app;
         _pw = pw;
@@ -28,7 +34,8 @@ public class EditorE2ETests
         await using var context = await _pw.Browser!.NewContextAsync();
         var page = await context.NewPageAsync();
 
-        await page.GotoAsync(_app.BaseUrl + "/editor");
+        // Navigate with WaitUntilState.NetworkIdle to ensure page is fully loaded
+        await page.GotoAsync(_app.BaseUrl + "/editor", new() { WaitUntil = WaitUntilState.NetworkIdle });
 
         // Wait for Monaco container to appear with increased timeout (60s)
         // Use State.Attached instead of Visible as Monaco might take time to become visible
@@ -64,6 +71,19 @@ public class EditorE2ETests
         }
         Assert.True(any, "Expected at least one completion suggestion");
     }
+}
+
+[Collection("E2E-Hover")]
+public class EditorHoverE2ETests
+{
+    private readonly AppServerFixture _app;
+    private readonly PlaywrightFixture _pw;
+
+    public EditorHoverE2ETests(AppServerFixture app, PlaywrightFixture pw)
+    {
+        _app = app;
+        _pw = pw;
+    }
 
     [Fact(Timeout = 120_000)]
     public async Task Editor_Hover_ShowsSymbolInfo()
@@ -71,7 +91,8 @@ public class EditorE2ETests
         await using var context = await _pw.Browser!.NewContextAsync();
         var page = await context.NewPageAsync();
 
-        await page.GotoAsync(_app.BaseUrl + "/editor");
+        // Navigate with WaitUntilState.NetworkIdle to ensure page is fully loaded
+        await page.GotoAsync(_app.BaseUrl + "/editor", new() { WaitUntil = WaitUntilState.NetworkIdle });
 
         // Wait for Monaco container to appear with increased timeout (60s)
         // Use State.Attached instead of Visible as Monaco might take time to become visible
