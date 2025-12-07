@@ -25,26 +25,17 @@ public class EditorE2ETests
     [Fact(Timeout = 120_000)]
     public async Task Editor_ShowsCompletions_WhenTyping()
     {
-        if (_pw.Browser == null)
-        {
-            Console.WriteLine("Skipping test because Playwright browsers are not installed in the environment.");
-            return;
-        }
-
         await using var context = await _pw.Browser!.NewContextAsync();
         var page = await context.NewPageAsync();
 
-        if (_pw.Browser == null)
-        {
-            // Playwright browsers are not available in this environment — skip the interactive checks.
-            Console.WriteLine("Skipping test because Playwright browsers are not installed in the environment.");
-            return;
-        }
-
         await page.GotoAsync(_app.BaseUrl + "/editor");
 
-        // Wait for Monaco container to appear
-        await page.WaitForSelectorAsync("#editor-top .monaco-editor");
+        // Wait for Monaco container to appear with increased timeout (60s)
+        // Use State.Attached instead of Visible as Monaco might take time to become visible
+        await page.WaitForSelectorAsync("#editor-top .monaco-editor", new() { Timeout = 60_000, State = WaitForSelectorState.Attached });
+
+        // Give Monaco additional time to fully initialize
+        await Task.Delay(2000);
 
         // Click to focus the editor
         await page.ClickAsync("#editor-top .monaco-editor");
@@ -75,25 +66,17 @@ public class EditorE2ETests
     [Fact(Timeout = 120_000)]
     public async Task Editor_Hover_ShowsSymbolInfo()
     {
-        if (_pw.Browser == null)
-        {
-            Console.WriteLine("Skipping test because Playwright browsers are not installed in the environment.");
-            return;
-        }
-
         await using var context = await _pw.Browser!.NewContextAsync();
         var page = await context.NewPageAsync();
 
-        if (_pw.Browser == null)
-        {
-            Console.WriteLine("Skipping test because Playwright browsers are not installed in the environment.");
-            return;
-        }
-
         await page.GotoAsync(_app.BaseUrl + "/editor");
 
-        // Wait for Monaco container to appear
-        await page.WaitForSelectorAsync("#editor-top .monaco-editor");
+        // Wait for Monaco container to appear with increased timeout (60s)
+        // Use State.Attached instead of Visible as Monaco might take time to become visible
+        await page.WaitForSelectorAsync("#editor-top .monaco-editor", new() { Timeout = 60_000, State = WaitForSelectorState.Attached });
+
+        // Give Monaco additional time to fully initialize
+        await Task.Delay(2000);
 
         // Find a token span with 'Where' text and hover it
         // Monaco renders token texts in .view-lines .mtk elements; look for a span that includes 'Where'
@@ -106,11 +89,11 @@ public class EditorE2ETests
             token = await page.WaitForSelectorAsync(".view-lines span:has-text(Where)");
         }
 
-        await token.HoverAsync();
+        await token!.HoverAsync();
 
         // Wait for the hover widget
         var hover = await page.WaitForSelectorAsync(".monaco-hover .hover-contents", new() { Timeout = 10000 });
-        var content = await hover.InnerTextAsync();
+        var content = await hover!.InnerTextAsync();
         Assert.False(string.IsNullOrWhiteSpace(content));
         Assert.Contains("Where", content, System.StringComparison.OrdinalIgnoreCase);
     }
