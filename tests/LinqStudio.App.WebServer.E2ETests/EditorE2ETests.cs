@@ -31,7 +31,11 @@ public class EditorCompletionsE2ETests
     [Fact(Timeout = 120_000)]
     public async Task Editor_ShowsCompletions_WhenTyping()
     {
-        await using var context = await _pw.Browser!.NewContextAsync();
+        // Browser is guaranteed non-null by PlaywrightFixture.InitializeAsync which throws if browsers not installed
+        if (_pw.Browser == null)
+            throw new InvalidOperationException("Browser not initialized - Playwright browsers may not be installed");
+
+        await using var context = await _pw.Browser.NewContextAsync();
         var page = await context.NewPageAsync();
 
         // Navigate with WaitUntilState.NetworkIdle to ensure page is fully loaded
@@ -88,7 +92,11 @@ public class EditorHoverE2ETests
     [Fact(Timeout = 120_000)]
     public async Task Editor_Hover_ShowsSymbolInfo()
     {
-        await using var context = await _pw.Browser!.NewContextAsync();
+        // Browser is guaranteed non-null by PlaywrightFixture.InitializeAsync which throws if browsers not installed
+        if (_pw.Browser == null)
+            throw new InvalidOperationException("Browser not initialized - Playwright browsers may not be installed");
+
+        await using var context = await _pw.Browser.NewContextAsync();
         var page = await context.NewPageAsync();
 
         // Navigate with WaitUntilState.NetworkIdle to ensure page is fully loaded
