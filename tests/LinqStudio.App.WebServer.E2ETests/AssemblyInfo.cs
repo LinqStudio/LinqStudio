@@ -1,4 +1,4 @@
 using Xunit;
 
-// Disable parallel test execution for E2E tests since they share server resources
+// E2E tests must run sequentially because they share server resources (port 5020)
 [assembly: CollectionBehavior(DisableTestParallelization = true)]
