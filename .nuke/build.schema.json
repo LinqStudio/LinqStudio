@@ -26,8 +26,11 @@
       "enum": [
         "Clean",
         "Compile",
+        "E2ETests",
+        "PlaywrightInstall",
         "Restore",
-        "Test"
+        "Test",
+        "UnitTests"
       ]
     },
     "Verbosity": {
