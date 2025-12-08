@@ -60,6 +60,26 @@ class Build : NukeBuild
 			   .EnableNoRestore());
 		});
 
+	// Install Playwright browsers for E2E tests using the built-in script
+	Target PlaywrightInstall => _ => _
+		.DependsOn(Compile)
+		.Executes(() =>
+		{
+			// Find the first E2E test project
+			var e2eProject = E2ETestProjects.FirstOrDefault();
+			if (e2eProject == null)
+			{
+				return; // No E2E tests, skip
+			}
+
+			// Locate the playwright.ps1 script in the build output
+			var targetFramework = "net10.0";
+			var playwrightScript = e2eProject.Directory / "bin" / Configuration / targetFramework / "playwright.ps1";
+
+			// Run playwright install with OS dependencies (required on Linux)
+			ProcessTasks.StartProcess("pwsh", $"{playwrightScript} install chromium --with-deps").AssertZeroExitCode();
+		});
+
 	// Run unit tests only (exclude E2E)
 	Target UnitTests => _ => _
 		.DependsOn(Compile)
@@ -77,6 +97,7 @@ class Build : NukeBuild
 
 	// Run E2E tests only (ensure Playwright is installed first)
 	Target E2ETests => _ => _
+		.DependsOn(PlaywrightInstall)
 		.After(UnitTests)
 		.Executes(() =>
 		{
