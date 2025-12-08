@@ -77,7 +77,7 @@ class Build : NukeBuild
 			var playwrightScript = e2eProject.Directory / "bin" / Configuration / targetFramework / "playwright.ps1";
 
 			// Run playwright install with OS dependencies (required on Linux)
-			ProcessTasks.StartProcess("pwsh", $"{playwrightScript} install --with-deps").AssertZeroExitCode();
+			ProcessTasks.StartProcess("pwsh", $"{playwrightScript} install chromium --with-deps").AssertZeroExitCode();
 		});
 
 	// Run unit tests only (exclude E2E)

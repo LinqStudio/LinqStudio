@@ -28,12 +28,6 @@
 
     <MudMainContent Class="mainBody pt-16 pa-4">
         <AppErrorBoundary>
-            @{
-                if (Random.Shared.Next() != 0)
-                {
-                    throw new InvalidCastException();
-                }
-            }
             @Body
         </AppErrorBoundary>
     </MudMainContent>
