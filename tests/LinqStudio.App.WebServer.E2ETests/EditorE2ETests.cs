@@ -79,10 +79,11 @@ public class EditorE2ETests
         await page.WaitForSelectorAsync(".view-lines .view-line");
 
         // Find a Monaco token element containing "Where" and hover over it
-        var whereToken = page.Locator(".view-lines .view-line span").Filter(new() { HasText = "Where" }).First;
-        
-        // Hover over the token
-        await whereToken.HoverAsync();
+        var whereToken = page.Locator("span").Filter(new() { HasText = "Where", HasNotText = "context" });
+
+		// Hover over the token
+		await Task.Delay(500);
+		await whereToken.First.HoverAsync();
 
         // Wait for the hover widget to appear and get its content
         var hoverContent = await page.Locator(".monaco-hover .hover-contents").InnerTextAsync();
