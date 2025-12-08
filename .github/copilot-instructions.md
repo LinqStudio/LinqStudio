@@ -58,7 +58,7 @@ dotnet run --project src/LinqStudio.App.WebServer
 - Configuration loaded from `appsettings.Development.json` and `usersettings.json`
 
 ### Testing
-- XUnit + FluentAssertions pattern across all test projects
+- XUnit across all test projects
 - `LinqStudio.Core.Tests/CompilerServiceTests.cs` - loads embedded test files for validation
 - Test models embedded as resources: `TestFiles/*.cs` → `.EmbeddedResource` in .csproj
 - Run tests: `./build.sh Test` or `dotnet test`
