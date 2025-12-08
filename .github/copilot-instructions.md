@@ -40,6 +40,9 @@ Modular user preferences system. Each setting:
 - Changes trigger immediate persistence via `SettingsService.Save()`
 - MudBlazor theme customization with distinct light/dark palettes
 
+## Documentation
+Always read the documentation in "docs" before working on any task
+
 ## Critical Workflows
 
 ### Building & Running
