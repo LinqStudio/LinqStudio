@@ -120,6 +120,12 @@
   <data name="AppBar.Button.Settings" xml:space="preserve">
     <value>Settings</value>
   </data>
+  <data name="ErrorDialog.Text.TechnicalDetails" xml:space="preserve">
+    <value>Technical Details</value>
+  </data>
+  <data name="ErrorDialog.Title.Error" xml:space="preserve">
+    <value>Error</value>
+  </data>
   <data name="Global.MessageBox.No" xml:space="preserve">
     <value>No</value>
   </data>

@@ -18,13 +18,12 @@ name: build-and-test
 
 on:
   pull_request:
-    branches:
-      - main
 
 jobs:
   ubuntu-latest:
     name: ubuntu-latest
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
         with:
