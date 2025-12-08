@@ -9,7 +9,10 @@
 
 <div class="editor-page pa-2" style="height:100%; display:flex; flex-direction:column; gap:8px">
     <div class="editor-top" style="height:50%">
-        <StandaloneCodeEditor @ref="_editor" Id="editor-top" CssClass="editor" ConstructionOptions="EditorConstructionOptions" OnDidInit="OnEditorInitialized" />
+        @if (!Delay)
+        {
+            <StandaloneCodeEditor @ref="_editor" Id="editor-top" CssClass="editor" ConstructionOptions="EditorConstructionOptions" OnDidInit="OnEditorInitialized" />
+        }
     </div>
 
     <div class="editor-actions ma-2">
