@@ -70,6 +70,24 @@ namespace LinqStudio.Core.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Technical Details.
+        /// </summary>
+        public static string ErrorDialog_Text_TechnicalDetails {
+            get {
+                return ResourceManager.GetString("ErrorDialog.Text.TechnicalDetails", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Error.
+        /// </summary>
+        public static string ErrorDialog_Title_Error {
+            get {
+                return ResourceManager.GetString("ErrorDialog.Title.Error", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to No.
         /// </summary>
         public static string Global_MessageBox_No {
