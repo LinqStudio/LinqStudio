@@ -4,7 +4,7 @@
 	<TitleContent>
 		<MudText Typo="Typo.h6">
 			<MudIcon Icon="@Icons.Material.Filled.Error" Class="mr-3" Color="Color.Error" />
-			Error
+			@SharedResource.ErrorDialog_Title_Error
 		</MudText>
 	</TitleContent>
 	<DialogContent>
@@ -16,7 +16,7 @@
 			@if (!string.IsNullOrWhiteSpace(StackTrace))
 			{
 				<MudExpansionPanels>
-					<MudExpansionPanel Text="Technical Details">
+					<MudExpansionPanel Text="@SharedResource.ErrorDialog_Text_TechnicalDetails">
 						<MudPaper Elevation="0" Class="pa-3" Style="background-color: var(--mud-palette-background-grey); max-height: 400px; overflow-y: auto;">
 							<MudText Typo="Typo.body2" Style="font-family: monospace; white-space: pre-wrap; word-break: break-word;">@StackTrace</MudText>
 						</MudPaper>
@@ -35,7 +35,7 @@
 	private IMudDialogInstance? MudDialog { get; set; }
 
 	[Parameter]
-	public string Message { get; set; } = string.Empty;
+	public string Message { get; set; } = "";
 
 	[Parameter]
 	public string? StackTrace { get; set; }

@@ -1,8 +1,10 @@
 using Bunit;
-using FluentAssertions;
+using Xunit;
 using LinqStudio.Blazor.Components;
+using LinqStudio.Blazor.Extensions;
 using LinqStudio.Blazor.Services;
 using LinqStudio.Blazor.Tests.TestComponents;
+using LinqStudio.Core.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MudBlazor;
@@ -14,8 +16,10 @@ public class ErrorHandlingComponentTests : BunitContext
 {
 	private void SetupServices()
 	{
-		Services.AddMudServices();
-		Services.AddScoped<ErrorHandlingService>();
+		Services
+			.AddLinqStudio()
+			.AddLinqStudioBlazor();
+
 		Services.AddLogging();
 	}
 
@@ -29,10 +33,10 @@ public class ErrorHandlingComponentTests : BunitContext
 		var cut = Render<ErrorTestComponent>();
 
 		// Assert
-		cut.Find("[data-testid='trigger-simple-error']").Should().NotBeNull();
-		cut.Find("[data-testid='trigger-custom-error']").Should().NotBeNull();
-		cut.Find("[data-testid='trigger-complex-error']").Should().NotBeNull();
-		cut.Find("[data-testid='trigger-unhandled-error']").Should().NotBeNull();
+		Assert.NotNull(cut.Find("[data-testid='trigger-simple-error']"));
+		Assert.NotNull(cut.Find("[data-testid='trigger-custom-error']"));
+		Assert.NotNull(cut.Find("[data-testid='trigger-complex-error']"));
+		Assert.NotNull(cut.Find("[data-testid='trigger-unhandled-error']"));
 	}
 
 	[Fact]
@@ -50,11 +54,11 @@ public class ErrorHandlingComponentTests : BunitContext
 		cut.WaitForAssertion(() =>
 		{
 			var alert = cut.Find("[data-testid='error-triggered']");
-			alert.Should().NotBeNull();
+			Assert.NotNull(alert);
 		}, TimeSpan.FromSeconds(2));
 
 		// Assert
-		cut.Instance.ErrorTriggered.Should().BeTrue();
+		Assert.True(cut.Instance.ErrorTriggered);
 	}
 
 	[Fact]
@@ -72,11 +76,11 @@ public class ErrorHandlingComponentTests : BunitContext
 		cut.WaitForAssertion(() =>
 		{
 			var alert = cut.Find("[data-testid='error-triggered']");
-			alert.Should().NotBeNull();
+			Assert.NotNull(alert);
 		}, TimeSpan.FromSeconds(2));
 
 		// Assert
-		cut.Instance.ErrorTriggered.Should().BeTrue();
+		Assert.True(cut.Instance.ErrorTriggered);
 	}
 
 	[Fact]
@@ -94,11 +98,11 @@ public class ErrorHandlingComponentTests : BunitContext
 		cut.WaitForAssertion(() =>
 		{
 			var alert = cut.Find("[data-testid='error-triggered']");
-			alert.Should().NotBeNull();
+			Assert.NotNull(alert);
 		}, TimeSpan.FromSeconds(2));
 
 		// Assert
-		cut.Instance.ErrorTriggered.Should().BeTrue();
+		Assert.True(cut.Instance.ErrorTriggered);
 	}
 
 	[Fact]
@@ -122,13 +126,13 @@ public class ErrorHandlingComponentTests : BunitContext
 		var act = () => button.Click();
 
 		// Assert - The error boundary should handle it, not throw to test
-		act.Should().NotThrow();
+		Assert.Null(Record.Exception(act));
 
 		// Verify error boundary fallback is shown
 		cut.WaitForAssertion(() =>
 		{
 			var fallback = cut.FindAll(".error-boundary-fallback");
-			fallback.Should().NotBeEmpty();
+			Assert.NotEmpty(fallback);
 		}, TimeSpan.FromSeconds(2));
 	}
 
@@ -153,8 +157,8 @@ public class ErrorHandlingComponentTests : BunitContext
 		cut.WaitForAssertion(() =>
 		{
 			var fallbackDiv = cut.Find(".error-boundary-fallback");
-			fallbackDiv.Should().NotBeNull();
-			fallbackDiv.TextContent.Should().Contain("An unexpected error occurred");
+			Assert.NotNull(fallbackDiv);
+			Assert.Contains("An unexpected error occurred", fallbackDiv.TextContent);
 		}, TimeSpan.FromSeconds(2));
 	}
 
@@ -173,9 +177,9 @@ public class ErrorHandlingComponentTests : BunitContext
 
 		// Assert - ErrorDialog uses MudDialog which requires special setup
 		// We'll verify the component instantiates without error
-		cut.Should().NotBeNull();
-		cut.Instance.Message.Should().Be(message);
-		cut.Instance.StackTrace.Should().Be(stackTrace);
+		Assert.NotNull(cut);
+		Assert.Equal(message, cut.Instance.Message);
+		Assert.Equal(stackTrace, cut.Instance.StackTrace);
 	}
 
 	[Fact]
@@ -190,9 +194,9 @@ public class ErrorHandlingComponentTests : BunitContext
 			.Add(p => p.Message, message));
 
 		// Assert - Verify component properties
-		cut.Should().NotBeNull();
-		cut.Instance.Message.Should().Be(message);
-		cut.Instance.StackTrace.Should().BeNullOrEmpty();
+		Assert.NotNull(cut);
+		Assert.Equal(message, cut.Instance.Message);
+		Assert.True(string.IsNullOrEmpty(cut.Instance.StackTrace));
 	}
 
 	[Fact]
@@ -217,7 +221,7 @@ public class ErrorHandlingComponentTests : BunitContext
 		cut.WaitForAssertion(() =>
 		{
 			var fallback = cut.Find(".error-boundary-fallback");
-			fallback.Should().NotBeNull();
+			Assert.NotNull(fallback);
 		}, TimeSpan.FromSeconds(2));
 
 		// Act - Recover from error using InvokeAsync for thread safety
@@ -227,7 +231,7 @@ public class ErrorHandlingComponentTests : BunitContext
 		cut.WaitForAssertion(() =>
 		{
 			var buttons = cut.FindAll("[data-testid='trigger-unhandled-error']");
-			buttons.Should().NotBeEmpty();
+			Assert.NotEmpty(buttons);
 		}, TimeSpan.FromSeconds(2));
 	}
 
@@ -239,12 +243,12 @@ public class ErrorHandlingComponentTests : BunitContext
 		var cut = Render<ErrorTestComponent>();
 
 		// Verify error state is initially false
-		cut.Instance.ErrorTriggered.Should().BeFalse();
+		Assert.False(cut.Instance.ErrorTriggered);
 
 		// We can't easily test Reset without triggering an actual error
 		// since it involves StateHasChanged which requires the Blazor dispatcher
 		// This test verifies the component can be instantiated and the property works
-		cut.Should().NotBeNull();
-		cut.Instance.Should().NotBeNull();
+		Assert.NotNull(cut);
+		Assert.NotNull(cut.Instance);
 	}
 }

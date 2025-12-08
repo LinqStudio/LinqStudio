@@ -2,7 +2,6 @@
 @using Microsoft.Extensions.DependencyInjection
 @page "/settings"
 @implements IDisposable
-@inject ILogger<Settings> Logger;
 @inject SettingsService SettingsService;
 @inject IServiceProvider ServiceProvider;
 @inject ISnackbar Snackbar;
@@ -79,7 +78,6 @@
             }
             catch (Exception ex)
             {
-                Logger.LogError(ex, SharedResource.SettingsPage_Error_ErrorParsingSetting);
                 await ErrorHandlingService.HandleErrorAsync(ex, string.Format(SharedResource.SettingsPage_Error_ErrorParsingSettingX, editor.Setting.SectionName));
                 return; // we don't even want to continue
             }
@@ -91,7 +89,6 @@
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, SharedResource.SettingsPage_Error_ErrorSavingSetting);
             await ErrorHandlingService.HandleErrorAsync(ex, SharedResource.SettingsPage_Error_ErrorSavingSetting);
         }
     }

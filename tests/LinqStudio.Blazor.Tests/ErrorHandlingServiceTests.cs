@@ -1,5 +1,5 @@
 using Bunit;
-using FluentAssertions;
+using Xunit;
 using LinqStudio.Blazor.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -21,7 +21,7 @@ public class ErrorHandlingServiceTests : BunitContext
 		var service = Services.GetRequiredService<ErrorHandlingService>();
 
 		// Assert
-		service.Should().NotBeNull();
+		Assert.NotNull(service);
 	}
 
 	[Fact]
@@ -35,11 +35,8 @@ public class ErrorHandlingServiceTests : BunitContext
 		var service = Services.GetRequiredService<ErrorHandlingService>();
 		var exception = new InvalidOperationException("Test error message");
 
-		// Act
-		var act = async () => await service.HandleErrorAsync(exception);
-
-		// Assert - The method should not throw
-		await act.Should().NotThrowAsync();
+		// Act & Assert - The method should not throw
+		await service.HandleErrorAsync(exception);
 	}
 
 	[Fact]
@@ -54,10 +51,7 @@ public class ErrorHandlingServiceTests : BunitContext
 		var exception = new InvalidOperationException("Original error");
 		var customMessage = "Custom error message";
 
-		// Act
-		var act = async () => await service.HandleErrorAsync(exception, customMessage);
-
-		// Assert - The method should not throw
-		await act.Should().NotThrowAsync();
+		// Act & Assert - The method should not throw
+		await service.HandleErrorAsync(exception, customMessage);
 	}
 }
