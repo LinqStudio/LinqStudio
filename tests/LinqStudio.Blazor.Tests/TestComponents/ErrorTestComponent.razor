@@ -1,0 +1,129 @@
+@inject ErrorHandlingService ErrorHandlingService
+
+<MudStack Spacing="3">
+    @if (ShowSimpleErrorButton)
+    {
+        <MudButton Variant="Variant.Filled" 
+                   Color="Color.Primary" 
+                   OnClick="@TriggerSimpleError"
+                   data-testid="trigger-simple-error">
+            Trigger Simple Error
+        </MudButton>
+    }
+
+    @if (ShowCustomMessageButton)
+    {
+        <MudButton Variant="Variant.Filled" 
+                   Color="Color.Secondary" 
+                   OnClick="@TriggerCustomMessageError"
+                   data-testid="trigger-custom-error">
+            Trigger Custom Message Error
+        </MudButton>
+    }
+
+    @if (ShowComplexErrorButton)
+    {
+        <MudButton Variant="Variant.Filled" 
+                   Color="Color.Error" 
+                   OnClick="@TriggerComplexError"
+                   data-testid="trigger-complex-error">
+            Trigger Complex Error
+        </MudButton>
+    }
+
+    @if (ShowUnhandledErrorButton)
+    {
+        <MudButton Variant="Variant.Filled" 
+                   Color="Color.Warning" 
+                   OnClick="@TriggerUnhandledException"
+                   data-testid="trigger-unhandled-error">
+            Trigger Unhandled Exception
+        </MudButton>
+    }
+
+    @if (ErrorTriggered)
+    {
+        <MudAlert Severity="Severity.Success" data-testid="error-triggered">Error was triggered</MudAlert>
+    }
+</MudStack>
+
+@code {
+    [Parameter]
+    public bool ShowSimpleErrorButton { get; set; } = true;
+
+    [Parameter]
+    public bool ShowCustomMessageButton { get; set; } = true;
+
+    [Parameter]
+    public bool ShowComplexErrorButton { get; set; } = true;
+
+    [Parameter]
+    public bool ShowUnhandledErrorButton { get; set; } = true;
+
+    public bool ErrorTriggered { get; private set; }
+
+    private async Task TriggerSimpleError()
+    {
+        try
+        {
+            throw new InvalidOperationException("This is a simple error message for testing.");
+        }
+        catch (Exception ex)
+        {
+            await ErrorHandlingService.HandleErrorAsync(ex);
+            ErrorTriggered = true;
+        }
+    }
+
+    private async Task TriggerCustomMessageError()
+    {
+        try
+        {
+            throw new InvalidOperationException("Internal technical error details.");
+        }
+        catch (Exception ex)
+        {
+            await ErrorHandlingService.HandleErrorAsync(ex, "A user-friendly error message: The operation could not be completed.");
+            ErrorTriggered = true;
+        }
+    }
+
+    private async Task TriggerComplexError()
+    {
+        try
+        {
+            ThrowNestedError();
+        }
+        catch (Exception ex)
+        {
+            await ErrorHandlingService.HandleErrorAsync(ex, "Failed to process the request");
+            ErrorTriggered = true;
+        }
+    }
+
+    private void ThrowNestedError()
+    {
+        try
+        {
+            // Simulate a nested error
+            var dict = new Dictionary<string, string>();
+            var value = dict["nonexistent"]; // This will throw KeyNotFoundException
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException("Error in nested operation", ex);
+        }
+    }
+
+    private void TriggerUnhandledException()
+    {
+        // This will throw an unhandled exception that should be caught by AppErrorBoundary
+        throw new InvalidOperationException("This is an unhandled exception that should be caught by the error boundary.");
+    }
+
+    public void Reset()
+    {
+        ErrorTriggered = false;
+        StateHasChanged();
+    }
+}

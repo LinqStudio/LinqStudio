@@ -11,6 +11,7 @@ public static class ServiceCollectionExtensions
 		services.AddMudServices();
 
 		services.AddScoped<MonacoProvidersService>();
+		services.AddScoped<ErrorHandlingService>();
 
 		return services;
 	}

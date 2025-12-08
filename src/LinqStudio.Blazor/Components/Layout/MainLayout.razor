@@ -2,12 +2,13 @@
 @implements IDisposable
 @inject IOptionsMonitor<UISettings> UISettings;
 @inject SettingsService SettingsService;
-@inject ILogger<MainLayout> Logger;
+@inject ErrorHandlingService ErrorHandlingService;
 
 <MudThemeProvider Theme="@_theme" IsDarkMode="UISettings.CurrentValue.IsDarkMode" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
+
 <MudLayout>
     <MudAppBar Elevation="1">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@DrawerToggle" />
@@ -26,7 +27,15 @@
     </MudDrawer>
 
     <MudMainContent Class="mainBody pt-16 pa-4">
-        @Body
+        <AppErrorBoundary>
+            @{
+                if (Random.Shared.Next() != 0)
+                {
+                    throw new InvalidCastException();
+                }
+            }
+            @Body
+        </AppErrorBoundary>
     </MudMainContent>
 </MudLayout>
 
@@ -78,7 +87,7 @@
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Failed to update UI settings.");
+            await ErrorHandlingService.HandleErrorAsync(ex, "Failed to update UI settings.");
         }
     }
 
