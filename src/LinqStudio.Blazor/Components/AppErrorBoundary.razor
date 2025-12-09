@@ -1,0 +1,46 @@
+@inject ErrorHandlingService ErrorHandlingService
+@inject ILogger<AppErrorBoundary> Logger
+
+<ErrorBoundary @ref="_errorBoundary">
+    <ChildContent>
+        @ChildContent
+    </ChildContent>
+    <ErrorContent Context="ex">
+        @{
+            // Log and show the error dialog
+            _ = HandleErrorAsync(ex);
+        }
+        <div class="error-boundary-fallback">
+            <MudAlert Severity="Severity.Error" Variant="Variant.Filled">
+                An unexpected error occurred. Please refresh the page.
+            </MudAlert>
+        </div>
+    </ErrorContent>
+</ErrorBoundary>
+
+@code {
+    private ErrorBoundary? _errorBoundary;
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    private async Task HandleErrorAsync(Exception exception)
+    {
+        Logger.LogError(exception, "Unhandled exception caught by AppErrorBoundary");
+        
+        try
+        {
+            await ErrorHandlingService.HandleErrorAsync(exception, "An unexpected error occurred in the application.");
+        }
+        catch (Exception ex)
+        {
+            // If showing the error dialog fails, just log it
+            Logger.LogError(ex, "Failed to show error dialog for unhandled exception");
+        }
+    }
+
+    public void Recover()
+    {
+        _errorBoundary?.Recover();
+    }
+}

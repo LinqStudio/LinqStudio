@@ -1,0 +1,21 @@
+@page "/editor"
+@using BlazorMonaco
+@using BlazorMonaco.Editor
+@using BlazorMonaco.Languages
+@inject IJSRuntime JSRuntime
+@inject MonacoProvidersService MonacoProvidersService
+@inject LinqStudio.Core.Services.CompilerServiceFactory CompilerServiceFactory
+@inject IOptionsMonitor<UISettings> UISettings
+
+<div class="editor-page pa-2" style="height:100%; display:flex; flex-direction:column; gap:8px">
+    <div class="editor-top" style="height:50%">
+        @if (!Delay)
+        {
+            <StandaloneCodeEditor @ref="_editor" Id="editor-top" CssClass="editor" ConstructionOptions="EditorConstructionOptions" OnDidInit="OnEditorInitialized" />
+        }
+    </div>
+
+    <div class="editor-actions ma-2">
+        <MudText Typo="Typo.body2">Editor uses a server-side Roslyn compiler to provide intellisense/completions using the hard-coded TestDbContext and model.</MudText>
+    </div>
+</div>
