@@ -1,0 +1,281 @@
+@page "/projects"
+@using LinqStudio.Blazor.Abstractions
+@using LinqStudio.Core.Models
+@inject ProjectWorkspace Workspace
+@inject IFileSystemService FileSystemService
+@inject ErrorHandlingService ErrorHandlingService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@implements IDisposable
+
+<PageTitle>Projects - LinqStudio</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+	<MudText Typo="Typo.h4" GutterBottom="true">
+		<MudIcon Icon="@Icons.Material.Filled.Folder" Class="mr-2" />
+		Projects
+	</MudText>
+	
+	<MudPaper Class="pa-4 mt-4">
+		<MudStack Spacing="3">
+			<!-- Action Buttons -->
+			<MudStack Row="true" Spacing="2">
+				<MudButton Variant="Variant.Filled" 
+						   Color="Color.Primary" 
+						   StartIcon="@Icons.Material.Filled.Add"
+						   OnClick="ShowNewProjectDialog">
+					New Project
+				</MudButton>
+				
+				<MudButton Variant="Variant.Outlined" 
+						   Color="Color.Primary" 
+						   StartIcon="@Icons.Material.Filled.FolderOpen"
+						   OnClick="OpenProject">
+					Open Project
+				</MudButton>
+			</MudStack>
+			
+			<!-- Current Project Info -->
+			@if (Workspace.IsProjectOpen)
+			{
+				<MudDivider />
+				
+				<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+					<MudText Typo="Typo.h6">Current Project</MudText>
+					@if (Workspace.HasUnsavedChanges)
+					{
+						<MudChip T="string" Size="Size.Small" Color="Color.Warning" Icon="@Icons.Material.Filled.Edit">
+							Unsaved Changes
+						</MudChip>
+					}
+				</MudStack>
+				
+				<MudCard>
+					<MudCardHeader>
+						<CardHeaderContent>
+							<MudText Typo="Typo.h6">@Workspace.CurrentProject!.Name</MudText>
+						</CardHeaderContent>
+						<CardHeaderActions>
+							<MudTooltip Text="Edit project details">
+								<MudIconButton Icon="@Icons.Material.Filled.Edit" 
+											   Color="Color.Primary" 
+											   OnClick="ShowEditProjectDialog" />
+							</MudTooltip>
+							<MudTooltip Text="Save project">
+								<MudIconButton Icon="@Icons.Material.Filled.Save" 
+											   Color="Color.Success" 
+											   OnClick="SaveCurrentProject"
+											   Disabled="@(!Workspace.HasUnsavedChanges)" />
+							</MudTooltip>
+							<MudTooltip Text="Close project">
+								<MudIconButton Icon="@Icons.Material.Filled.Close" 
+											   Color="Color.Default" 
+											   OnClick="CloseProject" />
+							</MudTooltip>
+						</CardHeaderActions>
+					</MudCardHeader>
+					<MudCardContent>
+						<MudStack Spacing="2">
+							<MudText Typo="Typo.body2">
+								<strong>Connection:</strong> @(Workspace.CurrentProject!.ConnectionString ?? "Not configured")
+							</MudText>
+							<MudText Typo="Typo.body2">
+								<strong>Created:</strong> @Workspace.CurrentProject!.CreatedDate.ToString("g")
+							</MudText>
+							<MudText Typo="Typo.body2">
+								<strong>Modified:</strong> @Workspace.CurrentProject!.ModifiedDate.ToString("g")
+							</MudText>
+							<MudText Typo="Typo.body2">
+								<strong>Schema Version:</strong> @Workspace.CurrentProject!.SchemaVersion
+							</MudText>
+							
+							@if (Workspace.CurrentProject!.Models?.Any() == true)
+							{
+								<MudText Typo="Typo.body2">
+									<strong>Models:</strong> @Workspace.CurrentProject!.Models.Count
+								</MudText>
+							}
+							
+							@if (Workspace.CurrentProject!.Queries?.Any() == true)
+							{
+								<MudText Typo="Typo.body2">
+									<strong>Queries:</strong> @Workspace.CurrentProject!.Queries.Count
+								</MudText>
+							}
+							
+							@if (!string.IsNullOrEmpty(Workspace.CurrentFilePath))
+							{
+								<MudText Typo="Typo.body2" Color="Color.Secondary">
+									<strong>File:</strong> @Workspace.CurrentFilePath
+								</MudText>
+							}
+							else
+							{
+								<MudAlert Severity="Severity.Info" Dense="true">
+									Project not saved yet. Click Save to choose a location.
+								</MudAlert>
+							}
+						</MudStack>
+					</MudCardContent>
+				</MudCard>
+			}
+			else
+			{
+				<MudAlert Severity="Severity.Info">
+					No project is currently open. Create a new project or open an existing one to get started.
+				</MudAlert>
+			}
+		</MudStack>
+	</MudPaper>
+</MudContainer>
+
+@code {
+	protected override void OnInitialized()
+	{
+		// Subscribe to workspace changes for reactive UI updates
+		Workspace.WorkspaceChanged += OnWorkspaceChanged;
+	}
+
+	private void OnWorkspaceChanged(object? sender, EventArgs e)
+	{
+		// Trigger UI refresh when workspace state changes
+		InvokeAsync(StateHasChanged);
+	}
+
+	private async Task ShowNewProjectDialog()
+	{
+		var parameters = new DialogParameters<NewProjectDialog>();
+
+		var options = new DialogOptions 
+		{ 
+			CloseOnEscapeKey = true,
+			MaxWidth = MaxWidth.Medium,
+			FullWidth = true
+		};
+
+		var dialog = await DialogService.ShowAsync<NewProjectDialog>("Create New Project", parameters, options);
+		var result = await dialog.Result;
+
+		if (result != null && !result.Canceled && result.Data is (string name, string connectionString))
+		{
+			Workspace.CreateNew(name, connectionString);
+			Snackbar.Add($"Project '{name}' created successfully.", Severity.Success);
+		}
+	}
+
+	private async Task ShowEditProjectDialog()
+	{
+		if (!Workspace.IsProjectOpen)
+			return;
+
+		var parameters = new DialogParameters<EditProjectDialog>
+		{
+			{ x => x.Project, Workspace.CurrentProject! }
+		};
+
+		var options = new DialogOptions 
+		{ 
+			CloseOnEscapeKey = true,
+			MaxWidth = MaxWidth.Medium,
+			FullWidth = true
+		};
+
+		var dialog = await DialogService.ShowAsync<EditProjectDialog>("Edit Project", parameters, options);
+		var result = await dialog.Result;
+
+		if (result != null && !result.Canceled && result.Data is Project updatedProject)
+		{
+			Workspace.Update(updatedProject);
+			Snackbar.Add("Project updated.", Severity.Success);
+		}
+	}
+
+	private async Task OpenProject()
+	{
+		var parameters = new DialogParameters<OpenProjectDialog>
+		{
+			{ x => x.FileSystemService, FileSystemService }
+		};
+		
+		var options = new DialogOptions 
+		{ 
+			CloseOnEscapeKey = true,
+			MaxWidth = MaxWidth.Medium,
+			FullWidth = true
+		};
+
+		var dialog = await DialogService.ShowAsync<OpenProjectDialog>("Open Project", parameters, options);
+		var result = await dialog.Result;
+
+		if (result != null && !result.Canceled && result.Data is string filePath)
+		{
+			try
+			{
+				await Workspace.LoadAsync(filePath);
+				Snackbar.Add($"Project '{Workspace.CurrentProject!.Name}' loaded successfully.", Severity.Success);
+			}
+			catch (Exception ex)
+			{
+				await ErrorHandlingService.HandleErrorAsync(ex, "Failed to open project file.");
+			}
+		}
+	}
+
+	private async Task SaveCurrentProject()
+	{
+		if (!Workspace.IsProjectOpen)
+			return;
+
+		try
+		{
+			// If no file path, show save dialog
+			if (string.IsNullOrEmpty(Workspace.CurrentFilePath))
+			{
+				var parameters = new DialogParameters<SaveProjectDialog>
+				{
+					{ x => x.DefaultFileName, $"{Workspace.CurrentProject!.Name}.linq" },
+					{ x => x.FileSystemService, FileSystemService }
+				};
+				
+				var options = new DialogOptions 
+				{ 
+					CloseOnEscapeKey = true,
+					MaxWidth = MaxWidth.Medium,
+					FullWidth = true
+				};
+
+				var dialog = await DialogService.ShowAsync<SaveProjectDialog>("Save Project As", parameters, options);
+				var result = await dialog.Result;
+
+				if (result == null || result.Canceled || result.Data is not string filePath)
+				{
+					return;
+				}
+
+				await Workspace.SaveAsAsync(filePath);
+			}
+			else
+			{
+				await Workspace.SaveAsync();
+			}
+			
+			Snackbar.Add($"Project saved successfully.", Severity.Success);
+		}
+		catch (Exception ex)
+		{
+			await ErrorHandlingService.HandleErrorAsync(ex, "Failed to save project.");
+		}
+	}
+
+	private void CloseProject()
+	{
+		Workspace.Close();
+		Snackbar.Add("Project closed.", Severity.Info);
+	}
+
+	public void Dispose()
+	{
+		// Unsubscribe from workspace events
+		Workspace.WorkspaceChanged -= OnWorkspaceChanged;
+	}
+}

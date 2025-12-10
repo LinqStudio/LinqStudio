@@ -1,0 +1,54 @@
+@using LinqStudio.Blazor.Abstractions
+
+<MudDialog>
+	<DialogContent>
+		<MudText Typo="Typo.body1" GutterBottom="true">
+			Enter the path to the project file (.linq):
+		</MudText>
+		
+		<MudTextField @bind-Value="_filePath" 
+					  Label="File Path" 
+					  Required="true"
+					  Immediate="true"
+					  HelperText="Example: C:\Projects\MyProject.linq"
+					  Adornment="Adornment.End"
+					  AdornmentIcon="@Icons.Material.Filled.FolderOpen" />
+		
+		<MudAlert Severity="Severity.Info" Class="mt-4">
+			<strong>Note:</strong> Make sure the file path is accessible by the server.
+		</MudAlert>
+	</DialogContent>
+	<DialogActions>
+		<MudButton OnClick="Cancel">Cancel</MudButton>
+		<MudButton Color="Color.Primary" 
+				   Variant="Variant.Filled" 
+				   OnClick="Open"
+				   Disabled="@string.IsNullOrWhiteSpace(_filePath)">
+			Open
+		</MudButton>
+	</DialogActions>
+</MudDialog>
+
+@code {
+	[CascadingParameter] 
+	private IMudDialogInstance MudDialog { get; set; } = null!;
+	
+	[Parameter]
+	public IFileSystemService FileSystemService { get; set; } = null!;
+
+	private string _filePath = string.Empty;
+
+	protected override async Task OnInitializedAsync()
+	{
+		// Get default path from file system service
+		var defaultPath = FileSystemService.GetDefaultDocumentsPath();
+		_filePath = defaultPath;
+	}
+
+	private void Cancel() => MudDialog.Cancel();
+
+	private void Open()
+	{
+		MudDialog.Close(DialogResult.Ok(_filePath));
+	}
+}

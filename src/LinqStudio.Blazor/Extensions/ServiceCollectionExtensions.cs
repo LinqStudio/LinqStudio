@@ -13,6 +13,8 @@ public static class ServiceCollectionExtensions
 		services.AddScoped<MonacoProvidersService>();
 		services.AddScoped<ErrorHandlingService>();
 
+		services.AddScoped<ProjectWorkspace>();
+
 		return services;
 	}
 }

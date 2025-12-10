@@ -1,4 +1,6 @@
 @page "/editor"
+@page "/editor/{QueryIndexParam}"
+@page "/editor/new"
 @using BlazorMonaco
 @using BlazorMonaco.Editor
 @using BlazorMonaco.Languages
@@ -6,16 +8,83 @@
 @inject MonacoProvidersService MonacoProvidersService
 @inject LinqStudio.Core.Services.CompilerServiceFactory CompilerServiceFactory
 @inject IOptionsMonitor<UISettings> UISettings
+@inject ProjectWorkspace Workspace
+@inject NavigationManager NavigationManager
+
+<PageTitle>Editor - LinqStudio</PageTitle>
 
 <div class="editor-page pa-2" style="height:100%; display:flex; flex-direction:column; gap:8px">
-    <div class="editor-top" style="height:50%">
-        @if (!Delay)
-        {
-            <StandaloneCodeEditor @ref="_editor" Id="editor-top" CssClass="editor" ConstructionOptions="EditorConstructionOptions" OnDidInit="OnEditorInitialized" />
-        }
-    </div>
+	@if (Workspace.IsProjectOpen)
+	{
+		<!-- Query Info Bar -->
+		<MudPaper Class="pa-2" Elevation="1">
+			<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+				<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+					<MudIcon Icon="@Icons.Material.Filled.Description" Size="Size.Small" />
+					<MudText Typo="Typo.body1">
+						<strong>@(Workspace.CurrentQuery?.Name ?? "New Query")</strong>
+					</MudText>
+					@if (Workspace.HasUnsavedChanges)
+					{
+						<MudChip T="string" Size="Size.Small" Color="Color.Warning" Icon="@Icons.Material.Filled.Edit">Unsaved</MudChip>
+					}
+				</MudStack>
+				<MudStack Row="true" Spacing="1">
+					<MudTooltip Text="Rename query">
+						<MudIconButton Icon="@Icons.Material.Filled.Edit" 
+									   Size="Size.Small"
+									   OnClick="RenameQuery" />
+					</MudTooltip>
+					<MudTooltip Text="Save project">
+						<MudIconButton Icon="@Icons.Material.Filled.Save" 
+									   Color="Color.Success"
+									   Size="Size.Small"
+									   Disabled="@(!Workspace.HasUnsavedChanges)" />
+					</MudTooltip>
+				</MudStack>
+			</MudStack>
+		</MudPaper>
 
-    <div class="editor-actions ma-2">
-        <MudText Typo="Typo.body2">Editor uses a server-side Roslyn compiler to provide intellisense/completions using the hard-coded TestDbContext and model.</MudText>
-    </div>
+		<!-- Monaco Editor -->
+		<div class="editor-top" style="flex:1">
+			@if (!Delay)
+			{
+				<StandaloneCodeEditor @ref="_editor" 
+									  Id="editor-top" 
+									  CssClass="editor" 
+									  ConstructionOptions="EditorConstructionOptions" 
+									  OnDidInit="OnEditorInitialized"
+									  OnDidChangeModelContent="OnEditorContentChanged" />
+			}
+		</div>
+
+		<!-- Editor Actions -->
+		<MudPaper Class="pa-2" Elevation="1">
+			<MudText Typo="Typo.body2" Color="Color.Secondary">
+				Editor provides IntelliSense using Roslyn compiler with EF Core support
+			</MudText>
+		</MudPaper>
+	}
+	else
+	{
+		<!-- No Project Open -->
+		<MudPaper Class="pa-8 d-flex flex-column align-center justify-center" Style="height: 100%">
+			<MudIcon Icon="@Icons.Material.Filled.FolderOff" Size="Size.Large" Color="Color.Default" Class="mb-4" />
+			<MudText Typo="Typo.h5" Align="Align.Center" GutterBottom="true">No Project Open</MudText>
+			<MudText Typo="Typo.body1" Align="Align.Center" Color="Color.Secondary" Class="mb-4">
+				Open or create a project to start writing LINQ queries
+			</MudText>
+			<MudButton Variant="Variant.Filled" 
+					   Color="Color.Primary" 
+					   StartIcon="@Icons.Material.Filled.Folder"
+					   Href="/projects">
+				Go to Projects
+			</MudButton>
+		</MudPaper>
+	}
 </div>
+
+@code {
+	[Parameter]
+	public string? QueryIndexParam { get; set; }
+}

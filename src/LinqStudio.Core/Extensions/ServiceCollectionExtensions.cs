@@ -1,4 +1,5 @@
 ﻿using LinqStudio.Core.Abstractions;
+using LinqStudio.Core.Models;
 using LinqStudio.Core.Services;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -8,6 +9,10 @@ public static class ServiceCollectionExtensions
 {
 	public static IServiceCollection AddLinqStudio(this IServiceCollection services)
 	{
+		// Register default version config
+		services.AddSingleton<ProjectVersionConfig>();
+		services.AddSingleton<ProjectService>();
+
 		AddAndBindOptions(services);
 
 		// register the CompilerServiceFactory so Blazor components can create CompilerService instances

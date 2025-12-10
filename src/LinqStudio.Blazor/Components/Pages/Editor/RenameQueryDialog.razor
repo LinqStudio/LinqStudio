@@ -1,0 +1,41 @@
+<MudDialog>
+	<DialogContent>
+		<MudTextField @bind-Value="_newName" 
+					  Label="Query Name" 
+					  Required="true"
+					  Immediate="true"
+					  Placeholder="Enter query name"
+					  AutoFocus="true" />
+	</DialogContent>
+	<DialogActions>
+		<MudButton OnClick="Cancel">Cancel</MudButton>
+		<MudButton Color="Color.Primary" 
+				   Variant="Variant.Filled" 
+				   OnClick="Rename"
+				   Disabled="@string.IsNullOrWhiteSpace(_newName)">
+			Rename
+		</MudButton>
+	</DialogActions>
+</MudDialog>
+
+@code {
+	[CascadingParameter] 
+	IMudDialogInstance MudDialog { get; set; } = null!;
+	
+	[Parameter]
+	public string CurrentName { get; set; } = string.Empty;
+
+	private string _newName = string.Empty;
+
+	protected override void OnInitialized()
+	{
+		_newName = CurrentName;
+	}
+
+	private void Cancel() => MudDialog.Cancel();
+
+	private void Rename()
+	{
+		MudDialog.Close(DialogResult.Ok(_newName));
+	}
+}

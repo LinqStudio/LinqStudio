@@ -1,0 +1,53 @@
+@using LinqStudio.Blazor.Abstractions
+
+<MudDialog>
+	<DialogContent>
+		<MudText Typo="Typo.body1" GutterBottom="true">
+			Enter the path where you want to save the project:
+		</MudText>
+		
+		<MudTextField @bind-Value="_filePath" 
+					  Label="File Path" 
+					  Required="true"
+					  Immediate="true"
+					  HelperText="Example: C:\Projects\MyProject.linq"
+					  Adornment="Adornment.End"
+					  AdornmentIcon="@Icons.Material.Filled.Save" />
+	</DialogContent>
+	<DialogActions>
+		<MudButton OnClick="Cancel">Cancel</MudButton>
+		<MudButton Color="Color.Primary" 
+				   Variant="Variant.Filled" 
+				   OnClick="Save"
+				   Disabled="@string.IsNullOrWhiteSpace(_filePath)">
+			Save
+		</MudButton>
+	</DialogActions>
+</MudDialog>
+
+@code {
+	[CascadingParameter] 
+	private IMudDialogInstance MudDialog { get; set; } = null!;
+	
+	[Parameter]
+	public string DefaultFileName { get; set; } = "project.linq";
+	
+	[Parameter]
+	public IFileSystemService FileSystemService { get; set; } = null!;
+
+	private string _filePath = string.Empty;
+
+	protected override async Task OnInitializedAsync()
+	{
+		// Use file system service to get default path
+		var suggestedPath = await FileSystemService.PromptSaveFileAsync(DefaultFileName);
+		_filePath = suggestedPath ?? Path.Combine(FileSystemService.GetDefaultDocumentsPath(), DefaultFileName);
+	}
+
+	private void Cancel() => MudDialog.Cancel();
+
+	private void Save()
+	{
+		MudDialog.Close(DialogResult.Ok(_filePath));
+	}
+}

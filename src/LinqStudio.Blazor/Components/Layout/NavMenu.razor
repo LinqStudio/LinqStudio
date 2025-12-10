@@ -1,3 +1,71 @@
-﻿<MudNavMenu>
-    <MudNavLink Href="/editor" Icon="@Icons.Material.Filled.Code">Editor</MudNavLink>
+﻿@inject ProjectWorkspace Workspace
+@inject NavigationManager NavigationManager
+@implements IDisposable
+
+<MudNavMenu>
+	<MudNavLink Href="/" Icon="@Icons.Material.Filled.Home" Match="NavLinkMatch.All">Home</MudNavLink>
+	<MudNavLink Href="/projects" Icon="@Icons.Material.Filled.Folder">Projects</MudNavLink>
+	
+	@if (Workspace.IsProjectOpen)
+	{
+		<MudNavGroup Title="Queries" Icon="@Icons.Material.Filled.Code" Expanded="@_queriesExpanded">
+			<MudNavLink Href="/editor" Icon="@Icons.Material.Filled.Add" OnClick="@(() => CreateNewQuery())">
+				New Query
+			</MudNavLink>
+			
+			<MudDivider Class="my-2" />
+			
+			@if (Workspace.CurrentProject!.Queries?.Any() == true)
+			{
+				@foreach (var (query, index) in Workspace.CurrentProject!.Queries.Select((q, i) => (q, i)))
+				{
+					<MudNavLink Href="@GetQueryEditorUrl(index)" 
+								Icon="@Icons.Material.Filled.Description"
+								Match="NavLinkMatch.All">
+						@query.Name
+					</MudNavLink>
+				}
+			}
+			else
+			{
+				<MudText Typo="Typo.body2" Color="Color.Secondary" Class="px-4 py-2">
+					No queries yet
+				</MudText>
+			}
+		</MudNavGroup>
+	}
+	else
+	{
+		<MudNavLink Href="/editor" Icon="@Icons.Material.Filled.Code" Disabled="true">Editor</MudNavLink>
+	}
 </MudNavMenu>
+
+@code {
+	private bool _queriesExpanded = true;
+
+	protected override void OnInitialized()
+	{
+		Workspace.WorkspaceChanged += OnWorkspaceChanged;
+	}
+
+	private void OnWorkspaceChanged(object? sender, EventArgs e)
+	{
+		InvokeAsync(StateHasChanged);
+	}
+
+	private void CreateNewQuery()
+	{
+		// Navigate to editor with a flag to create a new query
+		NavigationManager.NavigateTo("/editor/new");
+	}
+
+	private string GetQueryEditorUrl(int queryIndex)
+	{
+		return $"/editor/{queryIndex}";
+	}
+
+	public void Dispose()
+	{
+		Workspace.WorkspaceChanged -= OnWorkspaceChanged;
+	}
+}
