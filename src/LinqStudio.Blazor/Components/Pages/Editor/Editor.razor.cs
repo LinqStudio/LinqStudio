@@ -5,8 +5,6 @@ using LinqStudio.Blazor.Services;
 using LinqStudio.Core.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.CodeAnalysis.Tags;
-using Microsoft.Extensions.Options;
-using System.Text;
 
 namespace LinqStudio.Blazor.Components.Pages.Editor;
 

@@ -1,4 +1,4 @@
-﻿using LinqStudio.Core.Abstractions;
+﻿using LinqStudio.Abstractions;
 using LinqStudio.Core.Services;
 using Microsoft.Extensions.DependencyInjection;
 
