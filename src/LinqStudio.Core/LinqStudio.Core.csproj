@@ -11,7 +11,7 @@
 
 	<ItemGroup>
 	  <ProjectReference Include="..\LinqStudio.Abstractions\LinqStudio.Abstractions.csproj" />
-	  <ProjectReference Include="..\LinqStudio.Database.MSSQL\LinqStudio.Databases.csproj" />
+	  <ProjectReference Include="..\LinqStudio.Database\LinqStudio.Databases.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>
