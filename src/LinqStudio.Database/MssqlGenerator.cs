@@ -155,40 +155,48 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 	{
 		var foreignKeys = new List<ForeignKey>();
 
+		// SQL Server doesn't support GetSchema("ForeignKeys"), use query instead
+		const string query = """
+			SELECT 
+				fk.name AS ForeignKeyName,
+				c.name AS ColumnName,
+				rs.name + '.' + rt.name AS ReferencedTable,
+				rc.name AS ReferencedColumn
+			FROM sys.foreign_keys fk
+			INNER JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id
+			INNER JOIN sys.columns c ON fkc.parent_object_id = c.object_id AND fkc.parent_column_id = c.column_id
+			INNER JOIN sys.tables rt ON fkc.referenced_object_id = rt.object_id
+			INNER JOIN sys.schemas rs ON rt.schema_id = rs.schema_id
+			INNER JOIN sys.columns rc ON fkc.referenced_object_id = rc.object_id AND fkc.referenced_column_id = rc.column_id
+			WHERE fk.parent_object_id = OBJECT_ID(@TableName)
+			ORDER BY fk.name
+			""";
+
+		await using var command = connection.CreateCommand();
+		command.CommandText = query;
+		
+		var parameter = command.CreateParameter();
+		parameter.ParameterName = "@TableName";
+		parameter.Value = $"{schema}.{tableName}";
+		command.Parameters.Add(parameter);
+
 		try
 		{
-			// Use GetSchema for foreign keys
-			var restrictions = new string?[] { null, schema, tableName, null };
-			var foreignKeysSchema = await Task.Run(() => connection.GetSchema("ForeignKeys", restrictions), cancellationToken);
-
-			foreach (DataRow row in foreignKeysSchema.Rows)
+			await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+			while (await reader.ReadAsync(cancellationToken))
 			{
-				var constraintName = row["CONSTRAINT_NAME"]?.ToString();
-				var fkeyFromColumn = row["FKEY_FROM_COLUMN"]?.ToString();
-				var fkeyToSchema = row["FKEY_TO_SCHEMA"]?.ToString();
-				var fkeyToTable = row["FKEY_TO_TABLE"]?.ToString();
-				var fkeyToColumn = row["FKEY_TO_COLUMN"]?.ToString();
-
-				if (string.IsNullOrEmpty(constraintName) || string.IsNullOrEmpty(fkeyFromColumn) ||
-					string.IsNullOrEmpty(fkeyToTable) || string.IsNullOrEmpty(fkeyToColumn))
-					continue;
-
-				var fullReferencedTable = !string.IsNullOrEmpty(fkeyToSchema)
-					? $"{fkeyToSchema}.{fkeyToTable}"
-					: fkeyToTable;
-
 				foreignKeys.Add(new ForeignKey
 				{
-					Name = constraintName,
-					ColumnName = fkeyFromColumn,
-					ReferencedTable = fullReferencedTable,
-					ReferencedColumn = fkeyToColumn
+					Name = reader.GetString(0),
+					ColumnName = reader.GetString(1),
+					ReferencedTable = reader.GetString(2),
+					ReferencedColumn = reader.GetString(3)
 				});
 			}
 		}
 		catch
 		{
-			// If ForeignKeys schema collection is not supported, return empty list
+			// If query fails, return empty list
 		}
 
 		return foreignKeys;

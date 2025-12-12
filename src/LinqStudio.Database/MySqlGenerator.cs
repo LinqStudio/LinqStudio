@@ -76,74 +76,60 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 	{
 		var columns = new List<TableColumn>();
 
-		// Use GetSchema for columns
-		var restrictions = new string?[] { schema, null, tableName, null };
-		var columnsSchema = await Task.Run(() => connection.GetSchema("Columns", restrictions), cancellationToken);
+		// MySQL doesn't always work well with GetSchema("Columns"), use query instead
+		const string query = """
+			SELECT 
+				c.COLUMN_NAME,
+				c.DATA_TYPE,
+				c.IS_NULLABLE,
+				c.COLUMN_KEY,
+				c.EXTRA,
+				c.CHARACTER_MAXIMUM_LENGTH,
+				c.NUMERIC_PRECISION,
+				c.NUMERIC_SCALE
+			FROM INFORMATION_SCHEMA.COLUMNS c
+			WHERE c.TABLE_SCHEMA = @Schema
+				AND c.TABLE_NAME = @TableName
+			ORDER BY c.ORDINAL_POSITION
+			""";
 
-		foreach (DataRow row in columnsSchema.Rows)
+		await using var command = connection.CreateCommand();
+		command.CommandText = query;
+		
+		var schemaParam = command.CreateParameter();
+		schemaParam.ParameterName = "@Schema";
+		schemaParam.Value = schema;
+		command.Parameters.Add(schemaParam);
+
+		var tableParam = command.CreateParameter();
+		tableParam.ParameterName = "@TableName";
+		tableParam.Value = tableName;
+		command.Parameters.Add(tableParam);
+
+		try
 		{
-			var columnName = row["COLUMN_NAME"]?.ToString();
-			if (string.IsNullOrEmpty(columnName))
-				continue;
-
-			var dataType = row["DATA_TYPE"]?.ToString() ?? "unknown";
-			var isNullable = row["IS_NULLABLE"]?.ToString() == "YES";
-			var columnKey = row["COLUMN_KEY"]?.ToString();
-			var isPrimaryKey = columnKey == "PRI";
-
-			// Parse max length
-			int? maxLength = null;
-			if (row.Table.Columns.Contains("CHARACTER_MAXIMUM_LENGTH") && !row.IsNull("CHARACTER_MAXIMUM_LENGTH"))
+			await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+			while (await reader.ReadAsync(cancellationToken))
 			{
-				var maxLengthValue = row["CHARACTER_MAXIMUM_LENGTH"];
-				if (maxLengthValue != DBNull.Value)
+				var columnKey = reader.GetString(3);
+				var extra = reader.GetString(4);
+				
+				columns.Add(new TableColumn
 				{
-					if (long.TryParse(maxLengthValue.ToString(), out var longValue))
-						maxLength = longValue > int.MaxValue ? int.MaxValue : (int)longValue;
-				}
+					Name = reader.GetString(0),
+					DataType = reader.GetString(1),
+					IsNullable = reader.GetString(2) == "YES",
+					IsPrimaryKey = columnKey == "PRI",
+					IsIdentity = extra.Contains("auto_increment", StringComparison.OrdinalIgnoreCase),
+					MaxLength = reader.IsDBNull(5) ? null : Convert.ToInt32(reader.GetValue(5)),
+					Precision = reader.IsDBNull(6) ? null : Convert.ToInt32(reader.GetValue(6)),
+					Scale = reader.IsDBNull(7) ? null : Convert.ToInt32(reader.GetValue(7))
+				});
 			}
-
-			// Parse precision and scale
-			int? precision = null;
-			int? scale = null;
-			if (row.Table.Columns.Contains("NUMERIC_PRECISION") && !row.IsNull("NUMERIC_PRECISION"))
-			{
-				var precisionValue = row["NUMERIC_PRECISION"];
-				if (precisionValue != DBNull.Value)
-				{
-					if (long.TryParse(precisionValue.ToString(), out var longValue))
-						precision = longValue > int.MaxValue ? int.MaxValue : (int)longValue;
-				}
-			}
-			if (row.Table.Columns.Contains("NUMERIC_SCALE") && !row.IsNull("NUMERIC_SCALE"))
-			{
-				var scaleValue = row["NUMERIC_SCALE"];
-				if (scaleValue != DBNull.Value)
-				{
-					if (long.TryParse(scaleValue.ToString(), out var longValue))
-						scale = longValue > int.MaxValue ? int.MaxValue : (int)longValue;
-				}
-			}
-
-			// Check for auto increment (MySQL specific)
-			var isIdentity = false;
-			if (row.Table.Columns.Contains("EXTRA") && !row.IsNull("EXTRA"))
-			{
-				var extra = row["EXTRA"]?.ToString() ?? "";
-				isIdentity = extra.Contains("auto_increment", StringComparison.OrdinalIgnoreCase);
-			}
-
-			columns.Add(new TableColumn
-			{
-				Name = columnName,
-				DataType = dataType,
-				IsNullable = isNullable,
-				IsPrimaryKey = isPrimaryKey,
-				IsIdentity = isIdentity,
-				MaxLength = maxLength,
-				Precision = precision,
-				Scale = scale
-			});
+		}
+		catch
+		{
+			// If query fails, return empty list
 		}
 
 		return columns;
@@ -153,40 +139,50 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 	{
 		var foreignKeys = new List<ForeignKey>();
 
+		// MySQL: use INFORMATION_SCHEMA query for foreign keys
+		const string query = """
+			SELECT 
+				kcu.CONSTRAINT_NAME,
+				kcu.COLUMN_NAME,
+				CONCAT(kcu.REFERENCED_TABLE_SCHEMA, '.', kcu.REFERENCED_TABLE_NAME) AS ReferencedTable,
+				kcu.REFERENCED_COLUMN_NAME
+			FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu
+			WHERE kcu.TABLE_SCHEMA = @Schema
+				AND kcu.TABLE_NAME = @TableName
+				AND kcu.REFERENCED_TABLE_NAME IS NOT NULL
+			ORDER BY kcu.CONSTRAINT_NAME, kcu.ORDINAL_POSITION
+			""";
+
+		await using var command = connection.CreateCommand();
+		command.CommandText = query;
+		
+		var schemaParam = command.CreateParameter();
+		schemaParam.ParameterName = "@Schema";
+		schemaParam.Value = schema;
+		command.Parameters.Add(schemaParam);
+
+		var tableParam = command.CreateParameter();
+		tableParam.ParameterName = "@TableName";
+		tableParam.Value = tableName;
+		command.Parameters.Add(tableParam);
+
 		try
 		{
-			// Use GetSchema for foreign keys - MySQL uses "Foreign Keys" collection
-			var restrictions = new string?[] { schema, null, tableName, null };
-			var foreignKeysSchema = await Task.Run(() => connection.GetSchema("Foreign Keys", restrictions), cancellationToken);
-
-			foreach (DataRow row in foreignKeysSchema.Rows)
+			await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+			while (await reader.ReadAsync(cancellationToken))
 			{
-				var constraintName = row["CONSTRAINT_NAME"]?.ToString();
-				var columnName = row["COLUMN_NAME"]?.ToString();
-				var referencedSchema = row["REFERENCED_TABLE_SCHEMA"]?.ToString();
-				var referencedTable = row["REFERENCED_TABLE_NAME"]?.ToString();
-				var referencedColumn = row["REFERENCED_COLUMN_NAME"]?.ToString();
-
-				if (string.IsNullOrEmpty(constraintName) || string.IsNullOrEmpty(columnName) ||
-					string.IsNullOrEmpty(referencedTable) || string.IsNullOrEmpty(referencedColumn))
-					continue;
-
-				var fullReferencedTable = !string.IsNullOrEmpty(referencedSchema)
-					? $"{referencedSchema}.{referencedTable}"
-					: referencedTable;
-
 				foreignKeys.Add(new ForeignKey
 				{
-					Name = constraintName,
-					ColumnName = columnName,
-					ReferencedTable = fullReferencedTable,
-					ReferencedColumn = referencedColumn
+					Name = reader.GetString(0),
+					ColumnName = reader.GetString(1),
+					ReferencedTable = reader.GetString(2),
+					ReferencedColumn = reader.GetString(3)
 				});
 			}
 		}
 		catch
 		{
-			// If Foreign Keys schema collection is not supported, return empty list
+			// If query fails, return empty list
 		}
 
 		return foreignKeys;
