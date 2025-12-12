@@ -4,6 +4,7 @@
 1. Never remove, skip or deactive any tests.
 2. When asked for new features or changes, always ensure that relevant tests are added or updated. DO NOT stop working until all tests pass, at all time (unless explicitely told otherwise)
 3. During testing, run all the tests not just specific ones. NEVER leave before you ran the tests. If you make any change at all (such as code review changes) you MUST rerun the tests again, ALL THE TESTS.
+4. If you encounter anything worth nothing, or add new features or functionnalities then create a "copilot.md" file in that directory and add the information to it (or to any existing "copilot.md" file). This is important to keep track of all the changes and information for future reference. For example, if creating a new service for a specific use, add a simple 1-2 lines in copilot.md in the directory of that service.
 
 ## Project Overview
 LinqStudio is a .NET 10 Blazor web application providing an IDE-like interface for writing and executing EF Core LINQ queries, replacing the use of software such as SQL Server Management Studio. It uses Roslyn compiler APIs for intellisense/autocomplete. The architecture follows a layered approach with a core service layer, Blazor UI components, and an Aspire-based app host for orchestration.
