@@ -68,17 +68,21 @@ public abstract class DatabaseGeneratorTestsBase : IAsyncLifetime
 		// Create database and apply migrations
 		await context.Database.EnsureCreatedAsync();
 
-		// Generate and insert test data
+		// Generate and insert test data - IDs will be auto-generated
 		var customers = BogusDataGenerator.GenerateCustomers(10);
-		var products = BogusDataGenerator.GenerateProducts(20);
-		var orders = BogusDataGenerator.GenerateOrders(customers, 3);
-		var orderItems = BogusDataGenerator.GenerateOrderItems(orders, products);
-
 		await context.Customers.AddRangeAsync(customers);
-		await context.Products.AddRangeAsync(products);
-		await context.Orders.AddRangeAsync(orders);
-		await context.OrderItems.AddRangeAsync(orderItems);
+		await context.SaveChangesAsync(); // Save to get IDs
 
+		var products = BogusDataGenerator.GenerateProducts(20);
+		await context.Products.AddRangeAsync(products);
+		await context.SaveChangesAsync(); // Save to get IDs
+
+		var orders = BogusDataGenerator.GenerateOrders(customers, 3);
+		await context.Orders.AddRangeAsync(orders);
+		await context.SaveChangesAsync(); // Save to get IDs
+
+		var orderItems = BogusDataGenerator.GenerateOrderItems(orders, products);
+		await context.OrderItems.AddRangeAsync(orderItems);
 		await context.SaveChangesAsync();
 	}
 

@@ -66,9 +66,7 @@ public static class BogusDataGenerator
 	/// </summary>
 	public static List<Customer> GenerateCustomers(int count = 10)
 	{
-		var customerId = 1;
 		var faker = new Faker<Customer>()
-			.RuleFor(c => c.Id, _ => customerId++)
 			.RuleFor(c => c.FirstName, f => f.Name.FirstName())
 			.RuleFor(c => c.LastName, f => f.Name.LastName())
 			.RuleFor(c => c.Email, (f, c) => f.Internet.Email(c.FirstName, c.LastName))
@@ -82,9 +80,7 @@ public static class BogusDataGenerator
 	/// </summary>
 	public static List<Product> GenerateProducts(int count = 20)
 	{
-		var productId = 1;
 		var faker = new Faker<Product>()
-			.RuleFor(p => p.Id, _ => productId++)
 			.RuleFor(p => p.Name, f => f.Commerce.ProductName())
 			.RuleFor(p => p.Description, f => f.Commerce.ProductDescription())
 			.RuleFor(p => p.Price, f => f.Random.Decimal(10, 1000))
@@ -98,13 +94,11 @@ public static class BogusDataGenerator
 	/// </summary>
 	public static List<Order> GenerateOrders(List<Customer> customers, int ordersPerCustomer = 3)
 	{
-		var orderId = 1;
 		var orders = new List<Order>();
 
 		foreach (var customer in customers)
 		{
 			var faker = new Faker<Order>()
-				.RuleFor(o => o.Id, _ => orderId++)
 				.RuleFor(o => o.CustomerId, _ => customer.Id)
 				.RuleFor(o => o.OrderNumber, f => f.Random.AlphaNumeric(10).ToUpper())
 				.RuleFor(o => o.OrderDate, f => f.Date.Between(customer.CreatedDate, DateTime.Now))
@@ -121,7 +115,6 @@ public static class BogusDataGenerator
 	/// </summary>
 	public static List<OrderItem> GenerateOrderItems(List<Order> orders, List<Product> products)
 	{
-		var orderItemId = 1;
 		var orderItems = new List<OrderItem>();
 		var random = new Random();
 
@@ -133,7 +126,6 @@ public static class BogusDataGenerator
 			foreach (var product in selectedProducts)
 			{
 				var faker = new Faker<OrderItem>()
-					.RuleFor(oi => oi.Id, _ => orderItemId++)
 					.RuleFor(oi => oi.OrderId, _ => order.Id)
 					.RuleFor(oi => oi.ProductId, _ => product.Id)
 					.RuleFor(oi => oi.Quantity, f => f.Random.Int(1, 10))
