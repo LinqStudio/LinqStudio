@@ -20,7 +20,7 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 	}
 
 	/// <inheritdoc/>
-	protected override DatabaseTable? ParseTableFromSchemaRow(DataRow row)
+	protected override DatabaseTableName? ParseTableFromSchemaRow(DataRow row)
 	{
 		var schema = row["TABLE_SCHEMA"]?.ToString();
 		var tableName = row["TABLE_NAME"]?.ToString();
@@ -30,7 +30,7 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 		if (tableType != "BASE TABLE" || string.IsNullOrEmpty(tableName))
 			return null;
 
-		return new DatabaseTable
+		return new DatabaseTableName
 		{
 			Schema = schema,
 			Name = tableName
@@ -38,7 +38,7 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 	}
 
 	/// <inheritdoc/>
-	public override async Task<DatabaseTable> GetTableAsync(string tableName, CancellationToken cancellationToken = default)
+	public override async Task<DatabaseTableDetail> GetTableAsync(string tableName, CancellationToken cancellationToken = default)
 	{
 		var (schema, name) = ParseTableName(tableName);
 		schema ??= "dbo"; // Default schema for SQL Server
@@ -57,7 +57,7 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 			// Get foreign keys using database-specific query
 			var foreignKeys = await GetForeignKeysAsync(connection, schema, name, cancellationToken);
 
-			return new DatabaseTable
+			return new DatabaseTableDetail
 			{
 				Schema = schema,
 				Name = name,

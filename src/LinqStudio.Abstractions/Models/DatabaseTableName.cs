@@ -1,9 +1,9 @@
 namespace LinqStudio.Abstractions.Models;
 
 /// <summary>
-/// Represents a database table with its schema, columns, and foreign keys.
+/// Represents a database table with its schema and table name
 /// </summary>
-public record DatabaseTable
+public record DatabaseTableName
 {
 	/// <summary>
 	/// Schema name (e.g., "dbo", "public"). May be null for databases without schema support.
@@ -20,13 +20,4 @@ public record DatabaseTable
 	/// </summary>
 	public string FullName => Schema != null ? $"{Schema}.{Name}" : Name;
 
-	/// <summary>
-	/// List of columns in the table. Populated only when retrieving detailed table information.
-	/// </summary>
-	public IReadOnlyList<TableColumn>? Columns { get; init; }
-
-	/// <summary>
-	/// List of foreign keys in the table. Populated only when retrieving detailed table information.
-	/// </summary>
-	public IReadOnlyList<ForeignKey>? ForeignKeys { get; init; }
 }

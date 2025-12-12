@@ -27,9 +27,9 @@ public abstract class AdoNetDatabaseGeneratorBase : IDatabaseQueryGenerator
 	}
 
 	/// <inheritdoc/>
-	public async Task<IReadOnlyList<DatabaseTable>> GetTablesAsync(CancellationToken cancellationToken = default)
+	public async Task<IReadOnlyList<DatabaseTableName>> GetTablesAsync(CancellationToken cancellationToken = default)
 	{
-		var tables = new List<DatabaseTable>();
+		var tables = new List<DatabaseTableName>();
 		var connection = Database.GetDbConnection();
 		
 		var wasOpen = connection.State == ConnectionState.Open;
@@ -58,12 +58,12 @@ public abstract class AdoNetDatabaseGeneratorBase : IDatabaseQueryGenerator
 	}
 
 	/// <inheritdoc/>
-	public abstract Task<DatabaseTable> GetTableAsync(string tableName, CancellationToken cancellationToken = default);
+	public abstract Task<DatabaseTableDetail> GetTableAsync(string tableName, CancellationToken cancellationToken = default);
 
 	/// <summary>
 	/// Parses a table from a DataRow from the Tables schema collection.
 	/// </summary>
-	protected abstract DatabaseTable? ParseTableFromSchemaRow(DataRow row);
+	protected abstract DatabaseTableName? ParseTableFromSchemaRow(DataRow row);
 
 	/// <summary>
 	/// Parses a table name into schema and name components.
