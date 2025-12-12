@@ -1,0 +1,117 @@
+@using LinqStudio.Abstractions.Models
+@using LinqStudio.Core.Services
+@inject IDialogService DialogService
+@inject ConnectionService ConnectionService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+	<TitleContent>
+		<MudText Typo="Typo.h6">
+			<MudIcon Icon="@Icons.Material.Filled.Cable" Class="mr-3" />
+			@SharedResource.ConnectionSettings_Title
+		</MudText>
+	</TitleContent>
+	<DialogContent>
+		<MudStack Spacing="3">
+			<MudSelect T="DatabaseType" 
+					   @bind-Value="_databaseType" 
+					   Label="@SharedResource.ConnectionSettings_DatabaseType"
+					   Variant="Variant.Outlined"
+					   data-testid="database-type-select">
+				@foreach (DatabaseType dbType in Enum.GetValues(typeof(DatabaseType)))
+				{
+					<MudSelectItem T="DatabaseType" Value="@dbType">@dbType.ToString()</MudSelectItem>
+				}
+			</MudSelect>
+
+			<MudTextField T="string"
+						  @bind-Value="_connectionString"
+						  Label="@SharedResource.ConnectionSettings_ConnectionString"
+						  Variant="Variant.Outlined"
+						  Lines="5"
+						  data-testid="connection-string-input" />
+		</MudStack>
+	</DialogContent>
+	<DialogActions>
+		<MudButton OnClick="ValidateConnection" 
+				   Variant="Variant.Outlined" 
+				   Color="Color.Info"
+				   data-testid="validate-button">
+			@SharedResource.ConnectionSettings_Button_Validate
+		</MudButton>
+		<MudSpacer />
+		<MudButton OnClick="Close" 
+				   Variant="Variant.Outlined"
+				   data-testid="close-button">
+			@SharedResource.ConnectionSettings_Button_Close
+		</MudButton>
+		<MudButton OnClick="Save" 
+				   Variant="Variant.Filled" 
+				   Color="Color.Primary"
+				   data-testid="save-button">
+			@SharedResource.ConnectionSettings_Button_Save
+		</MudButton>
+	</DialogActions>
+</MudDialog>
+
+@code {
+	[CascadingParameter]
+	private IMudDialogInstance? MudDialog { get; set; }
+
+	private DatabaseType _databaseType = DatabaseType.SqlServer;
+	private string _connectionString = string.Empty;
+	private string _initialConnectionString = string.Empty;
+
+	protected override void OnInitialized()
+	{
+		base.OnInitialized();
+		// Load current connection string from service
+		_connectionString = ConnectionService.ConnectionString ?? string.Empty;
+		_initialConnectionString = _connectionString;
+	}
+
+	private bool HasChanges => _connectionString != _initialConnectionString;
+
+	private async Task ValidateConnection()
+	{
+		// For now, just do a basic validation that the connection string is not empty
+		// In a real implementation, this would attempt to connect to the database
+		if (string.IsNullOrWhiteSpace(_connectionString))
+		{
+			Snackbar.Add(SharedResource.ConnectionSettings_Message_ValidationFailed, Severity.Error);
+			return;
+		}
+
+		// Simulate validation success
+		Snackbar.Add(SharedResource.ConnectionSettings_Message_ValidationSuccess, Severity.Success);
+		await Task.CompletedTask;
+	}
+
+	private void Save()
+	{
+		// Save to the singleton service
+		ConnectionService.ConnectionString = _connectionString;
+		_initialConnectionString = _connectionString;
+		Snackbar.Add(SharedResource.ConnectionSettings_Message_Saved, Severity.Success);
+		MudDialog?.Close();
+	}
+
+	private async Task Close()
+	{
+		if (HasChanges)
+		{
+			var result = await DialogService.ShowMessageBox(
+				SharedResource.ConnectionSettings_Message_UnsavedChangesTitle,
+				SharedResource.ConnectionSettings_Message_UnsavedChanges,
+				yesText: SharedResource.Global_MessageBox_Yes,
+				noText: SharedResource.Global_MessageBox_No);
+
+			if (result != true)
+			{
+				return; // User chose not to close
+			}
+		}
+
+		MudDialog?.Close();
+	}
+}

@@ -162,4 +162,40 @@
   <data name="UserSettings.UISettings.IsDarkMode" xml:space="preserve">
     <value>"True"pour activer le mode sombre</value>
   </data>
+  <data name="ConnectionSettings.Title" xml:space="preserve">
+    <value>Paramètres de connexion</value>
+  </data>
+  <data name="ConnectionSettings.DatabaseType" xml:space="preserve">
+    <value>Type de base de données</value>
+  </data>
+  <data name="ConnectionSettings.ConnectionString" xml:space="preserve">
+    <value>Chaîne de connexion</value>
+  </data>
+  <data name="ConnectionSettings.Button.Validate" xml:space="preserve">
+    <value>Valider la connexion</value>
+  </data>
+  <data name="ConnectionSettings.Button.Save" xml:space="preserve">
+    <value>Sauvegarder</value>
+  </data>
+  <data name="ConnectionSettings.Button.Close" xml:space="preserve">
+    <value>Fermer</value>
+  </data>
+  <data name="ConnectionSettings.Message.UnsavedChanges" xml:space="preserve">
+    <value>Vous avez des modifications non sauvegardées. Voulez-vous vraiment fermer?</value>
+  </data>
+  <data name="ConnectionSettings.Message.UnsavedChangesTitle" xml:space="preserve">
+    <value>Modifications non sauvegardées</value>
+  </data>
+  <data name="ConnectionSettings.Message.ValidationSuccess" xml:space="preserve">
+    <value>Connexion validée avec succès!</value>
+  </data>
+  <data name="ConnectionSettings.Message.ValidationFailed" xml:space="preserve">
+    <value>Échec de la validation de la connexion</value>
+  </data>
+  <data name="ConnectionSettings.Message.Saved" xml:space="preserve">
+    <value>Paramètres de connexion sauvegardés avec succès</value>
+  </data>
+  <data name="NavMenu.ConnectionSettings" xml:space="preserve">
+    <value>Connexion</value>
+  </data>
 </root>

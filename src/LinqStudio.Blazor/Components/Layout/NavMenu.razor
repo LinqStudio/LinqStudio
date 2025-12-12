@@ -1,3 +1,15 @@
-﻿<MudNavMenu>
+@inject IDialogService DialogService
+
+<MudNavMenu>
     <MudNavLink Href="/editor" Icon="@Icons.Material.Filled.Code">Editor</MudNavLink>
+    <MudNavLink OnClick="OpenConnectionSettings" Icon="@Icons.Material.Filled.Cable">@SharedResource.NavMenu_ConnectionSettings</MudNavLink>
 </MudNavMenu>
+
+@code {
+    private async Task OpenConnectionSettings()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        await DialogService.ShowAsync<ConnectionSettingsDialog>(SharedResource.ConnectionSettings_Title, options);
+    }
+}
+
