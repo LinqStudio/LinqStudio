@@ -8,6 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="NativeFileDialogSharp" Version="0.5.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\LinqStudio.Blazor\LinqStudio.Blazor.csproj" />
     <ProjectReference Include="..\LinqStudio.ServiceDefaults\LinqStudio.ServiceDefaults.csproj" />
   </ItemGroup>

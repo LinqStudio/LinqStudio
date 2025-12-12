@@ -2,10 +2,10 @@
 
 <MudDialog>
 	<DialogContent>
-		<MudTextField @bind-Value="_projectName" 
+		<MudTextField Value="@Project.Name" 
 					  Label="Project Name" 
-					  Required="true"
-					  Immediate="true" />
+					  ReadOnly="true"
+					  Disabled="true" />
 		
 		<MudTextField @bind-Value="_connectionString" 
 					  Label="Connection String" 
@@ -16,39 +16,8 @@
 		<MudButton OnClick="Cancel">Cancel</MudButton>
 		<MudButton Color="Color.Primary" 
 				   Variant="Variant.Filled" 
-				   OnClick="Save"
-				   Disabled="@string.IsNullOrWhiteSpace(_projectName)">
+				   OnClick="Save">
 			Save
 		</MudButton>
 	</DialogActions>
 </MudDialog>
-
-@code {
-	[CascadingParameter] 
-	private IMudDialogInstance MudDialog { get; set; } = null!;
-	
-	[Parameter]
-	public Project Project { get; set; } = null!;
-
-	private string _projectName = string.Empty;
-	private string _connectionString = string.Empty;
-
-	protected override void OnInitialized()
-	{
-		_projectName = Project.Name;
-		_connectionString = Project.ConnectionString;
-	}
-
-	private void Cancel() => MudDialog.Cancel();
-
-	private void Save()
-	{
-		var updatedProject = Project with
-		{
-			Name = _projectName,
-			ConnectionString = _connectionString
-		};
-		
-		MudDialog.Close(DialogResult.Ok(updatedProject));
-	}
-}

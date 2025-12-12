@@ -15,9 +15,4 @@ public interface IFileSystemService
 	/// Prompts user to select a file path for saving.
 	/// </summary>
 	Task<string?> PromptSaveFileAsync(string defaultFileName, string? defaultPath = null);
-
-	/// <summary>
-	/// Gets the default documents folder path.
-	/// </summary>
-	string GetDefaultDocumentsPath();
 }

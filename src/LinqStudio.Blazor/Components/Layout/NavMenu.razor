@@ -1,15 +1,50 @@
-﻿@inject ProjectWorkspace Workspace
-@inject NavigationManager NavigationManager
-@implements IDisposable
+﻿@using LinqStudio.Blazor.Abstractions
+@using LinqStudio.Blazor.Components.Pages.Projects
 
 <MudNavMenu>
 	<MudNavLink Href="/" Icon="@Icons.Material.Filled.Home" Match="NavLinkMatch.All">Home</MudNavLink>
-	<MudNavLink Href="/projects" Icon="@Icons.Material.Filled.Folder">Projects</MudNavLink>
+	
+	<!-- Project Node with Actions -->
+	<MudNavGroup Title="@GetProjectTitle()" 
+				 Icon="@Icons.Material.Filled.Folder" 
+				 Expanded="@_projectExpanded">
+		
+		<MudNavLink Icon="@Icons.Material.Filled.Add" OnClick="NewProject">
+			New
+		</MudNavLink>
+		
+		<MudNavLink Icon="@Icons.Material.Filled.FolderOpen" OnClick="OpenProject">
+			Open
+		</MudNavLink>
+		
+		@if (Workspace.IsProjectOpen)
+		{
+			<MudDivider Class="my-2" />
+			
+			<MudNavLink Icon="@Icons.Material.Filled.Edit" OnClick="EditProject">
+				Properties
+			</MudNavLink>
+			
+			<MudNavLink Icon="@Icons.Material.Filled.Save" 
+						OnClick="SaveProject"
+						Disabled="@(!Workspace.HasUnsavedChanges)">
+				Save
+			</MudNavLink>
+			
+			<MudNavLink Icon="@Icons.Material.Filled.SaveAs" OnClick="SaveAsProject">
+				Save As...
+			</MudNavLink>
+			
+			<MudNavLink Icon="@Icons.Material.Filled.Close" OnClick="CloseProject">
+				Close
+			</MudNavLink>
+		}
+	</MudNavGroup>
 	
 	@if (Workspace.IsProjectOpen)
 	{
 		<MudNavGroup Title="Queries" Icon="@Icons.Material.Filled.Code" Expanded="@_queriesExpanded">
-			<MudNavLink Href="/editor" Icon="@Icons.Material.Filled.Add" OnClick="@(() => CreateNewQuery())">
+			<MudNavLink Href="/editor/new" Icon="@Icons.Material.Filled.Add">
 				New Query
 			</MudNavLink>
 			
@@ -39,33 +74,3 @@
 		<MudNavLink Href="/editor" Icon="@Icons.Material.Filled.Code" Disabled="true">Editor</MudNavLink>
 	}
 </MudNavMenu>
-
-@code {
-	private bool _queriesExpanded = true;
-
-	protected override void OnInitialized()
-	{
-		Workspace.WorkspaceChanged += OnWorkspaceChanged;
-	}
-
-	private void OnWorkspaceChanged(object? sender, EventArgs e)
-	{
-		InvokeAsync(StateHasChanged);
-	}
-
-	private void CreateNewQuery()
-	{
-		// Navigate to editor with a flag to create a new query
-		NavigationManager.NavigateTo("/editor/new");
-	}
-
-	private string GetQueryEditorUrl(int queryIndex)
-	{
-		return $"/editor/{queryIndex}";
-	}
-
-	public void Dispose()
-	{
-		Workspace.WorkspaceChanged -= OnWorkspaceChanged;
-	}
-}

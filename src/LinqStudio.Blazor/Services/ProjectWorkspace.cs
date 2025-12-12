@@ -31,6 +31,27 @@ public class ProjectWorkspace
 	public string? CurrentFilePath => _currentFilePath;
 
 	/// <summary>
+	/// Gets the project name. Uses stored name if available, otherwise derives from file path.
+	/// </summary>
+	public string CurrentProjectName
+	{
+		get
+		{
+			if (_currentProject != null && !string.IsNullOrEmpty(_currentProject.Name))
+			{
+				return _currentProject.Name;
+			}
+
+			if (!string.IsNullOrEmpty(_currentFilePath))
+			{
+				return Path.GetFileNameWithoutExtension(_currentFilePath);
+			}
+
+			return "Untitled";
+		}
+	}
+
+	/// <summary>
 	/// Gets whether the current project has unsaved changes.
 	/// </summary>
 	public bool HasUnsavedChanges => _hasUnsavedChanges;
@@ -63,13 +84,33 @@ public class ProjectWorkspace
 	public event EventHandler? WorkspaceChanged;
 
 	/// <summary>
-	/// Creates a new project and opens it in the workspace.
+	/// Creates a new project (in-memory only, not saved).
 	/// </summary>
 	public void CreateNew(string name, string connectionString)
 	{
 		_currentProject = _projectService.CreateNew(name, connectionString);
 		_currentFilePath = null;
 		_hasUnsavedChanges = true;
+		_currentQueryIndex = -1;
+		OnWorkspaceChanged();
+	}
+
+	/// <summary>
+	/// Creates a new project and saves it immediately to the specified path.
+	/// The project name is automatically derived from the file name.
+	/// </summary>
+	public async Task CreateAndSaveAsync(string filePath, string connectionString)
+	{
+		// Extract name from file path
+		var name = Path.GetFileNameWithoutExtension(filePath);
+
+		_currentProject = _projectService.CreateNew(name, connectionString);
+		await _projectService.SaveProjectAsync(_currentProject, filePath);
+		_currentFilePath = filePath;
+
+		// Reload to get updated modified date
+		_currentProject = await _projectService.LoadProjectAsync(_currentFilePath);
+		_hasUnsavedChanges = false;
 		_currentQueryIndex = -1;
 		OnWorkspaceChanged();
 	}
@@ -110,7 +151,7 @@ public class ProjectWorkspace
 
 		await _projectService.SaveProjectAsync(_currentProject, _currentFilePath);
 
-		// Reload to get updated modified date
+		// Reload to get updated modified date and name
 		_currentProject = await _projectService.LoadProjectAsync(_currentFilePath);
 		_hasUnsavedChanges = false;
 		OnWorkspaceChanged();
@@ -118,6 +159,7 @@ public class ProjectWorkspace
 
 	/// <summary>
 	/// Saves the current project to a new file path.
+	/// The project name will be updated to match the new file name.
 	/// </summary>
 	public async Task SaveAsAsync(string filePath)
 	{
@@ -129,7 +171,7 @@ public class ProjectWorkspace
 		await _projectService.SaveProjectAsync(_currentProject, filePath);
 		_currentFilePath = filePath;
 
-		// Reload to get updated modified date
+		// Reload to get updated modified date and name
 		_currentProject = await _projectService.LoadProjectAsync(_currentFilePath);
 		_hasUnsavedChanges = false;
 		OnWorkspaceChanged();

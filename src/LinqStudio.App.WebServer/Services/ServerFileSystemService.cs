@@ -1,10 +1,11 @@
 using LinqStudio.Blazor.Abstractions;
+using NativeFileDialogSharp;
 
 namespace LinqStudio.App.WebServer.Services;
 
 /// <summary>
 /// Server-side implementation of file system operations.
-/// Uses direct file system access available in Blazor Server.
+/// Uses native file dialogs via NativeFileDialogSharp (cross-platform).
 /// </summary>
 public class ServerFileSystemService : IFileSystemService
 {
@@ -15,19 +16,41 @@ public class ServerFileSystemService : IFileSystemService
 		_defaultProjectsPath = GetDefaultProjectsPath();
 	}
 
-	public Task<string?> PromptOpenFileAsync(string fileExtension = ".linq", string? defaultPath = null)
+	public async Task<string?> PromptOpenFileAsync(string fileExtension = ".linq", string? defaultPath = null)
 	{
-		// Use default projects path if none specified
-		var path = defaultPath ?? _defaultProjectsPath;
-		return Task.FromResult<string?>(path);
+		// Run native dialog on background thread to avoid blocking UI
+		return await Task.Run(() =>
+		{
+			var dialog = Dialog.FileOpen(fileExtension, defaultPath ?? _defaultProjectsPath);
+
+			if (dialog.IsOk)
+			{
+				return dialog.Path;
+			}
+
+			return null;
+		});
 	}
 
-	public Task<string?> PromptSaveFileAsync(string defaultFileName, string? defaultPath = null)
+	public async Task<string?> PromptSaveFileAsync(string defaultFileName, string? defaultPath = null)
 	{
-		// Combine default path with filename
-		var path = defaultPath ?? _defaultProjectsPath;
-		var fullPath = Path.Combine(path, defaultFileName);
-		return Task.FromResult<string?>(fullPath);
+		return await Task.Run(() =>
+		{
+			var dialog = Dialog.FileSave("linq", defaultPath ?? _defaultProjectsPath);
+
+			if (dialog.IsOk)
+			{
+				var path = dialog.Path;
+				// Ensure .linq extension
+				if (!path.EndsWith(".linq", StringComparison.OrdinalIgnoreCase))
+				{
+					path += ".linq";
+				}
+				return path;
+			}
+
+			return null;
+		});
 	}
 
 	public string GetDefaultDocumentsPath()
