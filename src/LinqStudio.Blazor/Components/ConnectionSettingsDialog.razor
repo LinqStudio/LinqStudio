@@ -3,6 +3,7 @@
 @inject IDialogService DialogService
 @inject ConnectionService ConnectionService
 @inject ISnackbar Snackbar
+@inject ErrorHandlingService ErrorHandlingService
 
 <MudDialog>
 	<TitleContent>
@@ -17,6 +18,7 @@
 					   @bind-Value="_databaseType" 
 					   Label="@SharedResource.ConnectionSettings_DatabaseType"
 					   Variant="Variant.Outlined"
+					   Disabled="_isTesting"
 					   data-testid="database-type-select">
 				@foreach (DatabaseType dbType in Enum.GetValues(typeof(DatabaseType)))
 				{
@@ -29,25 +31,50 @@
 						  Label="@SharedResource.ConnectionSettings_ConnectionString"
 						  Variant="Variant.Outlined"
 						  Lines="5"
+						  Disabled="_isTesting"
 						  data-testid="connection-string-input" />
+
+			<MudSelect T="int" 
+					   @bind-Value="_timeoutSeconds" 
+					   Label="@SharedResource.ConnectionSettings_Timeout"
+					   Variant="Variant.Outlined"
+					   Disabled="_isTesting"
+					   data-testid="timeout-select">
+				<MudSelectItem T="int" Value="5">5s</MudSelectItem>
+				<MudSelectItem T="int" Value="10">10s</MudSelectItem>
+				<MudSelectItem T="int" Value="15">15s</MudSelectItem>
+				<MudSelectItem T="int" Value="30">30s</MudSelectItem>
+				<MudSelectItem T="int" Value="60">60s</MudSelectItem>
+			</MudSelect>
 		</MudStack>
 	</DialogContent>
 	<DialogActions>
 		<MudButton OnClick="ValidateConnection" 
 				   Variant="Variant.Outlined" 
 				   Color="Color.Info"
+				   Disabled="_isTesting"
 				   data-testid="validate-button">
-			@SharedResource.ConnectionSettings_Button_Validate
+			@if (_isTesting)
+			{
+				<MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" />
+				<span>@SharedResource.ConnectionSettings_Message_Testing</span>
+			}
+			else
+			{
+				<span>@SharedResource.ConnectionSettings_Button_Validate</span>
+			}
 		</MudButton>
 		<MudSpacer />
 		<MudButton OnClick="Close" 
 				   Variant="Variant.Outlined"
+				   Disabled="_isTesting"
 				   data-testid="close-button">
 			@SharedResource.ConnectionSettings_Button_Close
 		</MudButton>
 		<MudButton OnClick="Save" 
 				   Variant="Variant.Filled" 
 				   Color="Color.Primary"
+				   Disabled="_isTesting"
 				   data-testid="save-button">
 			@SharedResource.ConnectionSettings_Button_Save
 		</MudButton>
@@ -61,6 +88,8 @@
 	private DatabaseType _databaseType = DatabaseType.Mssql;
 	private string _connectionString = string.Empty;
 	private string _initialConnectionString = string.Empty;
+	private int _timeoutSeconds = 10;
+	private bool _isTesting = false;
 
 	protected override void OnInitialized()
 	{
@@ -74,17 +103,33 @@
 
 	private async Task ValidateConnection()
 	{
-		// For now, just do a basic validation that the connection string is not empty
-		// In a real implementation, this would attempt to connect to the database
 		if (string.IsNullOrWhiteSpace(_connectionString))
 		{
 			Snackbar.Add(SharedResource.ConnectionSettings_Message_ValidationFailed, Severity.Error);
 			return;
 		}
 
-		// Simulate validation success
-		Snackbar.Add(SharedResource.ConnectionSettings_Message_ValidationSuccess, Severity.Success);
-		await Task.CompletedTask;
+		_isTesting = true;
+		StateHasChanged();
+
+		try
+		{
+			await ConnectionService.TestConnectionAsync(_databaseType, _connectionString, _timeoutSeconds);
+			Snackbar.Add(SharedResource.ConnectionSettings_Message_ValidationSuccess, Severity.Success);
+		}
+		catch (OperationCanceledException)
+		{
+			Snackbar.Add(SharedResource.ConnectionSettings_Message_ValidationFailed + " (Timeout)", Severity.Error);
+		}
+		catch (Exception ex)
+		{
+			await ErrorHandlingService.HandleErrorAsync(ex, SharedResource.ConnectionSettings_Message_ValidationFailed);
+		}
+		finally
+		{
+			_isTesting = false;
+			StateHasChanged();
+		}
 	}
 
 	private void Save()

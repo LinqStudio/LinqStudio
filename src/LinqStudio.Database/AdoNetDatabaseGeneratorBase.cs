@@ -57,6 +57,27 @@ public abstract class AdoNetDatabaseGeneratorBase : IDatabaseQueryGenerator
 	/// <inheritdoc/>
 	public abstract Task<DatabaseTableDetail> GetTableAsync(string tableName, CancellationToken cancellationToken = default);
 
+	/// <inheritdoc/>
+	public async Task TestConnectionAsync(CancellationToken cancellationToken = default)
+	{
+		var wasOpen = DbConnection.State == ConnectionState.Open;
+		if (!wasOpen)
+			await DbConnection.OpenAsync(cancellationToken);
+
+		try
+		{
+			// Simple query to test connection
+			using var command = DbConnection.CreateCommand();
+			command.CommandText = "SELECT 1";
+			await command.ExecuteScalarAsync(cancellationToken);
+		}
+		finally
+		{
+			if (!wasOpen)
+				await DbConnection.CloseAsync();
+		}
+	}
+
 	/// <summary>
 	/// Parses a table from a DataRow from the Tables schema collection.
 	/// </summary>

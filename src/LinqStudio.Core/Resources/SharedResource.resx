@@ -195,6 +195,12 @@
   <data name="ConnectionSettings.Message.Saved" xml:space="preserve">
     <value>Connection settings saved successfully</value>
   </data>
+  <data name="ConnectionSettings.Timeout" xml:space="preserve">
+    <value>Timeout</value>
+  </data>
+  <data name="ConnectionSettings.Message.Testing" xml:space="preserve">
+    <value>Testing connection...</value>
+  </data>
   <data name="NavMenu.ConnectionSettings" xml:space="preserve">
     <value>Connection</value>
   </data>

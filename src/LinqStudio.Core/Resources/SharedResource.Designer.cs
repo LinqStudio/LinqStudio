@@ -295,6 +295,24 @@ namespace LinqStudio.Core.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Timeout.
+        /// </summary>
+        public static string ConnectionSettings_Timeout {
+            get {
+                return ResourceManager.GetString("ConnectionSettings.Timeout", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Testing connection....
+        /// </summary>
+        public static string ConnectionSettings_Message_Testing {
+            get {
+                return ResourceManager.GetString("ConnectionSettings.Message.Testing", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Connection.
         /// </summary>
         public static string NavMenu_ConnectionSettings {
