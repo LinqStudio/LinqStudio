@@ -1,4 +1,4 @@
-﻿namespace LinqStudio.Core.Abstractions;
+﻿namespace LinqStudio.Abstractions;
 
 /// <summary>
 /// Interface used by all user settings. Each implementation must provide a static SectionName property, which will be mapped to the settings file.
