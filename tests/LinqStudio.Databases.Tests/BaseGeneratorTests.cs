@@ -112,7 +112,8 @@ public abstract class BaseGeneratorTests
 		var table = await Generator.GetTableAsync(customersTable.FullName);
 
 		// Assert
-		Assert.All(table.Columns!, c => Assert.False(string.IsNullOrWhiteSpace(c.DataType)));
+		Assert.NotNull(table.Columns);
+		Assert.All(table.Columns, c => Assert.False(string.IsNullOrWhiteSpace(c.DataType)));
 	}
 
 	[Fact]
@@ -125,8 +126,10 @@ public abstract class BaseGeneratorTests
 		// Act
 		var table = await Generator.GetTableAsync(customersTable.FullName);
 
+		Assert.NotNull(table.Columns);
+
 		// Assert
-		var idColumn = table.Columns!.First(c => c.Name == "Id");
+		var idColumn = table.Columns.First(c => c.Name == "Id");
 		Assert.False(idColumn.IsNullable);
 
 		var firstNameColumn = table.Columns.First(c => c.Name == "FirstName");
