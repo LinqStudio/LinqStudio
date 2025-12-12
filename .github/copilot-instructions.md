@@ -1,5 +1,10 @@
 # LinqStudio AI Coding Agent Instructions
 
+# Major instructions
+1. Never remove, skip or deactive any tests.
+2. When asked for new features or changes, always ensure that relevant tests are added or updated. DO NOT stop working until all tests pass, at all time (unless explicitely told otherwise)
+3. During testing, run all the tests not just specific ones. NEVER leave before you ran the tests. If you make any change at all (such as code review changes) you MUST rerun the tests again, ALL THE TESTS.
+
 ## Project Overview
 LinqStudio is a .NET 10 Blazor web application providing an IDE-like interface for writing and executing EF Core LINQ queries, replacing the use of software such as SQL Server Management Studio. It uses Roslyn compiler APIs for intellisense/autocomplete. The architecture follows a layered approach with a core service layer, Blazor UI components, and an Aspire-based app host for orchestration.
 
@@ -11,6 +16,9 @@ LinqStudio is a .NET 10 Blazor web application providing an IDE-like interface f
 3. **LinqStudio.App.WebServer** - ASP.NET Core Blazor Server host combining Core + Blazor
 4. **LinqStudio.AppHost** - Aspire orchestration layer (rarely modified)
 5. **LinqStudio.ServiceDefaults** - Shared Aspire configuration (OpenTelemetry, health checks)
+6. **LinqStudio.Databases** - Contain DB specific code to generate query to fetch list of tables, schemas, cols, etc.
+7. **LinqStudio.Databases.Tests** - Tests different database types
+8. **LinqStudio.Abstrations** - Interfaces, models, shared types
 
 ### Critical Service: CompilerService (`src/LinqStudio.Core/Services/CompilerService.cs`)
 Manages Roslyn workspace for LINQ query compilation and autocomplete. Key responsibilities:
