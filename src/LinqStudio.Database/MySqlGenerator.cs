@@ -98,7 +98,7 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 		
 		var schemaParam = command.CreateParameter();
 		schemaParam.ParameterName = "@Schema";
-		schemaParam.Value = schema;
+		schemaParam.Value = schema ?? (object)DBNull.Value;
 		command.Parameters.Add(schemaParam);
 
 		var tableParam = command.CreateParameter();
@@ -114,6 +114,38 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 				var columnKey = reader.GetString(3);
 				var extra = reader.GetString(4);
 				
+				// Parse max length safely - can be very large for LONGTEXT
+				int? maxLength = null;
+				if (!reader.IsDBNull(5))
+				{
+					var value = reader.GetValue(5);
+					if (long.TryParse(value.ToString(), out var longValue))
+					{
+						maxLength = longValue > int.MaxValue ? int.MaxValue : (int)longValue;
+					}
+				}
+				
+				// Parse precision and scale safely
+				int? precision = null;
+				if (!reader.IsDBNull(6))
+				{
+					var value = reader.GetValue(6);
+					if (long.TryParse(value.ToString(), out var longValue))
+					{
+						precision = longValue > int.MaxValue ? int.MaxValue : (int)longValue;
+					}
+				}
+				
+				int? scale = null;
+				if (!reader.IsDBNull(7))
+				{
+					var value = reader.GetValue(7);
+					if (long.TryParse(value.ToString(), out var longValue))
+					{
+						scale = longValue > int.MaxValue ? int.MaxValue : (int)longValue;
+					}
+				}
+				
 				columns.Add(new TableColumn
 				{
 					Name = reader.GetString(0),
@@ -121,9 +153,9 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 					IsNullable = reader.GetString(2) == "YES",
 					IsPrimaryKey = columnKey == "PRI",
 					IsIdentity = extra.Contains("auto_increment", StringComparison.OrdinalIgnoreCase),
-					MaxLength = reader.IsDBNull(5) ? null : Convert.ToInt32(reader.GetValue(5)),
-					Precision = reader.IsDBNull(6) ? null : Convert.ToInt32(reader.GetValue(6)),
-					Scale = reader.IsDBNull(7) ? null : Convert.ToInt32(reader.GetValue(7))
+					MaxLength = maxLength,
+					Precision = precision,
+					Scale = scale
 				});
 			}
 		}
@@ -158,7 +190,7 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 		
 		var schemaParam = command.CreateParameter();
 		schemaParam.ParameterName = "@Schema";
-		schemaParam.Value = schema;
+		schemaParam.Value = schema ?? (object)DBNull.Value;
 		command.Parameters.Add(schemaParam);
 
 		var tableParam = command.CreateParameter();
