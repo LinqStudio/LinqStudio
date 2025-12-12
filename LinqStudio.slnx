@@ -4,7 +4,9 @@
     <Project Path="src/LinqStudio.ServiceDefaults/LinqStudio.ServiceDefaults.csproj" />
   </Folder>
   <Folder Name="/Solution Files/">
+    <File Path=".devcontainer/devcontainer.json" />
     <File Path=".editorconfig" />
+    <File Path=".github/agents/playwright-setup.md" />
     <File Path=".github/copilot-instructions.md" />
     <File Path="Directory.Build.props" />
   </Folder>

@@ -29,7 +29,7 @@ This agent ensures that Playwright browsers and system dependencies are installe
 ## Verification
 Run the E2E tests to verify installation:
 ```bash
-dotnet test tests/LinqStudio.App.WebServer.E2ETests/LinqStudio.App.WebServer.E2ETests.csproj
+dotnet test -c Release tests/LinqStudio.App.WebServer.E2ETests/LinqStudio.App.WebServer.E2ETests.csproj
 ```
 
 ## Troubleshooting
