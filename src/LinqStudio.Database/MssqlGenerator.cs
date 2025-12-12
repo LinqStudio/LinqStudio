@@ -44,7 +44,7 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 		schema ??= "dbo"; // Default schema for SQL Server
 
 		var connection = Database.GetDbConnection();
-		
+
 		var wasOpen = connection.State == ConnectionState.Open;
 		if (!wasOpen)
 			await connection.OpenAsync(cancellationToken);
@@ -82,20 +82,15 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 
 		// Get primary key information from Indexes schema
 		var primaryKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-		try
+
+		var indexesSchema = await Task.Run(() => connection.GetSchema("IndexColumns", restrictions), cancellationToken);
+		foreach (DataRow row in indexesSchema.Rows)
 		{
-			var indexesSchema = await Task.Run(() => connection.GetSchema("IndexColumns", restrictions), cancellationToken);
-			foreach (DataRow row in indexesSchema.Rows)
-			{
-				var columnName = row["column_name"]?.ToString();
-				if (!string.IsNullOrEmpty(columnName))
-					primaryKeys.Add(columnName);
-			}
+			var columnName = row["column_name"]?.ToString();
+			if (!string.IsNullOrEmpty(columnName))
+				primaryKeys.Add(columnName);
 		}
-		catch
-		{
-			// If IndexColumns not supported, continue without PK info
-		}
+
 
 		foreach (DataRow row in columnsSchema.Rows)
 		{
@@ -174,29 +169,22 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 
 		await using var command = connection.CreateCommand();
 		command.CommandText = query;
-		
+
 		var parameter = command.CreateParameter();
 		parameter.ParameterName = "@TableName";
 		parameter.Value = $"{schema}.{tableName}";
 		command.Parameters.Add(parameter);
 
-		try
+		await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+		while (await reader.ReadAsync(cancellationToken))
 		{
-			await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-			while (await reader.ReadAsync(cancellationToken))
+			foreignKeys.Add(new ForeignKey
 			{
-				foreignKeys.Add(new ForeignKey
-				{
-					Name = reader.GetString(0),
-					ColumnName = reader.GetString(1),
-					ReferencedTable = reader.GetString(2),
-					ReferencedColumn = reader.GetString(3)
-				});
-			}
-		}
-		catch
-		{
-			// If query fails, return empty list
+				Name = reader.GetString(0),
+				ColumnName = reader.GetString(1),
+				ReferencedTable = reader.GetString(2),
+				ReferencedColumn = reader.GetString(3)
+			});
 		}
 
 		return foreignKeys;

@@ -44,7 +44,7 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 		schema ??= Database.GetDbConnection().Database; // Default to current database
 
 		var connection = Database.GetDbConnection();
-		
+
 		var wasOpen = connection.State == ConnectionState.Open;
 		if (!wasOpen)
 			await connection.OpenAsync(cancellationToken);
@@ -95,7 +95,7 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 
 		await using var command = connection.CreateCommand();
 		command.CommandText = query;
-		
+
 		var schemaParam = command.CreateParameter();
 		schemaParam.ParameterName = "@Schema";
 		schemaParam.Value = schema ?? (object)DBNull.Value;
@@ -106,63 +106,57 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 		tableParam.Value = tableName;
 		command.Parameters.Add(tableParam);
 
-		try
+		await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+		while (await reader.ReadAsync(cancellationToken))
 		{
-			await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-			while (await reader.ReadAsync(cancellationToken))
+			var columnKey = reader.GetString(3);
+			var extra = reader.GetString(4);
+
+			// Parse max length safely - can be very large for LONGTEXT
+			int? maxLength = null;
+			if (!reader.IsDBNull(5))
 			{
-				var columnKey = reader.GetString(3);
-				var extra = reader.GetString(4);
-				
-				// Parse max length safely - can be very large for LONGTEXT
-				int? maxLength = null;
-				if (!reader.IsDBNull(5))
+				var value = reader.GetValue(5);
+				if (long.TryParse(value.ToString(), out var longValue))
 				{
-					var value = reader.GetValue(5);
-					if (long.TryParse(value.ToString(), out var longValue))
-					{
-						maxLength = longValue > int.MaxValue ? int.MaxValue : (int)longValue;
-					}
+					maxLength = longValue > int.MaxValue ? int.MaxValue : (int)longValue;
 				}
-				
-				// Parse precision and scale safely
-				int? precision = null;
-				if (!reader.IsDBNull(6))
-				{
-					var value = reader.GetValue(6);
-					if (long.TryParse(value.ToString(), out var longValue))
-					{
-						precision = longValue > int.MaxValue ? int.MaxValue : (int)longValue;
-					}
-				}
-				
-				int? scale = null;
-				if (!reader.IsDBNull(7))
-				{
-					var value = reader.GetValue(7);
-					if (long.TryParse(value.ToString(), out var longValue))
-					{
-						scale = longValue > int.MaxValue ? int.MaxValue : (int)longValue;
-					}
-				}
-				
-				columns.Add(new TableColumn
-				{
-					Name = reader.GetString(0),
-					DataType = reader.GetString(1),
-					IsNullable = reader.GetString(2) == "YES",
-					IsPrimaryKey = columnKey == "PRI",
-					IsIdentity = extra.Contains("auto_increment", StringComparison.OrdinalIgnoreCase),
-					MaxLength = maxLength,
-					Precision = precision,
-					Scale = scale
-				});
 			}
+
+			// Parse precision and scale safely
+			int? precision = null;
+			if (!reader.IsDBNull(6))
+			{
+				var value = reader.GetValue(6);
+				if (long.TryParse(value.ToString(), out var longValue))
+				{
+					precision = longValue > int.MaxValue ? int.MaxValue : (int)longValue;
+				}
+			}
+
+			int? scale = null;
+			if (!reader.IsDBNull(7))
+			{
+				var value = reader.GetValue(7);
+				if (long.TryParse(value.ToString(), out var longValue))
+				{
+					scale = longValue > int.MaxValue ? int.MaxValue : (int)longValue;
+				}
+			}
+
+			columns.Add(new TableColumn
+			{
+				Name = reader.GetString(0),
+				DataType = reader.GetString(1),
+				IsNullable = reader.GetString(2) == "YES",
+				IsPrimaryKey = columnKey == "PRI",
+				IsIdentity = extra.Contains("auto_increment", StringComparison.OrdinalIgnoreCase),
+				MaxLength = maxLength,
+				Precision = precision,
+				Scale = scale
+			});
 		}
-		catch
-		{
-			// If query fails, return empty list
-		}
+
 
 		return columns;
 	}
@@ -187,7 +181,7 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 
 		await using var command = connection.CreateCommand();
 		command.CommandText = query;
-		
+
 		var schemaParam = command.CreateParameter();
 		schemaParam.ParameterName = "@Schema";
 		schemaParam.Value = schema ?? (object)DBNull.Value;
@@ -198,23 +192,16 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 		tableParam.Value = tableName;
 		command.Parameters.Add(tableParam);
 
-		try
+		await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+		while (await reader.ReadAsync(cancellationToken))
 		{
-			await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-			while (await reader.ReadAsync(cancellationToken))
+			foreignKeys.Add(new ForeignKey
 			{
-				foreignKeys.Add(new ForeignKey
-				{
-					Name = reader.GetString(0),
-					ColumnName = reader.GetString(1),
-					ReferencedTable = reader.GetString(2),
-					ReferencedColumn = reader.GetString(3)
-				});
-			}
-		}
-		catch
-		{
-			// If query fails, return empty list
+				Name = reader.GetString(0),
+				ColumnName = reader.GetString(1),
+				ReferencedTable = reader.GetString(2),
+				ReferencedColumn = reader.GetString(3)
+			});
 		}
 
 		return foreignKeys;
