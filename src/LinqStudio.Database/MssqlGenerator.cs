@@ -78,12 +78,12 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 
 		// Use GetSchema for columns as it's database-independent
 		var restrictions = new string?[] { null, schema, tableName, null };
-		var columnsSchema = await Task.Run(() => connection.GetSchema("Columns", restrictions), cancellationToken);
+		var columnsSchema = await connection.GetSchemaAsync("Columns", restrictions, cancellationToken);
 
 		// Get primary key information from Indexes schema
 		var primaryKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-		var indexesSchema = await Task.Run(() => connection.GetSchema("IndexColumns", restrictions), cancellationToken);
+		var indexesSchema = await connection.GetSchemaAsync("IndexColumns", restrictions, cancellationToken);
 		foreach (DataRow row in indexesSchema.Rows)
 		{
 			var columnName = row["column_name"]?.ToString();

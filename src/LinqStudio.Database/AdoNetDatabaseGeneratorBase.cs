@@ -39,7 +39,7 @@ public abstract class AdoNetDatabaseGeneratorBase : IDatabaseQueryGenerator
 		try
 		{
 			// Use ADO.NET GetSchema to retrieve tables
-			var tablesSchema = await Task.Run(() => connection.GetSchema("Tables"), cancellationToken);
+			var tablesSchema = await connection.GetSchemaAsync("Tables", cancellationToken);
 
 			foreach (DataRow row in tablesSchema.Rows)
 			{

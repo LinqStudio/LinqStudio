@@ -128,7 +128,7 @@ public class CompilerService_CompletionTests
             "context.People.Select(p => p.Name)"
         };
 
-        var tasks = queries.Select(q => Task.Run(() => service.GetCompletionsAsync(q, q.Length))).ToArray();
+        var tasks = queries.Select(q => Task.Run(() => service.GetCompletionsAsync(q, q.Length))).ToList();
         var results = await Task.WhenAll(tasks);
 
         Assert.All(results, r => Assert.NotNull(r));
