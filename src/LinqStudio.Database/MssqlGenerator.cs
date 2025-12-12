@@ -1,4 +1,5 @@
 ﻿using LinqStudio.Abstractions.Models;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using System.Data;
 using System.Data.Common;
@@ -37,93 +38,151 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 	}
 
 	/// <inheritdoc/>
-	protected override TableColumn? ParseColumnFromSchemaRow(DataRow row, HashSet<string> primaryKeys)
+	public override async Task<DatabaseTable> GetTableAsync(string tableName, CancellationToken cancellationToken = default)
 	{
-		var columnName = row["COLUMN_NAME"]?.ToString();
-		if (string.IsNullOrEmpty(columnName))
-			return null;
+		var (schema, name) = ParseTableName(tableName);
+		schema ??= "dbo"; // Default schema for SQL Server
 
-		var dataType = row["DATA_TYPE"]?.ToString() ?? "unknown";
-		var isNullable = row["IS_NULLABLE"]?.ToString() == "YES";
-		var isPrimaryKey = primaryKeys.Contains(columnName);
+		var connection = Database.GetDbConnection();
+		
+		var wasOpen = connection.State == ConnectionState.Open;
+		if (!wasOpen)
+			await connection.OpenAsync(cancellationToken);
 
-		// Parse max length
-		int? maxLength = null;
-		if (row.Table.Columns.Contains("CHARACTER_MAXIMUM_LENGTH") && !row.IsNull("CHARACTER_MAXIMUM_LENGTH"))
+		try
 		{
-			var maxLengthValue = row["CHARACTER_MAXIMUM_LENGTH"];
-			if (maxLengthValue != DBNull.Value)
-				maxLength = Convert.ToInt32(maxLengthValue);
+			// Get columns using database-specific query for better information
+			var columns = await GetColumnsAsync(connection, schema, name, cancellationToken);
+
+			// Get foreign keys using database-specific query
+			var foreignKeys = await GetForeignKeysAsync(connection, schema, name, cancellationToken);
+
+			return new DatabaseTable
+			{
+				Schema = schema,
+				Name = name,
+				Columns = columns,
+				ForeignKeys = foreignKeys
+			};
 		}
-
-		// Parse precision and scale
-		int? precision = null;
-		int? scale = null;
-		if (row.Table.Columns.Contains("NUMERIC_PRECISION") && !row.IsNull("NUMERIC_PRECISION"))
+		finally
 		{
-			var precisionValue = row["NUMERIC_PRECISION"];
-			if (precisionValue != DBNull.Value)
-				precision = Convert.ToInt32(precisionValue);
+			if (!wasOpen)
+				await connection.CloseAsync();
 		}
-		if (row.Table.Columns.Contains("NUMERIC_SCALE") && !row.IsNull("NUMERIC_SCALE"))
-		{
-			var scaleValue = row["NUMERIC_SCALE"];
-			if (scaleValue != DBNull.Value)
-				scale = Convert.ToInt32(scaleValue);
-		}
-
-		// Check if identity (SQL Server specific - need to query separately)
-		var isIdentity = false;
-		if (row.Table.Columns.Contains("AUTOINCREMENT") && !row.IsNull("AUTOINCREMENT"))
-		{
-			isIdentity = Convert.ToBoolean(row["AUTOINCREMENT"]);
-		}
-
-		return new TableColumn
-		{
-			Name = columnName,
-			DataType = dataType,
-			IsNullable = isNullable,
-			IsPrimaryKey = isPrimaryKey,
-			IsIdentity = isIdentity,
-			MaxLength = maxLength,
-			Precision = precision,
-			Scale = scale
-		};
 	}
 
-	/// <inheritdoc/>
-	protected override async Task<IReadOnlyList<ForeignKey>> GetForeignKeysAsync(DbConnection connection, string? schema, string tableName, CancellationToken cancellationToken)
+	private async Task<IReadOnlyList<TableColumn>> GetColumnsAsync(DbConnection connection, string schema, string tableName, CancellationToken cancellationToken)
+	{
+		var columns = new List<TableColumn>();
+
+		// Use GetSchema for columns as it's database-independent
+		var restrictions = new string?[] { null, schema, tableName, null };
+		var columnsSchema = await Task.Run(() => connection.GetSchema("Columns", restrictions), cancellationToken);
+
+		// Get primary key information from Indexes schema
+		var primaryKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+		try
+		{
+			var indexesSchema = await Task.Run(() => connection.GetSchema("IndexColumns", restrictions), cancellationToken);
+			foreach (DataRow row in indexesSchema.Rows)
+			{
+				var columnName = row["column_name"]?.ToString();
+				if (!string.IsNullOrEmpty(columnName))
+					primaryKeys.Add(columnName);
+			}
+		}
+		catch
+		{
+			// If IndexColumns not supported, continue without PK info
+		}
+
+		foreach (DataRow row in columnsSchema.Rows)
+		{
+			var columnName = row["COLUMN_NAME"]?.ToString();
+			if (string.IsNullOrEmpty(columnName))
+				continue;
+
+			var dataType = row["DATA_TYPE"]?.ToString() ?? "unknown";
+			var isNullable = row["IS_NULLABLE"]?.ToString() == "YES";
+			var isPrimaryKey = primaryKeys.Contains(columnName);
+
+			// Parse max length
+			int? maxLength = null;
+			if (row.Table.Columns.Contains("CHARACTER_MAXIMUM_LENGTH") && !row.IsNull("CHARACTER_MAXIMUM_LENGTH"))
+			{
+				var maxLengthValue = row["CHARACTER_MAXIMUM_LENGTH"];
+				if (maxLengthValue != DBNull.Value)
+					maxLength = Convert.ToInt32(maxLengthValue);
+			}
+
+			// Parse precision and scale
+			int? precision = null;
+			int? scale = null;
+			if (row.Table.Columns.Contains("NUMERIC_PRECISION") && !row.IsNull("NUMERIC_PRECISION"))
+			{
+				var precisionValue = row["NUMERIC_PRECISION"];
+				if (precisionValue != DBNull.Value)
+					precision = Convert.ToInt32(precisionValue);
+			}
+			if (row.Table.Columns.Contains("NUMERIC_SCALE") && !row.IsNull("NUMERIC_SCALE"))
+			{
+				var scaleValue = row["NUMERIC_SCALE"];
+				if (scaleValue != DBNull.Value)
+					scale = Convert.ToInt32(scaleValue);
+			}
+
+			// GetSchema doesn't provide identity info, so we'll default to false
+			var isIdentity = false;
+
+			columns.Add(new TableColumn
+			{
+				Name = columnName,
+				DataType = dataType,
+				IsNullable = isNullable,
+				IsPrimaryKey = isPrimaryKey,
+				IsIdentity = isIdentity,
+				MaxLength = maxLength,
+				Precision = precision,
+				Scale = scale
+			});
+		}
+
+		return columns;
+	}
+
+	private async Task<IReadOnlyList<ForeignKey>> GetForeignKeysAsync(DbConnection connection, string schema, string tableName, CancellationToken cancellationToken)
 	{
 		var foreignKeys = new List<ForeignKey>();
 
 		try
 		{
+			// Use GetSchema for foreign keys
 			var restrictions = new string?[] { null, schema, tableName, null };
 			var foreignKeysSchema = await Task.Run(() => connection.GetSchema("ForeignKeys", restrictions), cancellationToken);
 
 			foreach (DataRow row in foreignKeysSchema.Rows)
 			{
 				var constraintName = row["CONSTRAINT_NAME"]?.ToString();
-				var columnName = row["FKEY_FROM_COLUMN"]?.ToString();
-				var referencedSchema = row["FKEY_TO_SCHEMA"]?.ToString();
-				var referencedTable = row["FKEY_TO_TABLE"]?.ToString();
-				var referencedColumn = row["FKEY_TO_COLUMN"]?.ToString();
+				var fkeyFromColumn = row["FKEY_FROM_COLUMN"]?.ToString();
+				var fkeyToSchema = row["FKEY_TO_SCHEMA"]?.ToString();
+				var fkeyToTable = row["FKEY_TO_TABLE"]?.ToString();
+				var fkeyToColumn = row["FKEY_TO_COLUMN"]?.ToString();
 
-				if (string.IsNullOrEmpty(constraintName) || string.IsNullOrEmpty(columnName) ||
-					string.IsNullOrEmpty(referencedTable) || string.IsNullOrEmpty(referencedColumn))
+				if (string.IsNullOrEmpty(constraintName) || string.IsNullOrEmpty(fkeyFromColumn) ||
+					string.IsNullOrEmpty(fkeyToTable) || string.IsNullOrEmpty(fkeyToColumn))
 					continue;
 
-				var fullReferencedTable = !string.IsNullOrEmpty(referencedSchema)
-					? $"{referencedSchema}.{referencedTable}"
-					: referencedTable;
+				var fullReferencedTable = !string.IsNullOrEmpty(fkeyToSchema)
+					? $"{fkeyToSchema}.{fkeyToTable}"
+					: fkeyToTable;
 
 				foreignKeys.Add(new ForeignKey
 				{
 					Name = constraintName,
-					ColumnName = columnName,
+					ColumnName = fkeyFromColumn,
 					ReferencedTable = fullReferencedTable,
-					ReferencedColumn = referencedColumn
+					ReferencedColumn = fkeyToColumn
 				});
 			}
 		}
@@ -133,25 +192,5 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 		}
 
 		return foreignKeys;
-	}
-
-	/// <inheritdoc/>
-	protected override string? NormalizeSchemaName(string? schema)
-	{
-		return schema ?? "dbo";
-	}
-
-	/// <inheritdoc/>
-	protected override string?[] CreateColumnRestrictions(string? schema, string tableName)
-	{
-		// Catalog, Schema, Table, Column
-		return new string?[] { null, schema, tableName, null };
-	}
-
-	/// <inheritdoc/>
-	protected override string?[] CreateIndexRestrictions(string? schema, string tableName)
-	{
-		// Catalog, Schema, Table, Constraint, Column
-		return new string?[] { null, schema, tableName, null, null };
 	}
 }

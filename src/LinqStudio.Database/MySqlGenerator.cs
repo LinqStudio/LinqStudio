@@ -38,79 +38,125 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 	}
 
 	/// <inheritdoc/>
-	protected override TableColumn? ParseColumnFromSchemaRow(DataRow row, HashSet<string> primaryKeys)
+	public override async Task<DatabaseTable> GetTableAsync(string tableName, CancellationToken cancellationToken = default)
 	{
-		var columnName = row["COLUMN_NAME"]?.ToString();
-		if (string.IsNullOrEmpty(columnName))
-			return null;
+		var (schema, name) = ParseTableName(tableName);
+		schema ??= Database.GetDbConnection().Database; // Default to current database
 
-		var dataType = row["DATA_TYPE"]?.ToString() ?? "unknown";
-		var isNullable = row["IS_NULLABLE"]?.ToString() == "YES";
-		var isPrimaryKey = primaryKeys.Contains(columnName);
+		var connection = Database.GetDbConnection();
+		
+		var wasOpen = connection.State == ConnectionState.Open;
+		if (!wasOpen)
+			await connection.OpenAsync(cancellationToken);
 
-		// Parse max length
-		int? maxLength = null;
-		if (row.Table.Columns.Contains("CHARACTER_MAXIMUM_LENGTH") && !row.IsNull("CHARACTER_MAXIMUM_LENGTH"))
+		try
 		{
-			var maxLengthValue = row["CHARACTER_MAXIMUM_LENGTH"];
-			if (maxLengthValue != DBNull.Value)
+			// Get columns using database-specific query
+			var columns = await GetColumnsAsync(connection, schema, name, cancellationToken);
+
+			// Get foreign keys using database-specific query
+			var foreignKeys = await GetForeignKeysAsync(connection, schema, name, cancellationToken);
+
+			return new DatabaseTable
 			{
-				if (long.TryParse(maxLengthValue.ToString(), out var longValue))
-					maxLength = longValue > int.MaxValue ? int.MaxValue : (int)longValue;
-			}
+				Schema = schema,
+				Name = name,
+				Columns = columns,
+				ForeignKeys = foreignKeys
+			};
 		}
-
-		// Parse precision and scale
-		int? precision = null;
-		int? scale = null;
-		if (row.Table.Columns.Contains("NUMERIC_PRECISION") && !row.IsNull("NUMERIC_PRECISION"))
+		finally
 		{
-			var precisionValue = row["NUMERIC_PRECISION"];
-			if (precisionValue != DBNull.Value)
-			{
-				if (long.TryParse(precisionValue.ToString(), out var longValue))
-					precision = longValue > int.MaxValue ? int.MaxValue : (int)longValue;
-			}
+			if (!wasOpen)
+				await connection.CloseAsync();
 		}
-		if (row.Table.Columns.Contains("NUMERIC_SCALE") && !row.IsNull("NUMERIC_SCALE"))
-		{
-			var scaleValue = row["NUMERIC_SCALE"];
-			if (scaleValue != DBNull.Value)
-			{
-				if (long.TryParse(scaleValue.ToString(), out var longValue))
-					scale = longValue > int.MaxValue ? int.MaxValue : (int)longValue;
-			}
-		}
-
-		// Check for auto increment (MySQL specific)
-		var isIdentity = false;
-		if (row.Table.Columns.Contains("EXTRA") && !row.IsNull("EXTRA"))
-		{
-			var extra = row["EXTRA"]?.ToString() ?? "";
-			isIdentity = extra.Contains("auto_increment", StringComparison.OrdinalIgnoreCase);
-		}
-
-		return new TableColumn
-		{
-			Name = columnName,
-			DataType = dataType,
-			IsNullable = isNullable,
-			IsPrimaryKey = isPrimaryKey,
-			IsIdentity = isIdentity,
-			MaxLength = maxLength,
-			Precision = precision,
-			Scale = scale
-		};
 	}
 
-	/// <inheritdoc/>
-	protected override async Task<IReadOnlyList<ForeignKey>> GetForeignKeysAsync(DbConnection connection, string? schema, string tableName, CancellationToken cancellationToken)
+	private async Task<IReadOnlyList<TableColumn>> GetColumnsAsync(DbConnection connection, string? schema, string tableName, CancellationToken cancellationToken)
+	{
+		var columns = new List<TableColumn>();
+
+		// Use GetSchema for columns
+		var restrictions = new string?[] { schema, null, tableName, null };
+		var columnsSchema = await Task.Run(() => connection.GetSchema("Columns", restrictions), cancellationToken);
+
+		foreach (DataRow row in columnsSchema.Rows)
+		{
+			var columnName = row["COLUMN_NAME"]?.ToString();
+			if (string.IsNullOrEmpty(columnName))
+				continue;
+
+			var dataType = row["DATA_TYPE"]?.ToString() ?? "unknown";
+			var isNullable = row["IS_NULLABLE"]?.ToString() == "YES";
+			var columnKey = row["COLUMN_KEY"]?.ToString();
+			var isPrimaryKey = columnKey == "PRI";
+
+			// Parse max length
+			int? maxLength = null;
+			if (row.Table.Columns.Contains("CHARACTER_MAXIMUM_LENGTH") && !row.IsNull("CHARACTER_MAXIMUM_LENGTH"))
+			{
+				var maxLengthValue = row["CHARACTER_MAXIMUM_LENGTH"];
+				if (maxLengthValue != DBNull.Value)
+				{
+					if (long.TryParse(maxLengthValue.ToString(), out var longValue))
+						maxLength = longValue > int.MaxValue ? int.MaxValue : (int)longValue;
+				}
+			}
+
+			// Parse precision and scale
+			int? precision = null;
+			int? scale = null;
+			if (row.Table.Columns.Contains("NUMERIC_PRECISION") && !row.IsNull("NUMERIC_PRECISION"))
+			{
+				var precisionValue = row["NUMERIC_PRECISION"];
+				if (precisionValue != DBNull.Value)
+				{
+					if (long.TryParse(precisionValue.ToString(), out var longValue))
+						precision = longValue > int.MaxValue ? int.MaxValue : (int)longValue;
+				}
+			}
+			if (row.Table.Columns.Contains("NUMERIC_SCALE") && !row.IsNull("NUMERIC_SCALE"))
+			{
+				var scaleValue = row["NUMERIC_SCALE"];
+				if (scaleValue != DBNull.Value)
+				{
+					if (long.TryParse(scaleValue.ToString(), out var longValue))
+						scale = longValue > int.MaxValue ? int.MaxValue : (int)longValue;
+				}
+			}
+
+			// Check for auto increment (MySQL specific)
+			var isIdentity = false;
+			if (row.Table.Columns.Contains("EXTRA") && !row.IsNull("EXTRA"))
+			{
+				var extra = row["EXTRA"]?.ToString() ?? "";
+				isIdentity = extra.Contains("auto_increment", StringComparison.OrdinalIgnoreCase);
+			}
+
+			columns.Add(new TableColumn
+			{
+				Name = columnName,
+				DataType = dataType,
+				IsNullable = isNullable,
+				IsPrimaryKey = isPrimaryKey,
+				IsIdentity = isIdentity,
+				MaxLength = maxLength,
+				Precision = precision,
+				Scale = scale
+			});
+		}
+
+		return columns;
+	}
+
+	private async Task<IReadOnlyList<ForeignKey>> GetForeignKeysAsync(DbConnection connection, string? schema, string tableName, CancellationToken cancellationToken)
 	{
 		var foreignKeys = new List<ForeignKey>();
 
 		try
 		{
-			var restrictions = new string?[] { null, schema, tableName, null };
+			// Use GetSchema for foreign keys - MySQL uses "Foreign Keys" collection
+			var restrictions = new string?[] { schema, null, tableName, null };
 			var foreignKeysSchema = await Task.Run(() => connection.GetSchema("Foreign Keys", restrictions), cancellationToken);
 
 			foreach (DataRow row in foreignKeysSchema.Rows)
@@ -144,26 +190,5 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 		}
 
 		return foreignKeys;
-	}
-
-	/// <inheritdoc/>
-	protected override string? NormalizeSchemaName(string? schema)
-	{
-		// For MySQL, if no schema is provided, we'll use the current database from connection
-		return schema ?? Database.GetDbConnection().Database;
-	}
-
-	/// <inheritdoc/>
-	protected override string?[] CreateColumnRestrictions(string? schema, string tableName)
-	{
-		// Catalog, Schema, Table, Column
-		return new string?[] { schema, null, tableName, null };
-	}
-
-	/// <inheritdoc/>
-	protected override string?[] CreateIndexRestrictions(string? schema, string tableName)
-	{
-		// Catalog, Schema, Table, Index, Column
-		return new string?[] { schema, null, tableName, null, null };
 	}
 }
