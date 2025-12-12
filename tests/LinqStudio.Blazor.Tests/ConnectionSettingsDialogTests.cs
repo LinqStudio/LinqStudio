@@ -40,7 +40,7 @@ public class ConnectionSettingsDialogTests : BunitContext
 		SetupServices();
 		var connectionService = Services.GetRequiredService<ConnectionService>();
 		var testConnectionString = "Server=localhost;Database=Test;";
-		connectionService.ConnectionString = testConnectionString;
+		connectionService.UpdateConnection(Abstractions.Models.DatabaseType.Mssql, testConnectionString);
 
 		// Act
 		var cut = Render<ConnectionSettingsDialog>();

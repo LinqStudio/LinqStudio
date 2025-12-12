@@ -1,6 +1,4 @@
 ﻿using LinqStudio.Abstractions;
-using LinqStudio.Abstractions.Abstractions;
-using LinqStudio.Abstractions.Models;
 using LinqStudio.Core.Services;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -17,12 +15,6 @@ public static class ServiceCollectionExtensions
 
 		// register the ConnectionService as a singleton to persist connection information
 		services.AddSingleton<ConnectionService>();
-
-		// Add all the generator factorys
-		services
-			.AddKeyedScoped<IDatabaseGeneratorFactory, DatabaseGeneratorFactory_Mssql>(DatabaseType.Mssql)
-			.AddKeyedScoped<IDatabaseGeneratorFactory, DatabaseGeneratorFactory_Mysql>(DatabaseType.MySql);
-
 
 		return services;
 	}

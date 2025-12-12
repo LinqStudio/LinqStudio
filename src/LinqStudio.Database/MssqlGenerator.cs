@@ -1,4 +1,5 @@
 ﻿using LinqStudio.Abstractions.Models;
+using Microsoft.Data.SqlClient;
 using System.Data;
 using System.Data.Common;
 
@@ -16,6 +17,9 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 	public MssqlGenerator(DbConnection connection) : base(connection)
 	{
 	}
+
+	public static MssqlGenerator Create(string connectionString) => new(new SqlConnection(connectionString));
+
 
 	/// <inheritdoc/>
 	protected override DatabaseTableName? ParseTableFromSchemaRow(DataRow row)

@@ -17,6 +17,8 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 	{
 	}
 
+	public static MySqlGenerator Create(string connectionString) => new(new MySql.Data.MySqlClient.MySqlConnection(connectionString));
+
 	/// <inheritdoc/>
 	protected override DatabaseTableName? ParseTableFromSchemaRow(DataRow row)
 	{

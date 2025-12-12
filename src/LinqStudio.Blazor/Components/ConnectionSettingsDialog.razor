@@ -90,7 +90,8 @@
 	private void Save()
 	{
 		// Save to the singleton service
-		ConnectionService.ConnectionString = _connectionString;
+		ConnectionService.UpdateConnection(_databaseType, _connectionString);
+
 		_initialConnectionString = _connectionString;
 		Snackbar.Add(SharedResource.ConnectionSettings_Message_Saved, Severity.Success);
 		MudDialog?.Close();
