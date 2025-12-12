@@ -1,5 +1,5 @@
 ﻿using LinqStudio.Abstractions.Models;
-using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using System.Data;
 using System.Data.Common;
 
@@ -13,169 +13,145 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 	/// <summary>
 	/// Creates a new instance of the MSSQL generator.
 	/// </summary>
-	/// <param name="connectionString">SQL Server connection string.</param>
-	public MssqlGenerator(string connectionString) : base(connectionString)
+	/// <param name="database">EF Core database facade.</param>
+	public MssqlGenerator(DatabaseFacade database) : base(database)
 	{
 	}
 
 	/// <inheritdoc/>
-	protected override DbConnection CreateConnection() => new SqlConnection(ConnectionString);
-
-	/// <inheritdoc/>
-	public override async Task<IReadOnlyList<DatabaseTable>> GetTablesAsync(CancellationToken cancellationToken = default)
+	protected override DatabaseTable? ParseTableFromSchemaRow(DataRow row)
 	{
-		var tables = new List<DatabaseTable>();
+		var schema = row["TABLE_SCHEMA"]?.ToString();
+		var tableName = row["TABLE_NAME"]?.ToString();
+		var tableType = row["TABLE_TYPE"]?.ToString();
 
-		await using var connection = CreateConnection();
-		await connection.OpenAsync(cancellationToken);
-
-		// Get all user tables from sys.tables
-		const string query = """
-			SELECT 
-				s.name AS SchemaName,
-				t.name AS TableName
-			FROM sys.tables t
-			INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
-			ORDER BY s.name, t.name
-			""";
-
-		await using var command = connection.CreateCommand();
-		command.CommandText = query;
-
-		await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-		while (await reader.ReadAsync(cancellationToken))
-		{
-			tables.Add(new DatabaseTable
-			{
-				Schema = reader.GetString(0),
-				Name = reader.GetString(1)
-			});
-		}
-
-		return tables;
-	}
-
-	/// <inheritdoc/>
-	public override async Task<DatabaseTable> GetTableAsync(string tableName, CancellationToken cancellationToken = default)
-	{
-		var (schema, name) = ParseTableName(tableName);
-		schema ??= "dbo"; // Default schema for SQL Server
-
-		await using var connection = CreateConnection();
-		await connection.OpenAsync(cancellationToken);
-
-		// Get columns
-		var columns = await GetColumnsAsync(connection, schema, name, cancellationToken);
-
-		// Get foreign keys
-		var foreignKeys = await GetForeignKeysAsync(connection, schema, name, cancellationToken);
+		// Only return base tables (not views)
+		if (tableType != "BASE TABLE" || string.IsNullOrEmpty(tableName))
+			return null;
 
 		return new DatabaseTable
 		{
 			Schema = schema,
-			Name = name,
-			Columns = columns,
-			ForeignKeys = foreignKeys
+			Name = tableName
 		};
 	}
 
-	private async Task<IReadOnlyList<TableColumn>> GetColumnsAsync(DbConnection connection, string schema, string tableName, CancellationToken cancellationToken)
+	/// <inheritdoc/>
+	protected override TableColumn? ParseColumnFromSchemaRow(DataRow row, HashSet<string> primaryKeys)
 	{
-		var columns = new List<TableColumn>();
+		var columnName = row["COLUMN_NAME"]?.ToString();
+		if (string.IsNullOrEmpty(columnName))
+			return null;
 
-		const string query = """
-			SELECT 
-				c.name AS ColumnName,
-				t.name AS DataType,
-				c.is_nullable AS IsNullable,
-				c.is_identity AS IsIdentity,
-				c.max_length AS MaxLength,
-				c.precision AS Precision,
-				c.scale AS Scale,
-				CASE WHEN pk.column_id IS NOT NULL THEN 1 ELSE 0 END AS IsPrimaryKey
-			FROM sys.columns c
-			INNER JOIN sys.types t ON c.user_type_id = t.user_type_id
-			LEFT JOIN (
-				SELECT ic.object_id, ic.column_id
-				FROM sys.index_columns ic
-				INNER JOIN sys.indexes i ON ic.object_id = i.object_id AND ic.index_id = i.index_id
-				WHERE i.is_primary_key = 1
-			) pk ON c.object_id = pk.object_id AND c.column_id = pk.column_id
-			WHERE c.object_id = OBJECT_ID(@TableName)
-			ORDER BY c.column_id
-			""";
+		var dataType = row["DATA_TYPE"]?.ToString() ?? "unknown";
+		var isNullable = row["IS_NULLABLE"]?.ToString() == "YES";
+		var isPrimaryKey = primaryKeys.Contains(columnName);
 
-		await using var command = connection.CreateCommand();
-		command.CommandText = query;
-		
-		var parameter = command.CreateParameter();
-		parameter.ParameterName = "@TableName";
-		parameter.Value = $"{schema}.{tableName}";
-		command.Parameters.Add(parameter);
-
-		await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-		while (await reader.ReadAsync(cancellationToken))
+		// Parse max length
+		int? maxLength = null;
+		if (row.Table.Columns.Contains("CHARACTER_MAXIMUM_LENGTH") && !row.IsNull("CHARACTER_MAXIMUM_LENGTH"))
 		{
-			var dataType = reader.GetString(1);
-			var maxLength = reader.GetInt16(4);
-			
-			columns.Add(new TableColumn
-			{
-				Name = reader.GetString(0),
-				DataType = dataType,
-				IsNullable = reader.GetBoolean(2),
-				IsIdentity = reader.GetBoolean(3),
-				IsPrimaryKey = reader.GetInt32(7) == 1,
-				MaxLength = (dataType == "nvarchar" || dataType == "varchar" || dataType == "nchar" || dataType == "char") && maxLength > 0 ? maxLength : null,
-				Precision = reader.GetByte(5) > 0 ? reader.GetByte(5) : null,
-				Scale = reader.GetByte(6) > 0 ? reader.GetByte(6) : null
-			});
+			var maxLengthValue = row["CHARACTER_MAXIMUM_LENGTH"];
+			if (maxLengthValue != DBNull.Value)
+				maxLength = Convert.ToInt32(maxLengthValue);
 		}
 
-		return columns;
+		// Parse precision and scale
+		int? precision = null;
+		int? scale = null;
+		if (row.Table.Columns.Contains("NUMERIC_PRECISION") && !row.IsNull("NUMERIC_PRECISION"))
+		{
+			var precisionValue = row["NUMERIC_PRECISION"];
+			if (precisionValue != DBNull.Value)
+				precision = Convert.ToInt32(precisionValue);
+		}
+		if (row.Table.Columns.Contains("NUMERIC_SCALE") && !row.IsNull("NUMERIC_SCALE"))
+		{
+			var scaleValue = row["NUMERIC_SCALE"];
+			if (scaleValue != DBNull.Value)
+				scale = Convert.ToInt32(scaleValue);
+		}
+
+		// Check if identity (SQL Server specific - need to query separately)
+		var isIdentity = false;
+		if (row.Table.Columns.Contains("AUTOINCREMENT") && !row.IsNull("AUTOINCREMENT"))
+		{
+			isIdentity = Convert.ToBoolean(row["AUTOINCREMENT"]);
+		}
+
+		return new TableColumn
+		{
+			Name = columnName,
+			DataType = dataType,
+			IsNullable = isNullable,
+			IsPrimaryKey = isPrimaryKey,
+			IsIdentity = isIdentity,
+			MaxLength = maxLength,
+			Precision = precision,
+			Scale = scale
+		};
 	}
 
-	private async Task<IReadOnlyList<ForeignKey>> GetForeignKeysAsync(DbConnection connection, string schema, string tableName, CancellationToken cancellationToken)
+	/// <inheritdoc/>
+	protected override async Task<IReadOnlyList<ForeignKey>> GetForeignKeysAsync(DbConnection connection, string? schema, string tableName, CancellationToken cancellationToken)
 	{
 		var foreignKeys = new List<ForeignKey>();
 
-		const string query = """
-			SELECT 
-				fk.name AS ForeignKeyName,
-				c.name AS ColumnName,
-				rs.name + '.' + rt.name AS ReferencedTable,
-				rc.name AS ReferencedColumn
-			FROM sys.foreign_keys fk
-			INNER JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id
-			INNER JOIN sys.columns c ON fkc.parent_object_id = c.object_id AND fkc.parent_column_id = c.column_id
-			INNER JOIN sys.tables rt ON fkc.referenced_object_id = rt.object_id
-			INNER JOIN sys.schemas rs ON rt.schema_id = rs.schema_id
-			INNER JOIN sys.columns rc ON fkc.referenced_object_id = rc.object_id AND fkc.referenced_column_id = rc.column_id
-			WHERE fk.parent_object_id = OBJECT_ID(@TableName)
-			ORDER BY fk.name
-			""";
-
-		await using var command = connection.CreateCommand();
-		command.CommandText = query;
-		
-		var parameter = command.CreateParameter();
-		parameter.ParameterName = "@TableName";
-		parameter.Value = $"{schema}.{tableName}";
-		command.Parameters.Add(parameter);
-
-		await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-		while (await reader.ReadAsync(cancellationToken))
+		try
 		{
-			foreignKeys.Add(new ForeignKey
+			var restrictions = new string?[] { null, schema, tableName, null };
+			var foreignKeysSchema = await Task.Run(() => connection.GetSchema("ForeignKeys", restrictions), cancellationToken);
+
+			foreach (DataRow row in foreignKeysSchema.Rows)
 			{
-				Name = reader.GetString(0),
-				ColumnName = reader.GetString(1),
-				ReferencedTable = reader.GetString(2),
-				ReferencedColumn = reader.GetString(3)
-			});
+				var constraintName = row["CONSTRAINT_NAME"]?.ToString();
+				var columnName = row["FKEY_FROM_COLUMN"]?.ToString();
+				var referencedSchema = row["FKEY_TO_SCHEMA"]?.ToString();
+				var referencedTable = row["FKEY_TO_TABLE"]?.ToString();
+				var referencedColumn = row["FKEY_TO_COLUMN"]?.ToString();
+
+				if (string.IsNullOrEmpty(constraintName) || string.IsNullOrEmpty(columnName) ||
+					string.IsNullOrEmpty(referencedTable) || string.IsNullOrEmpty(referencedColumn))
+					continue;
+
+				var fullReferencedTable = !string.IsNullOrEmpty(referencedSchema)
+					? $"{referencedSchema}.{referencedTable}"
+					: referencedTable;
+
+				foreignKeys.Add(new ForeignKey
+				{
+					Name = constraintName,
+					ColumnName = columnName,
+					ReferencedTable = fullReferencedTable,
+					ReferencedColumn = referencedColumn
+				});
+			}
+		}
+		catch
+		{
+			// If ForeignKeys schema collection is not supported, return empty list
 		}
 
 		return foreignKeys;
 	}
-}
 
+	/// <inheritdoc/>
+	protected override string? NormalizeSchemaName(string? schema)
+	{
+		return schema ?? "dbo";
+	}
+
+	/// <inheritdoc/>
+	protected override string?[] CreateColumnRestrictions(string? schema, string tableName)
+	{
+		// Catalog, Schema, Table, Column
+		return new string?[] { null, schema, tableName, null };
+	}
+
+	/// <inheritdoc/>
+	protected override string?[] CreateIndexRestrictions(string? schema, string tableName)
+	{
+		// Catalog, Schema, Table, Constraint, Column
+		return new string?[] { null, schema, tableName, null, null };
+	}
+}

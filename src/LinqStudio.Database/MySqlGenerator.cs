@@ -1,5 +1,7 @@
 using LinqStudio.Abstractions.Models;
-using MySql.Data.MySqlClient;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using System.Data;
 using System.Data.Common;
 
 namespace LinqStudio.Databases.MySQL;
@@ -12,179 +14,156 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 	/// <summary>
 	/// Creates a new instance of the MySQL generator.
 	/// </summary>
-	/// <param name="connectionString">MySQL connection string.</param>
-	public MySqlGenerator(string connectionString) : base(connectionString)
+	/// <param name="database">EF Core database facade.</param>
+	public MySqlGenerator(DatabaseFacade database) : base(database)
 	{
 	}
 
 	/// <inheritdoc/>
-	protected override DbConnection CreateConnection() => new MySqlConnection(ConnectionString);
-
-	/// <inheritdoc/>
-	public override async Task<IReadOnlyList<DatabaseTable>> GetTablesAsync(CancellationToken cancellationToken = default)
+	protected override DatabaseTable? ParseTableFromSchemaRow(DataRow row)
 	{
-		var tables = new List<DatabaseTable>();
+		var schema = row["TABLE_SCHEMA"]?.ToString();
+		var tableName = row["TABLE_NAME"]?.ToString();
+		var tableType = row["TABLE_TYPE"]?.ToString();
 
-		await using var connection = CreateConnection();
-		await connection.OpenAsync(cancellationToken);
-
-		// Get the current database name
-		var database = connection.Database;
-
-		// Get all tables from information_schema
-		const string query = """
-			SELECT 
-				TABLE_SCHEMA,
-				TABLE_NAME
-			FROM INFORMATION_SCHEMA.TABLES
-			WHERE TABLE_SCHEMA = @Database
-				AND TABLE_TYPE = 'BASE TABLE'
-			ORDER BY TABLE_SCHEMA, TABLE_NAME
-			""";
-
-		await using var command = connection.CreateCommand();
-		command.CommandText = query;
-		
-		var parameter = command.CreateParameter();
-		parameter.ParameterName = "@Database";
-		parameter.Value = database;
-		command.Parameters.Add(parameter);
-
-		await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-		while (await reader.ReadAsync(cancellationToken))
-		{
-			tables.Add(new DatabaseTable
-			{
-				Schema = reader.GetString(0),
-				Name = reader.GetString(1)
-			});
-		}
-
-		return tables;
-	}
-
-	/// <inheritdoc/>
-	public override async Task<DatabaseTable> GetTableAsync(string tableName, CancellationToken cancellationToken = default)
-	{
-		var (schema, name) = ParseTableName(tableName);
-
-		await using var connection = CreateConnection();
-		await connection.OpenAsync(cancellationToken);
-
-		schema ??= connection.Database; // Default to current database
-
-		// Get columns
-		var columns = await GetColumnsAsync(connection, schema, name, cancellationToken);
-
-		// Get foreign keys
-		var foreignKeys = await GetForeignKeysAsync(connection, schema, name, cancellationToken);
+		// Only return base tables (not views)
+		if (tableType != "BASE TABLE" || string.IsNullOrEmpty(tableName))
+			return null;
 
 		return new DatabaseTable
 		{
 			Schema = schema,
-			Name = name,
-			Columns = columns,
-			ForeignKeys = foreignKeys
+			Name = tableName
 		};
 	}
 
-	private async Task<IReadOnlyList<TableColumn>> GetColumnsAsync(DbConnection connection, string schema, string tableName, CancellationToken cancellationToken)
+	/// <inheritdoc/>
+	protected override TableColumn? ParseColumnFromSchemaRow(DataRow row, HashSet<string> primaryKeys)
 	{
-		var columns = new List<TableColumn>();
+		var columnName = row["COLUMN_NAME"]?.ToString();
+		if (string.IsNullOrEmpty(columnName))
+			return null;
 
-		const string query = """
-			SELECT 
-				c.COLUMN_NAME,
-				c.DATA_TYPE,
-				c.IS_NULLABLE,
-				c.COLUMN_KEY,
-				c.EXTRA,
-				c.CHARACTER_MAXIMUM_LENGTH,
-				c.NUMERIC_PRECISION,
-				c.NUMERIC_SCALE
-			FROM INFORMATION_SCHEMA.COLUMNS c
-			WHERE c.TABLE_SCHEMA = @Schema
-				AND c.TABLE_NAME = @TableName
-			ORDER BY c.ORDINAL_POSITION
-			""";
+		var dataType = row["DATA_TYPE"]?.ToString() ?? "unknown";
+		var isNullable = row["IS_NULLABLE"]?.ToString() == "YES";
+		var isPrimaryKey = primaryKeys.Contains(columnName);
 
-		await using var command = connection.CreateCommand();
-		command.CommandText = query;
-		
-		var schemaParam = command.CreateParameter();
-		schemaParam.ParameterName = "@Schema";
-		schemaParam.Value = schema;
-		command.Parameters.Add(schemaParam);
-
-		var tableParam = command.CreateParameter();
-		tableParam.ParameterName = "@TableName";
-		tableParam.Value = tableName;
-		command.Parameters.Add(tableParam);
-
-		await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-		while (await reader.ReadAsync(cancellationToken))
+		// Parse max length
+		int? maxLength = null;
+		if (row.Table.Columns.Contains("CHARACTER_MAXIMUM_LENGTH") && !row.IsNull("CHARACTER_MAXIMUM_LENGTH"))
 		{
-			var columnKey = reader.GetString(3);
-			var extra = reader.GetString(4);
-			
-			columns.Add(new TableColumn
+			var maxLengthValue = row["CHARACTER_MAXIMUM_LENGTH"];
+			if (maxLengthValue != DBNull.Value)
 			{
-				Name = reader.GetString(0),
-				DataType = reader.GetString(1),
-				IsNullable = reader.GetString(2) == "YES",
-				IsPrimaryKey = columnKey == "PRI",
-				IsIdentity = extra.Contains("auto_increment", StringComparison.OrdinalIgnoreCase),
-				MaxLength = reader.IsDBNull(5) ? null : Convert.ToInt32(reader.GetValue(5)),
-				Precision = reader.IsDBNull(6) ? null : Convert.ToInt32(reader.GetValue(6)),
-				Scale = reader.IsDBNull(7) ? null : Convert.ToInt32(reader.GetValue(7))
-			});
+				if (long.TryParse(maxLengthValue.ToString(), out var longValue))
+					maxLength = longValue > int.MaxValue ? int.MaxValue : (int)longValue;
+			}
 		}
 
-		return columns;
+		// Parse precision and scale
+		int? precision = null;
+		int? scale = null;
+		if (row.Table.Columns.Contains("NUMERIC_PRECISION") && !row.IsNull("NUMERIC_PRECISION"))
+		{
+			var precisionValue = row["NUMERIC_PRECISION"];
+			if (precisionValue != DBNull.Value)
+			{
+				if (long.TryParse(precisionValue.ToString(), out var longValue))
+					precision = longValue > int.MaxValue ? int.MaxValue : (int)longValue;
+			}
+		}
+		if (row.Table.Columns.Contains("NUMERIC_SCALE") && !row.IsNull("NUMERIC_SCALE"))
+		{
+			var scaleValue = row["NUMERIC_SCALE"];
+			if (scaleValue != DBNull.Value)
+			{
+				if (long.TryParse(scaleValue.ToString(), out var longValue))
+					scale = longValue > int.MaxValue ? int.MaxValue : (int)longValue;
+			}
+		}
+
+		// Check for auto increment (MySQL specific)
+		var isIdentity = false;
+		if (row.Table.Columns.Contains("EXTRA") && !row.IsNull("EXTRA"))
+		{
+			var extra = row["EXTRA"]?.ToString() ?? "";
+			isIdentity = extra.Contains("auto_increment", StringComparison.OrdinalIgnoreCase);
+		}
+
+		return new TableColumn
+		{
+			Name = columnName,
+			DataType = dataType,
+			IsNullable = isNullable,
+			IsPrimaryKey = isPrimaryKey,
+			IsIdentity = isIdentity,
+			MaxLength = maxLength,
+			Precision = precision,
+			Scale = scale
+		};
 	}
 
-	private async Task<IReadOnlyList<ForeignKey>> GetForeignKeysAsync(DbConnection connection, string schema, string tableName, CancellationToken cancellationToken)
+	/// <inheritdoc/>
+	protected override async Task<IReadOnlyList<ForeignKey>> GetForeignKeysAsync(DbConnection connection, string? schema, string tableName, CancellationToken cancellationToken)
 	{
 		var foreignKeys = new List<ForeignKey>();
 
-		const string query = """
-			SELECT 
-				kcu.CONSTRAINT_NAME,
-				kcu.COLUMN_NAME,
-				CONCAT(kcu.REFERENCED_TABLE_SCHEMA, '.', kcu.REFERENCED_TABLE_NAME) AS ReferencedTable,
-				kcu.REFERENCED_COLUMN_NAME
-			FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu
-			WHERE kcu.TABLE_SCHEMA = @Schema
-				AND kcu.TABLE_NAME = @TableName
-				AND kcu.REFERENCED_TABLE_NAME IS NOT NULL
-			ORDER BY kcu.CONSTRAINT_NAME, kcu.ORDINAL_POSITION
-			""";
-
-		await using var command = connection.CreateCommand();
-		command.CommandText = query;
-		
-		var schemaParam = command.CreateParameter();
-		schemaParam.ParameterName = "@Schema";
-		schemaParam.Value = schema;
-		command.Parameters.Add(schemaParam);
-
-		var tableParam = command.CreateParameter();
-		tableParam.ParameterName = "@TableName";
-		tableParam.Value = tableName;
-		command.Parameters.Add(tableParam);
-
-		await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-		while (await reader.ReadAsync(cancellationToken))
+		try
 		{
-			foreignKeys.Add(new ForeignKey
+			var restrictions = new string?[] { null, schema, tableName, null };
+			var foreignKeysSchema = await Task.Run(() => connection.GetSchema("Foreign Keys", restrictions), cancellationToken);
+
+			foreach (DataRow row in foreignKeysSchema.Rows)
 			{
-				Name = reader.GetString(0),
-				ColumnName = reader.GetString(1),
-				ReferencedTable = reader.GetString(2),
-				ReferencedColumn = reader.GetString(3)
-			});
+				var constraintName = row["CONSTRAINT_NAME"]?.ToString();
+				var columnName = row["COLUMN_NAME"]?.ToString();
+				var referencedSchema = row["REFERENCED_TABLE_SCHEMA"]?.ToString();
+				var referencedTable = row["REFERENCED_TABLE_NAME"]?.ToString();
+				var referencedColumn = row["REFERENCED_COLUMN_NAME"]?.ToString();
+
+				if (string.IsNullOrEmpty(constraintName) || string.IsNullOrEmpty(columnName) ||
+					string.IsNullOrEmpty(referencedTable) || string.IsNullOrEmpty(referencedColumn))
+					continue;
+
+				var fullReferencedTable = !string.IsNullOrEmpty(referencedSchema)
+					? $"{referencedSchema}.{referencedTable}"
+					: referencedTable;
+
+				foreignKeys.Add(new ForeignKey
+				{
+					Name = constraintName,
+					ColumnName = columnName,
+					ReferencedTable = fullReferencedTable,
+					ReferencedColumn = referencedColumn
+				});
+			}
+		}
+		catch
+		{
+			// If Foreign Keys schema collection is not supported, return empty list
 		}
 
 		return foreignKeys;
+	}
+
+	/// <inheritdoc/>
+	protected override string? NormalizeSchemaName(string? schema)
+	{
+		// For MySQL, if no schema is provided, we'll use the current database from connection
+		return schema ?? Database.GetDbConnection().Database;
+	}
+
+	/// <inheritdoc/>
+	protected override string?[] CreateColumnRestrictions(string? schema, string tableName)
+	{
+		// Catalog, Schema, Table, Column
+		return new string?[] { schema, null, tableName, null };
+	}
+
+	/// <inheritdoc/>
+	protected override string?[] CreateIndexRestrictions(string? schema, string tableName)
+	{
+		// Catalog, Schema, Table, Index, Column
+		return new string?[] { schema, null, tableName, null, null };
 	}
 }

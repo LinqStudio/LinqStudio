@@ -116,7 +116,8 @@ dotnet run --project src/LinqStudio.App.WebServer
 ## Testing Patterns
 - **Embedded resources for test data**: Test models compiled as `.cs` files, embedded via `.csproj` ItemGroup
 - **Reflection in tests**: `Assembly.GetExecutingAssembly().GetManifestResourceStream()`
-- **xUnit conventions**: `[Fact]` for unit tests, `Assert.*` for assertions with FluentAssertions
+- **xUnit conventions**: `[Fact]` for unit tests, `Assert.*` for assertions
+- **Do NOT use FluentAssertions**: Use standard xUnit assertions (`Assert.Equal`, `Assert.NotNull`, etc.)
 - Example: `CompilerServiceTests.GetCompletionsAsync_ReturnsCompletions_ForUserQuery()`
 
 ## Known Issues & Workarounds

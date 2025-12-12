@@ -1,4 +1,3 @@
-using FluentAssertions;
 using LinqStudio.Abstractions.Abstractions;
 using LinqStudio.Databases.Tests.TestData;
 using Microsoft.EntityFrameworkCore;
@@ -13,6 +12,7 @@ public abstract class DatabaseGeneratorTestsBase : IAsyncLifetime
 {
 	protected string ConnectionString { get; private set; } = null!;
 	protected IDatabaseQueryGenerator Generator { get; private set; } = null!;
+	protected TestDbContext DbContext { get; private set; } = null!;
 
 	/// <summary>
 	/// Initialize the database container and setup test data.
@@ -22,8 +22,12 @@ public abstract class DatabaseGeneratorTestsBase : IAsyncLifetime
 		// Start the database container
 		ConnectionString = await StartDatabaseContainerAsync();
 
-		// Create the generator
-		Generator = CreateGenerator(ConnectionString);
+		// Create DbContext
+		var options = CreateDbContextOptions(ConnectionString);
+		DbContext = new TestDbContext(options);
+
+		// Create the generator with DbFacade
+		Generator = CreateGenerator(DbContext.Database);
 
 		// Setup EF Core and insert test data
 		await SeedTestDataAsync();
@@ -34,6 +38,9 @@ public abstract class DatabaseGeneratorTestsBase : IAsyncLifetime
 	/// </summary>
 	public async Task DisposeAsync()
 	{
+		if (DbContext != null)
+			await DbContext.DisposeAsync();
+		
 		await StopDatabaseContainerAsync();
 	}
 
@@ -55,35 +62,32 @@ public abstract class DatabaseGeneratorTestsBase : IAsyncLifetime
 	/// <summary>
 	/// Create the database generator for the specific database type.
 	/// </summary>
-	protected abstract IDatabaseQueryGenerator CreateGenerator(string connectionString);
+	protected abstract IDatabaseQueryGenerator CreateGenerator(Microsoft.EntityFrameworkCore.Infrastructure.DatabaseFacade database);
 
 	/// <summary>
 	/// Seed test data into the database using EF Core.
 	/// </summary>
 	private async Task SeedTestDataAsync()
 	{
-		var options = CreateDbContextOptions(ConnectionString);
-		await using var context = new TestDbContext(options);
-
 		// Create database and apply migrations
-		await context.Database.EnsureCreatedAsync();
+		await DbContext.Database.EnsureCreatedAsync();
 
 		// Generate and insert test data - IDs will be auto-generated
 		var customers = BogusDataGenerator.GenerateCustomers(10);
-		await context.Customers.AddRangeAsync(customers);
-		await context.SaveChangesAsync(); // Save to get IDs
+		await DbContext.Customers.AddRangeAsync(customers);
+		await DbContext.SaveChangesAsync(); // Save to get IDs
 
 		var products = BogusDataGenerator.GenerateProducts(20);
-		await context.Products.AddRangeAsync(products);
-		await context.SaveChangesAsync(); // Save to get IDs
+		await DbContext.Products.AddRangeAsync(products);
+		await DbContext.SaveChangesAsync(); // Save to get IDs
 
 		var orders = BogusDataGenerator.GenerateOrders(customers, 3);
-		await context.Orders.AddRangeAsync(orders);
-		await context.SaveChangesAsync(); // Save to get IDs
+		await DbContext.Orders.AddRangeAsync(orders);
+		await DbContext.SaveChangesAsync(); // Save to get IDs
 
 		var orderItems = BogusDataGenerator.GenerateOrderItems(orders, products);
-		await context.OrderItems.AddRangeAsync(orderItems);
-		await context.SaveChangesAsync();
+		await DbContext.OrderItems.AddRangeAsync(orderItems);
+		await DbContext.SaveChangesAsync();
 	}
 
 	[Fact]
@@ -93,17 +97,17 @@ public abstract class DatabaseGeneratorTestsBase : IAsyncLifetime
 		var tables = await Generator.GetTablesAsync();
 
 		// Assert
-		tables.Should().NotBeNull();
-		tables.Should().NotBeEmpty();
+		Assert.NotNull(tables);
+		Assert.NotEmpty(tables);
 		
 		// Should have at least our 4 tables
-		tables.Should().Contain(t => t.Name == "Customers");
-		tables.Should().Contain(t => t.Name == "Orders");
-		tables.Should().Contain(t => t.Name == "Products");
-		tables.Should().Contain(t => t.Name == "OrderItems");
+		Assert.Contains(tables, t => t.Name == "Customers");
+		Assert.Contains(tables, t => t.Name == "Orders");
+		Assert.Contains(tables, t => t.Name == "Products");
+		Assert.Contains(tables, t => t.Name == "OrderItems");
 
 		// Tables should have schema and name
-		tables.Should().OnlyContain(t => !string.IsNullOrWhiteSpace(t.Name));
+		Assert.All(tables, t => Assert.False(string.IsNullOrWhiteSpace(t.Name)));
 	}
 
 	[Fact]
@@ -117,22 +121,22 @@ public abstract class DatabaseGeneratorTestsBase : IAsyncLifetime
 		var table = await Generator.GetTableAsync(customersTable.FullName);
 
 		// Assert
-		table.Should().NotBeNull();
-		table.Name.Should().Be("Customers");
-		table.Columns.Should().NotBeNull();
-		table.Columns.Should().NotBeEmpty();
+		Assert.NotNull(table);
+		Assert.Equal("Customers", table.Name);
+		Assert.NotNull(table.Columns);
+		Assert.NotEmpty(table.Columns);
 
 		// Verify expected columns
-		table.Columns.Should().Contain(c => c.Name == "Id");
-		table.Columns.Should().Contain(c => c.Name == "FirstName");
-		table.Columns.Should().Contain(c => c.Name == "LastName");
-		table.Columns.Should().Contain(c => c.Name == "Email");
-		table.Columns.Should().Contain(c => c.Name == "CreatedDate");
+		Assert.Contains(table.Columns, c => c.Name == "Id");
+		Assert.Contains(table.Columns, c => c.Name == "FirstName");
+		Assert.Contains(table.Columns, c => c.Name == "LastName");
+		Assert.Contains(table.Columns, c => c.Name == "Email");
+		Assert.Contains(table.Columns, c => c.Name == "CreatedDate");
 
 		// Verify Id is primary key
 		var idColumn = table.Columns.First(c => c.Name == "Id");
-		idColumn.IsPrimaryKey.Should().BeTrue();
-		idColumn.IsNullable.Should().BeFalse();
+		Assert.True(idColumn.IsPrimaryKey);
+		Assert.False(idColumn.IsNullable);
 	}
 
 	[Fact]
@@ -146,12 +150,12 @@ public abstract class DatabaseGeneratorTestsBase : IAsyncLifetime
 		var table = await Generator.GetTableAsync(ordersTable.FullName);
 
 		// Assert
-		table.Should().NotBeNull();
-		table.ForeignKeys.Should().NotBeNull();
-		table.ForeignKeys.Should().NotBeEmpty();
+		Assert.NotNull(table);
+		Assert.NotNull(table.ForeignKeys);
+		Assert.NotEmpty(table.ForeignKeys);
 
 		// Should have foreign key to Customers table
-		table.ForeignKeys.Should().Contain(fk => 
+		Assert.Contains(table.ForeignKeys, fk => 
 			fk.ColumnName == "CustomerId" && 
 			fk.ReferencedTable.Contains("Customers"));
 	}
@@ -167,16 +171,16 @@ public abstract class DatabaseGeneratorTestsBase : IAsyncLifetime
 		var table = await Generator.GetTableAsync(orderItemsTable.FullName);
 
 		// Assert
-		table.Should().NotBeNull();
-		table.ForeignKeys.Should().NotBeNull();
-		table.ForeignKeys.Should().HaveCountGreaterThanOrEqualTo(2);
+		Assert.NotNull(table);
+		Assert.NotNull(table.ForeignKeys);
+		Assert.True(table.ForeignKeys.Count >= 2);
 
 		// Should have foreign keys to Orders and Products tables
-		table.ForeignKeys.Should().Contain(fk => 
+		Assert.Contains(table.ForeignKeys, fk => 
 			fk.ColumnName == "OrderId" && 
 			fk.ReferencedTable.Contains("Orders"));
 		
-		table.ForeignKeys.Should().Contain(fk => 
+		Assert.Contains(table.ForeignKeys, fk => 
 			fk.ColumnName == "ProductId" && 
 			fk.ReferencedTable.Contains("Products"));
 	}
@@ -192,7 +196,7 @@ public abstract class DatabaseGeneratorTestsBase : IAsyncLifetime
 		var table = await Generator.GetTableAsync(customersTable.FullName);
 
 		// Assert
-		table.Columns.Should().OnlyContain(c => !string.IsNullOrWhiteSpace(c.DataType));
+		Assert.All(table.Columns!, c => Assert.False(string.IsNullOrWhiteSpace(c.DataType)));
 	}
 
 	[Fact]
@@ -207,9 +211,9 @@ public abstract class DatabaseGeneratorTestsBase : IAsyncLifetime
 
 		// Assert
 		var idColumn = table.Columns!.First(c => c.Name == "Id");
-		idColumn.IsNullable.Should().BeFalse();
+		Assert.False(idColumn.IsNullable);
 
 		var firstNameColumn = table.Columns.First(c => c.Name == "FirstName");
-		firstNameColumn.IsNullable.Should().BeFalse();
+		Assert.False(firstNameColumn.IsNullable);
 	}
 }

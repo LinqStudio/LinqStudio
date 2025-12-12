@@ -2,6 +2,7 @@ using LinqStudio.Abstractions.Abstractions;
 using LinqStudio.Databases.MySQL;
 using LinqStudio.Databases.Tests.TestData;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Testcontainers.MySql;
 
 namespace LinqStudio.Databases.Tests;
@@ -40,8 +41,8 @@ public class MySqlGeneratorTests : DatabaseGeneratorTestsBase
 			.Options;
 	}
 
-	protected override IDatabaseQueryGenerator CreateGenerator(string connectionString)
+	protected override IDatabaseQueryGenerator CreateGenerator(DatabaseFacade database)
 	{
-		return new MySqlGenerator(connectionString);
+		return new MySqlGenerator(database);
 	}
 }
