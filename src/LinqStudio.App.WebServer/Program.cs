@@ -9,8 +9,12 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
-// Add SQL Server DbContext from Aspire
-builder.AddSqlServerDbContext<TestDbContext>("testdb");
+// Only add SQL Server DbContext when running with Aspire (connection named "testdb" will be available)
+var connectionString = builder.Configuration.GetConnectionString("testdb");
+if (!string.IsNullOrEmpty(connectionString))
+{
+	builder.AddSqlServerDbContext<TestDbContext>("testdb");
+}
 
 builder.Configuration.AddJsonFile(SettingsService.FILE_NAME, optional: true, reloadOnChange: true);
 

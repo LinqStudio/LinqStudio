@@ -20,7 +20,14 @@ public class DatabaseSeederService : IHostedService
 	public async Task StartAsync(CancellationToken cancellationToken)
 	{
 		using var scope = _serviceProvider.CreateScope();
-		var dbContext = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+		
+		// Check if TestDbContext is registered
+		var dbContext = scope.ServiceProvider.GetService<TestDbContext>();
+		if (dbContext == null)
+		{
+			_logger.LogInformation("TestDbContext not configured, skipping database seeding");
+			return;
+		}
 
 		try
 		{

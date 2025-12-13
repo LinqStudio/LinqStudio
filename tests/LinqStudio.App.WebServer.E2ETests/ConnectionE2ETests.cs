@@ -11,7 +11,7 @@ public class ConnectionE2ETests(AppServerFixture app, PlaywrightFixture pw)
 	private readonly PlaywrightFixture _pw = pw;
 
 	[Fact(Timeout = 60_000)]
-	public async Task Connection_ButtonInTopBar_OpensDialog()
+	public async Task Connection_ButtonInObjectExplorer_OpensDialog()
 	{
 		Assert.NotNull(_pw.Browser);
 
@@ -24,11 +24,11 @@ public class ConnectionE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		// Wait for page to load
 		await page.WaitForSelectorAsync("text=Hello, world!");
 
-		// Find and click the connection button in the top bar
-		var connectionButton = await page.WaitForSelectorAsync("[data-testid='connection-button']", new() { Timeout = 10000 });
-		Assert.NotNull(connectionButton);
+		// Find and click the Add Connection button in the object explorer
+		var addConnectionButton = await page.WaitForSelectorAsync("[data-testid='add-connection-button']", new() { Timeout = 10000 });
+		Assert.NotNull(addConnectionButton);
 		
-		await connectionButton.ClickAsync();
+		await addConnectionButton.ClickAsync();
 
 		// Wait for dialog to appear
 		var dialog = await page.WaitForSelectorAsync("text=Connection Settings", new() { Timeout = 10000 });
@@ -47,13 +47,17 @@ public class ConnectionE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await page.GotoAsync(_app.BaseUrl.ToString());
 		await page.WaitForSelectorAsync("text=Hello, world!");
 
-		// Open connection dialog
-		var connectionButton = await page.WaitForSelectorAsync("[data-testid='connection-button']", new() { Timeout = 10000 });
-		Assert.NotNull(connectionButton);
-		await connectionButton.ClickAsync();
+		// Open connection dialog via object explorer
+		var addConnectionButton = await page.WaitForSelectorAsync("[data-testid='add-connection-button']", new() { Timeout = 10000 });
+		Assert.NotNull(addConnectionButton);
+		await addConnectionButton.ClickAsync();
 
 		// Wait for dialog
 		await page.WaitForSelectorAsync("text=Connection Settings", new() { Timeout = 10000 });
+
+		// Check for connection name input
+		var connectionNameInput = await page.QuerySelectorAsync("[data-testid='connection-name-input']");
+		Assert.NotNull(connectionNameInput);
 
 		// Check for database type select
 		var databaseSelect = await page.QuerySelectorAsync("[data-testid='database-type-select']");
@@ -92,9 +96,9 @@ public class ConnectionE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await page.GotoAsync(_app.BaseUrl.ToString());
 		await page.WaitForSelectorAsync("text=Hello, world!");
 
-		var connectionButton = await page.WaitForSelectorAsync("[data-testid='connection-button']", new() { Timeout = 10000 });
-		Assert.NotNull(connectionButton);
-		await connectionButton.ClickAsync();
+		var addConnectionButton = await page.WaitForSelectorAsync("[data-testid='add-connection-button']", new() { Timeout = 10000 });
+		Assert.NotNull(addConnectionButton);
+		await addConnectionButton.ClickAsync();
 
 		await page.WaitForSelectorAsync("text=Connection Settings", new() { Timeout = 10000 });
 
@@ -115,9 +119,9 @@ public class ConnectionE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await page.GotoAsync(_app.BaseUrl.ToString());
 		await page.WaitForSelectorAsync("text=Hello, world!");
 
-		var connectionButton = await page.WaitForSelectorAsync("[data-testid='connection-button']", new() { Timeout = 10000 });
-		Assert.NotNull(connectionButton);
-		await connectionButton.ClickAsync();
+		var addConnectionButton = await page.WaitForSelectorAsync("[data-testid='add-connection-button']", new() { Timeout = 10000 });
+		Assert.NotNull(addConnectionButton);
+		await addConnectionButton.ClickAsync();
 
 		await page.WaitForSelectorAsync("text=Connection Settings", new() { Timeout = 10000 });
 
