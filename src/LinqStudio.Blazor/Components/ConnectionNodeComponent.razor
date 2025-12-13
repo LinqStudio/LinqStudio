@@ -1,0 +1,99 @@
+@using LinqStudio.Abstractions.Models
+@using LinqStudio.Core.Services
+@inject ObjectExplorerService ObjectExplorerService
+@inject ErrorHandlingService ErrorHandlingService
+
+<MudListItem T="string" Icon="@Icons.Material.Filled.Storage" 
+			 @onclick="ToggleExpand">
+	<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Style="width: 100%">
+		<MudText>@Connection.Name</MudText>
+		<MudSpacer />
+		<MudIconButton Icon="@Icons.Material.Filled.Refresh" 
+					   Size="Size.Small" 
+					   OnClick="@RefreshConnection" 
+					   title="Refresh Connection" />
+		<MudIconButton Icon="@Icons.Material.Filled.Delete" 
+					   Size="Size.Small" 
+					   Color="Color.Error"
+					   OnClick="@RemoveConnection" 
+					   title="Remove Connection" />
+	</MudStack>
+</MudListItem>
+
+@if (_isExpanded)
+{
+	@if (_isLoading)
+	{
+		<MudListItem T="string" Icon="@Icons.Material.Filled.HourglassEmpty" Class="ml-4">
+			<MudText>Loading...</MudText>
+		</MudListItem>
+	}
+	else if (_tables != null)
+	{
+		@foreach (var table in _tables)
+		{
+			<TableNodeComponent Connection="@Connection" Table="@table" />
+		}
+	}
+}
+
+@code {
+	[Parameter]
+	public required DatabaseConnection Connection { get; set; }
+
+	private bool _isExpanded = false;
+	private bool _isLoading = false;
+	private IReadOnlyList<DatabaseTableName>? _tables = null;
+
+	private async Task ToggleExpand()
+	{
+		_isExpanded = !_isExpanded;
+		
+		if (_isExpanded && _tables == null)
+		{
+			await LoadTables();
+		}
+	}
+
+	private async Task LoadTables()
+	{
+		_isLoading = true;
+		StateHasChanged();
+
+		try
+		{
+			_tables = await ObjectExplorerService.GetTablesAsync(Connection);
+		}
+		catch (Exception ex)
+		{
+			await ErrorHandlingService.HandleErrorAsync(ex, "Failed to load tables");
+		}
+		finally
+		{
+			_isLoading = false;
+			StateHasChanged();
+		}
+	}
+
+	private async Task RefreshConnection()
+	{
+		_tables = null;
+		try
+		{
+			await ObjectExplorerService.RefreshConnectionAsync(Connection);
+			if (_isExpanded)
+			{
+				await LoadTables();
+			}
+		}
+		catch (Exception ex)
+		{
+			await ErrorHandlingService.HandleErrorAsync(ex, "Failed to refresh connection");
+		}
+	}
+
+	private void RemoveConnection()
+	{
+		ObjectExplorerService.RemoveConnection(Connection.Id);
+	}
+}

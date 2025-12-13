@@ -320,5 +320,131 @@ namespace LinqStudio.Core.Resources {
                 return ResourceManager.GetString("NavMenu.ConnectionSettings", resourceCulture);
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Add Connection.
+        /// </summary>
+        public static string ObjectExplorer_Button_AddConnection {
+            get {
+                return ResourceManager.GetString("ObjectExplorer.Button.AddConnection", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Refresh All.
+        /// </summary>
+        public static string ObjectExplorer_Button_RefreshAll {
+            get {
+                return ResourceManager.GetString("ObjectExplorer.Button.RefreshAll", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Object Explorer.
+        /// </summary>
+        public static string ObjectExplorer_Title {
+            get {
+                return ResourceManager.GetString("ObjectExplorer.Title", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Tables.
+        /// </summary>
+        public static string ObjectExplorer_Label_Tables {
+            get {
+                return ResourceManager.GetString("ObjectExplorer.Label.Tables", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Columns.
+        /// </summary>
+        public static string ObjectExplorer_Label_Columns {
+            get {
+                return ResourceManager.GetString("ObjectExplorer.Label.Columns", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Indexes.
+        /// </summary>
+        public static string ObjectExplorer_Label_Indexes {
+            get {
+                return ResourceManager.GetString("ObjectExplorer.Label.Indexes", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Foreign Keys.
+        /// </summary>
+        public static string ObjectExplorer_Label_ForeignKeys {
+            get {
+                return ResourceManager.GetString("ObjectExplorer.Label.ForeignKeys", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Loading....
+        /// </summary>
+        public static string ObjectExplorer_Message_Loading {
+            get {
+                return ResourceManager.GetString("ObjectExplorer.Message.Loading", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No connections. Click "Add Connection" to get started..
+        /// </summary>
+        public static string ObjectExplorer_Message_NoConnections {
+            get {
+                return ResourceManager.GetString("ObjectExplorer.Message.NoConnections", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to load database information.
+        /// </summary>
+        public static string ObjectExplorer_Message_Error {
+            get {
+                return ResourceManager.GetString("ObjectExplorer.Message.Error", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Remove Connection.
+        /// </summary>
+        public static string ObjectExplorer_Button_RemoveConnection {
+            get {
+                return ResourceManager.GetString("ObjectExplorer.Button.RemoveConnection", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Refresh Connection.
+        /// </summary>
+        public static string ObjectExplorer_Button_RefreshConnection {
+            get {
+                return ResourceManager.GetString("ObjectExplorer.Button.RefreshConnection", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Connection Name.
+        /// </summary>
+        public static string ObjectExplorer_Dialog_ConnectionName {
+            get {
+                return ResourceManager.GetString("ObjectExplorer.Dialog.ConnectionName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Enter a name for this connection.
+        /// </summary>
+        public static string ObjectExplorer_Dialog_ConnectionNamePlaceholder {
+            get {
+                return ResourceManager.GetString("ObjectExplorer.Dialog.ConnectionNamePlaceholder", resourceCulture);
+            }
+        }
     }
 }

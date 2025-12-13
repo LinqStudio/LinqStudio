@@ -1,7 +1,10 @@
+@using LinqStudio.Abstractions.Abstractions
 @using LinqStudio.Abstractions.Models
 @using LinqStudio.Core.Services
+@using LinqStudio.Databases
 @inject IDialogService DialogService
 @inject ConnectionService ConnectionService
+@inject ObjectExplorerService ObjectExplorerService
 @inject ISnackbar Snackbar
 @inject ErrorHandlingService ErrorHandlingService
 
@@ -14,6 +17,14 @@
 	</TitleContent>
 	<DialogContent>
 		<MudStack Spacing="3">
+			<MudTextField T="string"
+						  @bind-Value="_connectionName"
+						  Label="Connection Name"
+						  Placeholder="Enter a name for this connection"
+						  Variant="Variant.Outlined"
+						  Disabled="_isTesting"
+						  data-testid="connection-name-input" />
+
 			<MudSelect T="DatabaseType" 
 					   @bind-Value="_databaseType" 
 					   Label="@SharedResource.ConnectionSettings_DatabaseType"
@@ -86,6 +97,7 @@
 	private IMudDialogInstance? MudDialog { get; set; }
 
 	private DatabaseType _databaseType = DatabaseType.Mssql;
+	private string _connectionName = string.Empty;
 	private string _connectionString = string.Empty;
 	private string _initialConnectionString = string.Empty;
 	private int _timeoutSeconds = 10;
@@ -97,6 +109,12 @@
 		// Load current connection string from service
 		_connectionString = ConnectionService.ConnectionString ?? string.Empty;
 		_initialConnectionString = _connectionString;
+		
+		// Set default connection name
+		if (string.IsNullOrWhiteSpace(_connectionName))
+		{
+			_connectionName = $"Connection {ObjectExplorerService.Connections.Count + 1}";
+		}
 	}
 
 	private bool HasChanges => _connectionString != _initialConnectionString;
@@ -134,7 +152,25 @@
 
 	private void Save()
 	{
-		// Save to the singleton service
+		// Validate connection name
+		if (string.IsNullOrWhiteSpace(_connectionName))
+		{
+			Snackbar.Add("Please enter a connection name", Severity.Error);
+			return;
+		}
+
+		// Create query generator
+		IDatabaseQueryGenerator queryGenerator = _databaseType switch
+		{
+			DatabaseType.Mssql => MssqlGenerator.Create(_connectionString),
+			DatabaseType.MySql => MySqlGenerator.Create(_connectionString),
+			_ => throw new NotSupportedException($"Database type {_databaseType} is not supported.")
+		};
+
+		// Add to ObjectExplorerService
+		ObjectExplorerService.AddConnection(_connectionName, _databaseType, _connectionString, queryGenerator);
+
+		// Also update the ConnectionService for backward compatibility
 		ConnectionService.UpdateConnection(_databaseType, _connectionString);
 
 		_initialConnectionString = _connectionString;

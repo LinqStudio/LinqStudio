@@ -204,4 +204,46 @@
   <data name="NavMenu.ConnectionSettings" xml:space="preserve">
     <value>Connexion</value>
   </data>
+  <data name="ObjectExplorer.Button.AddConnection" xml:space="preserve">
+    <value>Ajouter une connexion</value>
+  </data>
+  <data name="ObjectExplorer.Button.RefreshAll" xml:space="preserve">
+    <value>Actualiser tout</value>
+  </data>
+  <data name="ObjectExplorer.Title" xml:space="preserve">
+    <value>Explorateur d'objets</value>
+  </data>
+  <data name="ObjectExplorer.Label.Tables" xml:space="preserve">
+    <value>Tables</value>
+  </data>
+  <data name="ObjectExplorer.Label.Columns" xml:space="preserve">
+    <value>Colonnes</value>
+  </data>
+  <data name="ObjectExplorer.Label.Indexes" xml:space="preserve">
+    <value>Index</value>
+  </data>
+  <data name="ObjectExplorer.Label.ForeignKeys" xml:space="preserve">
+    <value>Clés étrangères</value>
+  </data>
+  <data name="ObjectExplorer.Message.Loading" xml:space="preserve">
+    <value>Chargement...</value>
+  </data>
+  <data name="ObjectExplorer.Message.NoConnections" xml:space="preserve">
+    <value>Aucune connexion. Cliquez sur "Ajouter une connexion" pour commencer.</value>
+  </data>
+  <data name="ObjectExplorer.Message.Error" xml:space="preserve">
+    <value>Échec du chargement des informations de la base de données</value>
+  </data>
+  <data name="ObjectExplorer.Button.RemoveConnection" xml:space="preserve">
+    <value>Supprimer la connexion</value>
+  </data>
+  <data name="ObjectExplorer.Button.RefreshConnection" xml:space="preserve">
+    <value>Actualiser la connexion</value>
+  </data>
+  <data name="ObjectExplorer.Dialog.ConnectionName" xml:space="preserve">
+    <value>Nom de la connexion</value>
+  </data>
+  <data name="ObjectExplorer.Dialog.ConnectionNamePlaceholder" xml:space="preserve">
+    <value>Entrez un nom pour cette connexion</value>
+  </data>
 </root>

@@ -1,0 +1,93 @@
+@using LinqStudio.Abstractions.Models
+@using LinqStudio.Core.Services
+@implements IDisposable
+@inject ObjectExplorerService ObjectExplorerService
+@inject IDialogService DialogService
+@inject ErrorHandlingService ErrorHandlingService
+
+<MudStack Spacing="2" Class="pa-4">
+	<MudText Typo="Typo.h6">Object Explorer</MudText>
+
+	<MudStack Row="true" Spacing="2">
+		<MudButton OnClick="@AddConnection" 
+				   Variant="Variant.Filled" 
+				   Color="Color.Primary" 
+				   Size="Size.Small"
+				   StartIcon="@Icons.Material.Filled.Add"
+				   data-testid="add-connection-button">
+			Add Connection
+		</MudButton>
+		
+		<MudButton OnClick="@RefreshAll" 
+				   Variant="Variant.Outlined" 
+				   Color="Color.Default" 
+				   Size="Size.Small"
+				   StartIcon="@Icons.Material.Filled.Refresh"
+				   Disabled="_isRefreshing"
+				   data-testid="refresh-all-button">
+			Refresh All
+		</MudButton>
+	</MudStack>
+
+	@if (ObjectExplorerService.Connections.Count == 0)
+	{
+		<MudAlert Severity="Severity.Info" Dense="true">
+			No connections. Click "Add Connection" to get started.
+		</MudAlert>
+	}
+	else
+	{
+		<MudList T="string" Dense="true">
+			@foreach (var connection in ObjectExplorerService.Connections)
+			{
+				<ConnectionNodeComponent Connection="@connection" />
+			}
+		</MudList>
+	}
+</MudStack>
+
+@code {
+	private bool _isRefreshing = false;
+
+	protected override void OnInitialized()
+	{
+		base.OnInitialized();
+		ObjectExplorerService.ConnectionsChanged += OnConnectionsChanged;
+	}
+
+	public void Dispose()
+	{
+		ObjectExplorerService.ConnectionsChanged -= OnConnectionsChanged;
+	}
+
+	private void OnConnectionsChanged()
+	{
+		InvokeAsync(StateHasChanged);
+	}
+
+	private async Task AddConnection()
+	{
+		var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+		await DialogService.ShowAsync<ConnectionSettingsDialog>("Connection Settings", options);
+	}
+
+	private async Task RefreshAll()
+	{
+		_isRefreshing = true;
+		StateHasChanged();
+
+		try
+		{
+			await ObjectExplorerService.RefreshAllAsync();
+		}
+		catch (Exception ex)
+		{
+			await ErrorHandlingService.HandleErrorAsync(ex, "Failed to refresh connections");
+		}
+		finally
+		{
+			_isRefreshing = false;
+			StateHasChanged();
+		}
+	}
+}
