@@ -37,7 +37,7 @@
 			@foreach (var fk in _detail.ForeignKeys)
 			{
 				<MudListItem T="string" Icon="@Icons.Material.Filled.Link" Class="ml-12">
-					<MudText>@fk.ColumnName → @fk.ReferencedTable.@fk.ReferencedColumn</MudText>
+					<MudText>@fk.ColumnName → @($"{fk.ReferencedTable}.{fk.ReferencedColumn}")</MudText>
 				</MudListItem>
 			}
 		}
