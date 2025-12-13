@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 
-namespace LinqStudio.App.WebServer.TestData;
+namespace LinqStudio.TestData;
 
 /// <summary>
 /// DbContext for test database with customers, orders, products, and order items.

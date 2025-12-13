@@ -1,6 +1,6 @@
 using Bogus;
 
-namespace LinqStudio.Databases.Tests.TestData;
+namespace LinqStudio.TestData;
 
 /// <summary>
 /// Entity representing a customer in the test database.

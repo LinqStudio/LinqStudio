@@ -22,13 +22,7 @@ public class ConnectionService
 	public void UpdateConnection(DatabaseType databaseType, string connectionString)
 	{
 		ConnectionString = connectionString;
-
-		QueryGenerator = databaseType switch
-		{
-			DatabaseType.Mssql => MssqlGenerator.Create(connectionString),
-			DatabaseType.MySql => MySqlGenerator.Create(connectionString),
-			_ => throw new NotSupportedException($"Database type {databaseType} is not supported.")
-		};
+		QueryGenerator = DatabaseQueryGeneratorFactory.Create(databaseType, connectionString);
 	}
 
 	/// <summary>
@@ -47,12 +41,7 @@ public class ConnectionService
 
 		using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
 		
-		IDatabaseQueryGenerator generator = databaseType switch
-		{
-			DatabaseType.Mssql => MssqlGenerator.Create(connectionString),
-			DatabaseType.MySql => MySqlGenerator.Create(connectionString),
-			_ => throw new NotSupportedException($"Database type {databaseType} is not supported.")
-		};
+		var generator = DatabaseQueryGeneratorFactory.Create(databaseType, connectionString);
 
 		await generator.TestConnectionAsync(cts.Token);
 	}

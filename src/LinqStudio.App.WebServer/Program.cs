@@ -1,6 +1,4 @@
 using LinqStudio.App.WebServer;
-using LinqStudio.App.WebServer.Services;
-using LinqStudio.App.WebServer.TestData;
 using LinqStudio.Blazor.Extensions;
 using LinqStudio.Core.Extensions;
 using LinqStudio.Core.Services;
@@ -8,13 +6,6 @@ using LinqStudio.Core.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
-
-// Only add SQL Server DbContext when running with Aspire (connection named "testdb" will be available)
-var connectionString = builder.Configuration.GetConnectionString("testdb");
-if (!string.IsNullOrEmpty(connectionString))
-{
-	builder.AddSqlServerDbContext<TestDbContext>("testdb");
-}
 
 builder.Configuration.AddJsonFile(SettingsService.FILE_NAME, optional: true, reloadOnChange: true);
 
@@ -25,9 +16,6 @@ builder.Services.AddRazorComponents()
 builder.Services
 	.AddLinqStudio()
 	.AddLinqStudioBlazor();
-
-// Add database seeder
-builder.Services.AddHostedService<DatabaseSeederService>();
 
 var app = builder.Build();
 

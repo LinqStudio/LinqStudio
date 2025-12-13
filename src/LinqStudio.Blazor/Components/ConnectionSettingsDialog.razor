@@ -159,13 +159,8 @@
 			return;
 		}
 
-		// Create query generator
-		IDatabaseQueryGenerator queryGenerator = _databaseType switch
-		{
-			DatabaseType.Mssql => MssqlGenerator.Create(_connectionString),
-			DatabaseType.MySql => MySqlGenerator.Create(_connectionString),
-			_ => throw new NotSupportedException($"Database type {_databaseType} is not supported.")
-		};
+		// Create query generator using factory
+		var queryGenerator = DatabaseQueryGeneratorFactory.Create(_databaseType, _connectionString);
 
 		// Add to ObjectExplorerService
 		ObjectExplorerService.AddConnection(_connectionName, _databaseType, _connectionString, queryGenerator);
