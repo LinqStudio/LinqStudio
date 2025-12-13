@@ -20,6 +20,7 @@ Connection button is now located in the Object Explorer panel on the left side o
 ### Implementation Details
 - Uses `ConnectionService` for connection testing
 - Integrates with `ObjectExplorerService` to add connections
+- Uses `DatabaseQueryGeneratorFactory.Create()` to create query generators
 - All inputs disabled during connection testing
 - MudProgressCircular shows loading state
 - Timeout enforced via CancellationTokenSource
@@ -48,6 +49,12 @@ Left-side panel tree view that displays database connections and their schema in
   - Refresh individual connections or all connections
   - Event-driven updates via `ConnectionsChanged` event
 
+### DatabaseQueryGeneratorFactory
+- **Location**: `src/LinqStudio.Database/DatabaseQueryGeneratorFactory.cs`
+- **Purpose**: Factory for creating `IDatabaseQueryGenerator` instances
+- **Usage**: `DatabaseQueryGeneratorFactory.Create(databaseType, connectionString)`
+- Centralizes the database type switch logic for easy reuse
+
 ### UI Components
 - **ObjectExplorerPanel**: Main panel component with "Add Connection" and "Refresh All" buttons
 - **ConnectionNodeComponent**: Displays individual database connection with expand/collapse
@@ -67,17 +74,20 @@ Left-side panel tree view that displays database connections and their schema in
 - ✅ Localized in English and French
 
 ## Testing
-- **Unit Tests**: 8 new tests for ObjectExplorerService (all passing)
+- **Unit Tests**: 8 tests for ObjectExplorerService (using fake implementations, not Moq)
 - **E2E Tests**: Updated existing connection tests + 2 new object explorer tests
 - **Coverage**: Add connection, remove connection, caching, refresh operations
+- See `docs/TESTING.md` for testing practices (no mocking libraries)
 
-## Database Support
-- Added SQL Server to Aspire AppHost for development
-- DatabaseSeederService seeds test data on startup (10 customers, 20 products, orders, order items)
-- Uses Bogus library for generating fake data
+## Database Support (Development Only)
+- **LinqStudio.TestData** - Shared test data project with DbContext and Bogus generators
+- **AppHost** - Seeds SQL Server container with test data on startup
+- **Not in Production**: WebServer has no test-specific dependencies
 
 ## Technical Notes
 - MudBlazor MudList/MudListItem components used for tree-like structure
 - Resource strings manually added to SharedResource.Designer.cs due to .resx generation issues
 - E2E tests require Playwright browser installation before running
+- Factory pattern used to avoid duplicating database type switch logic
+
 
