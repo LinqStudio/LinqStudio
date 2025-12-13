@@ -1,0 +1,87 @@
+@using LinqStudio.Abstractions.Models
+@using LinqStudio.Core.Services
+@inject ObjectExplorerService ObjectExplorerService
+@inject ErrorHandlingService ErrorHandlingService
+
+<MudListItem T="string" Icon="@Icons.Material.Filled.TableChart" 
+			 Class="ml-4" 
+			 @onclick="ToggleExpand">
+	<MudText>@Table.FullName</MudText>
+</MudListItem>
+
+@if (_isExpanded)
+{
+	@if (_isLoading)
+	{
+		<MudListItem T="string" Icon="@Icons.Material.Filled.HourglassEmpty" Class="ml-8">
+			<MudText>Loading...</MudText>
+		</MudListItem>
+	}
+	else if (_detail != null)
+	{
+		<MudListItem T="string" Icon="@Icons.Material.Filled.Folder" Class="ml-8">
+			<MudText>Columns</MudText>
+		</MudListItem>
+		@foreach (var column in _detail.Columns)
+		{
+			<MudListItem T="string" Icon="@Icons.Material.Filled.ViewColumn" Class="ml-12">
+				<MudText>@column.Name (@column.DataType)@(column.IsPrimaryKey ? " PK" : "")@(column.IsNullable ? "" : " NOT NULL")</MudText>
+			</MudListItem>
+		}
+
+		@if (_detail.ForeignKeys.Count > 0)
+		{
+			<MudListItem T="string" Icon="@Icons.Material.Filled.Folder" Class="ml-8">
+				<MudText>Foreign Keys</MudText>
+			</MudListItem>
+			@foreach (var fk in _detail.ForeignKeys)
+			{
+				<MudListItem T="string" Icon="@Icons.Material.Filled.Link" Class="ml-12">
+					<MudText>@fk.ColumnName → @($"{fk.ReferencedTable}.{fk.ReferencedColumn}")</MudText>
+				</MudListItem>
+			}
+		}
+	}
+}
+
+@code {
+	[Parameter]
+	public required DatabaseConnection Connection { get; set; }
+
+	[Parameter]
+	public required DatabaseTableName Table { get; set; }
+
+	private bool _isExpanded = false;
+	private bool _isLoading = false;
+	private DatabaseTableDetail? _detail = null;
+
+	private async Task ToggleExpand()
+	{
+		_isExpanded = !_isExpanded;
+		
+		if (_isExpanded && _detail == null)
+		{
+			await LoadDetail();
+		}
+	}
+
+	private async Task LoadDetail()
+	{
+		_isLoading = true;
+		StateHasChanged();
+
+		try
+		{
+			_detail = await ObjectExplorerService.GetTableDetailAsync(Connection, Table);
+		}
+		catch (Exception ex)
+		{
+			await ErrorHandlingService.HandleErrorAsync(ex, "Failed to load table details");
+		}
+		finally
+		{
+			_isLoading = false;
+			StateHasChanged();
+		}
+	}
+}

@@ -16,10 +16,6 @@
         <MudText Typo="Typo.h5" Class="ml-3">LinqStudio</MudText>
         <MudSpacer />
 
-        <MudTooltip Text="@SharedResource.NavMenu_ConnectionSettings">
-            <MudIconButton Icon="@Icons.Material.Filled.Cable" Color="Color.Inherit" OnClick="@OpenConnectionSettings" data-testid="connection-button" />
-        </MudTooltip>
-
         <MudTooltip Text="@SharedResource.AppBar_Button_Settings">
             <MudIconButton Href="/settings" Icon="@Icons.Material.Filled.Settings" Color="Color.Inherit" />
         </MudTooltip>
@@ -28,7 +24,7 @@
     </MudAppBar>
 
     <MudDrawer id="nav-drawer" @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
-        <NavMenu />
+        <ObjectExplorerPanel />
     </MudDrawer>
 
     <MudMainContent Class="mainBody pt-16 pa-4">
@@ -71,12 +67,6 @@
     private void DrawerToggle()
     {
         _drawerOpen = !_drawerOpen;
-    }
-
-    private async Task OpenConnectionSettings()
-    {
-        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
-        await DialogService.ShowAsync<ConnectionSettingsDialog>(SharedResource.ConnectionSettings_Title, options);
     }
 
     private async Task DarkModeToggle()

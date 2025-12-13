@@ -16,6 +16,9 @@ public static class ServiceCollectionExtensions
 		// register the ConnectionService as a singleton to persist connection information
 		services.AddSingleton<ConnectionService>();
 
+		// register the ObjectExplorerService as a singleton to manage multiple database connections
+		services.AddSingleton<ObjectExplorerService>();
+
 		return services;
 	}
 

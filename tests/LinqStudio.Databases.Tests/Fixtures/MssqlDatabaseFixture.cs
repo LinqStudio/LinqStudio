@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Testcontainers.MsSql;
-using LinqStudio.Databases.Tests.TestData;
+using LinqStudio.TestData;
 
 namespace LinqStudio.Databases.Tests.Fixtures;
 
