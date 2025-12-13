@@ -1,10 +1,8 @@
 using LinqStudio.Abstractions.Models;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using System.Data;
 using System.Data.Common;
 
-namespace LinqStudio.Databases.MySQL;
+namespace LinqStudio.Databases;
 
 /// <summary>
 /// Database generator for MySQL using ADO.NET.
@@ -15,9 +13,11 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 	/// Creates a new instance of the MySQL generator.
 	/// </summary>
 	/// <param name="database">EF Core database facade.</param>
-	public MySqlGenerator(DatabaseFacade database) : base(database)
+	public MySqlGenerator(DbConnection connection) : base(connection)
 	{
 	}
+
+	public static MySqlGenerator Create(string connectionString) => new(new MySql.Data.MySqlClient.MySqlConnection(connectionString));
 
 	/// <inheritdoc/>
 	protected override DatabaseTableName? ParseTableFromSchemaRow(DataRow row)
@@ -41,21 +41,19 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 	public override async Task<DatabaseTableDetail> GetTableAsync(string tableName, CancellationToken cancellationToken = default)
 	{
 		var (schema, name) = ParseTableName(tableName);
-		schema ??= Database.GetDbConnection().Database; // Default to current database
+		schema ??= DbConnection.Database; // Default to current database
 
-		var connection = Database.GetDbConnection();
-
-		var wasOpen = connection.State == ConnectionState.Open;
+		var wasOpen = DbConnection.State == ConnectionState.Open;
 		if (!wasOpen)
-			await connection.OpenAsync(cancellationToken);
+			await DbConnection.OpenAsync(cancellationToken);
 
 		try
 		{
 			// Get columns using database-specific query
-			var columns = await GetColumnsAsync(connection, schema, name, cancellationToken);
+			var columns = await GetColumnsAsync(DbConnection, schema, name, cancellationToken);
 
 			// Get foreign keys using database-specific query
-			var foreignKeys = await GetForeignKeysAsync(connection, schema, name, cancellationToken);
+			var foreignKeys = await GetForeignKeysAsync(DbConnection, schema, name, cancellationToken);
 
 			return new DatabaseTableDetail
 			{
@@ -68,7 +66,7 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 		finally
 		{
 			if (!wasOpen)
-				await connection.CloseAsync();
+				await DbConnection.CloseAsync();
 		}
 	}
 

@@ -1,6 +1,6 @@
 using LinqStudio.Abstractions.Abstractions;
-using LinqStudio.Databases.MySQL;
 using LinqStudio.Databases.Tests.Fixtures;
+using Microsoft.EntityFrameworkCore;
 
 namespace LinqStudio.Databases.Tests;
 
@@ -16,7 +16,7 @@ public class MySqlGeneratorTests : BaseGeneratorTests, IClassFixture<MySqlDataba
 	public MySqlGeneratorTests(MySqlDatabaseFixture fixture)
 	{
 		_fixture = fixture;
-		Generator = new MySqlGenerator(_fixture.DbContext.Database);
+		Generator = new MySqlGenerator(_fixture.DbContext.Database.GetDbConnection());
 	}
 
 }

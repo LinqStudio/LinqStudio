@@ -3,6 +3,7 @@
 @inject IOptionsMonitor<UISettings> UISettings;
 @inject SettingsService SettingsService;
 @inject ErrorHandlingService ErrorHandlingService;
+@inject IDialogService DialogService;
 
 <MudThemeProvider Theme="@_theme" IsDarkMode="UISettings.CurrentValue.IsDarkMode" />
 <MudPopoverProvider />
@@ -14,6 +15,10 @@
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@DrawerToggle" />
         <MudText Typo="Typo.h5" Class="ml-3">LinqStudio</MudText>
         <MudSpacer />
+
+        <MudTooltip Text="@SharedResource.NavMenu_ConnectionSettings">
+            <MudIconButton Icon="@Icons.Material.Filled.Cable" Color="Color.Inherit" OnClick="@OpenConnectionSettings" data-testid="connection-button" />
+        </MudTooltip>
 
         <MudTooltip Text="@SharedResource.AppBar_Button_Settings">
             <MudIconButton Href="/settings" Icon="@Icons.Material.Filled.Settings" Color="Color.Inherit" />
@@ -66,6 +71,12 @@
     private void DrawerToggle()
     {
         _drawerOpen = !_drawerOpen;
+    }
+
+    private async Task OpenConnectionSettings()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        await DialogService.ShowAsync<ConnectionSettingsDialog>(SharedResource.ConnectionSettings_Title, options);
     }
 
     private async Task DarkModeToggle()

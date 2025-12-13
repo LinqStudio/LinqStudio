@@ -13,6 +13,9 @@ public static class ServiceCollectionExtensions
 		// register the CompilerServiceFactory so Blazor components can create CompilerService instances
 		services.AddScoped<CompilerServiceFactory>();
 
+		// register the ConnectionService as a singleton to persist connection information
+		services.AddSingleton<ConnectionService>();
+
 		return services;
 	}
 

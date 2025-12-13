@@ -194,5 +194,131 @@ namespace LinqStudio.Core.Resources {
                 return ResourceManager.GetString("UserSettings.UISettings.IsDarkMode", resourceCulture);
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Connection Settings.
+        /// </summary>
+        public static string ConnectionSettings_Title {
+            get {
+                return ResourceManager.GetString("ConnectionSettings.Title", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Database Type.
+        /// </summary>
+        public static string ConnectionSettings_DatabaseType {
+            get {
+                return ResourceManager.GetString("ConnectionSettings.DatabaseType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Connection String.
+        /// </summary>
+        public static string ConnectionSettings_ConnectionString {
+            get {
+                return ResourceManager.GetString("ConnectionSettings.ConnectionString", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Validate Connection.
+        /// </summary>
+        public static string ConnectionSettings_Button_Validate {
+            get {
+                return ResourceManager.GetString("ConnectionSettings.Button.Validate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Save.
+        /// </summary>
+        public static string ConnectionSettings_Button_Save {
+            get {
+                return ResourceManager.GetString("ConnectionSettings.Button.Save", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Close.
+        /// </summary>
+        public static string ConnectionSettings_Button_Close {
+            get {
+                return ResourceManager.GetString("ConnectionSettings.Button.Close", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to You have unsaved changes. Are you sure you want to close?.
+        /// </summary>
+        public static string ConnectionSettings_Message_UnsavedChanges {
+            get {
+                return ResourceManager.GetString("ConnectionSettings.Message.UnsavedChanges", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unsaved Changes.
+        /// </summary>
+        public static string ConnectionSettings_Message_UnsavedChangesTitle {
+            get {
+                return ResourceManager.GetString("ConnectionSettings.Message.UnsavedChangesTitle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Connection validated successfully!.
+        /// </summary>
+        public static string ConnectionSettings_Message_ValidationSuccess {
+            get {
+                return ResourceManager.GetString("ConnectionSettings.Message.ValidationSuccess", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to validate connection.
+        /// </summary>
+        public static string ConnectionSettings_Message_ValidationFailed {
+            get {
+                return ResourceManager.GetString("ConnectionSettings.Message.ValidationFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Connection settings saved successfully.
+        /// </summary>
+        public static string ConnectionSettings_Message_Saved {
+            get {
+                return ResourceManager.GetString("ConnectionSettings.Message.Saved", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Timeout.
+        /// </summary>
+        public static string ConnectionSettings_Timeout {
+            get {
+                return ResourceManager.GetString("ConnectionSettings.Timeout", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Testing connection....
+        /// </summary>
+        public static string ConnectionSettings_Message_Testing {
+            get {
+                return ResourceManager.GetString("ConnectionSettings.Message.Testing", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Connection.
+        /// </summary>
+        public static string NavMenu_ConnectionSettings {
+            get {
+                return ResourceManager.GetString("NavMenu.ConnectionSettings", resourceCulture);
+            }
+        }
     }
 }

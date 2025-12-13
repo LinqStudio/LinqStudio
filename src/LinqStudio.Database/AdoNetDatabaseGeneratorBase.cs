@@ -1,7 +1,5 @@
 using LinqStudio.Abstractions.Abstractions;
 using LinqStudio.Abstractions.Models;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using System.Data;
 using System.Data.Common;
 
@@ -15,31 +13,30 @@ public abstract class AdoNetDatabaseGeneratorBase : IDatabaseQueryGenerator
 	/// <summary>
 	/// Database facade for accessing the underlying database connection.
 	/// </summary>
-	protected DatabaseFacade Database { get; }
+	protected DbConnection DbConnection { get; }
 
 	/// <summary>
 	/// Creates a new instance of the ADO.NET database generator.
 	/// </summary>
 	/// <param name="database">EF Core database facade.</param>
-	protected AdoNetDatabaseGeneratorBase(DatabaseFacade database)
+	protected AdoNetDatabaseGeneratorBase(DbConnection connection)
 	{
-		Database = database ?? throw new ArgumentNullException(nameof(database));
+		DbConnection = connection;
 	}
 
 	/// <inheritdoc/>
 	public async Task<IReadOnlyList<DatabaseTableName>> GetTablesAsync(CancellationToken cancellationToken = default)
 	{
 		var tables = new List<DatabaseTableName>();
-		var connection = Database.GetDbConnection();
 		
-		var wasOpen = connection.State == ConnectionState.Open;
+		var wasOpen = DbConnection.State == ConnectionState.Open;
 		if (!wasOpen)
-			await connection.OpenAsync(cancellationToken);
+			await DbConnection.OpenAsync(cancellationToken);
 
 		try
 		{
 			// Use ADO.NET GetSchema to retrieve tables
-			var tablesSchema = await connection.GetSchemaAsync("Tables", cancellationToken);
+			var tablesSchema = await DbConnection.GetSchemaAsync("Tables", cancellationToken);
 
 			foreach (DataRow row in tablesSchema.Rows)
 			{
@@ -51,7 +48,7 @@ public abstract class AdoNetDatabaseGeneratorBase : IDatabaseQueryGenerator
 		finally
 		{
 			if (!wasOpen)
-				await connection.CloseAsync();
+				await DbConnection.CloseAsync();
 		}
 
 		return tables;
@@ -59,6 +56,27 @@ public abstract class AdoNetDatabaseGeneratorBase : IDatabaseQueryGenerator
 
 	/// <inheritdoc/>
 	public abstract Task<DatabaseTableDetail> GetTableAsync(string tableName, CancellationToken cancellationToken = default);
+
+	/// <inheritdoc/>
+	public async Task TestConnectionAsync(CancellationToken cancellationToken = default)
+	{
+		var wasOpen = DbConnection.State == ConnectionState.Open;
+		if (!wasOpen)
+			await DbConnection.OpenAsync(cancellationToken);
+
+		try
+		{
+			// Simple query to test connection
+			using var command = DbConnection.CreateCommand();
+			command.CommandText = "SELECT 1";
+			await command.ExecuteScalarAsync(cancellationToken);
+		}
+		finally
+		{
+			if (!wasOpen)
+				await DbConnection.CloseAsync();
+		}
+	}
 
 	/// <summary>
 	/// Parses a table from a DataRow from the Tables schema collection.
