@@ -10,7 +10,7 @@ using static Nuke.Common.Tools.DotNet.DotNetTasks;
 [GitHubActions(
 	"build-and-test",
 	GitHubActionsImage.UbuntuLatest,
-	OnPullRequestBranches = new[] { "main" },
+	On = new[] { GitHubActionsTrigger.PullRequest },
 	InvokedTargets = new[] { nameof(Test) },
 	EnableGitHubToken = true,
 	FetchDepth = 0)]

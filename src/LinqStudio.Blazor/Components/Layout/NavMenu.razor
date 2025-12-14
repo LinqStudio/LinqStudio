@@ -1,19 +1,20 @@
 ﻿@using LinqStudio.Blazor.Abstractions
 @using LinqStudio.Blazor.Components.Pages.Projects
 
-<MudNavMenu>
-	<MudNavLink Href="/" Icon="@Icons.Material.Filled.Home" Match="NavLinkMatch.All">Home</MudNavLink>
+<MudNavMenu data-testid="nav-menu">
+	<MudNavLink Href="/" Icon="@Icons.Material.Filled.Home" Match="NavLinkMatch.All" data-testid="nav-home">Home</MudNavLink>
 	
 	<!-- Project Node with Actions -->
 	<MudNavGroup Title="@GetProjectTitle()" 
 				 Icon="@Icons.Material.Filled.Folder" 
-				 Expanded="@_projectExpanded">
+				 Expanded="@_projectExpanded"
+				 data-testid="nav-project-group">
 		
-		<MudNavLink Icon="@Icons.Material.Filled.Add" OnClick="NewProject">
+		<MudNavLink Icon="@Icons.Material.Filled.Add" OnClick="NewProject" data-testid="nav-project-new">
 			New
 		</MudNavLink>
 		
-		<MudNavLink Icon="@Icons.Material.Filled.FolderOpen" OnClick="OpenProject">
+		<MudNavLink Icon="@Icons.Material.Filled.FolderOpen" OnClick="OpenProject" data-testid="nav-project-open">
 			Open
 		</MudNavLink>
 		
@@ -21,21 +22,22 @@
 		{
 			<MudDivider Class="my-2" />
 			
-			<MudNavLink Icon="@Icons.Material.Filled.Edit" OnClick="EditProject">
+			<MudNavLink Icon="@Icons.Material.Filled.Edit" OnClick="EditProject" data-testid="nav-project-properties">
 				Properties
 			</MudNavLink>
 			
 			<MudNavLink Icon="@Icons.Material.Filled.Save" 
 						OnClick="SaveProject"
-						Disabled="@(!Workspace.HasUnsavedChanges)">
+						Disabled="@(!Workspace.HasUnsavedChanges)"
+						data-testid="nav-project-save">
 				Save
 			</MudNavLink>
 			
-			<MudNavLink Icon="@Icons.Material.Filled.SaveAs" OnClick="SaveAsProject">
+			<MudNavLink Icon="@Icons.Material.Filled.SaveAs" OnClick="SaveAsProject" data-testid="nav-project-save-as">
 				Save As...
 			</MudNavLink>
 			
-			<MudNavLink Icon="@Icons.Material.Filled.Close" OnClick="CloseProject">
+			<MudNavLink Icon="@Icons.Material.Filled.Close" OnClick="CloseProject" data-testid="nav-project-close">
 				Close
 			</MudNavLink>
 		}
@@ -43,7 +45,7 @@
 	
 	@if (Workspace.IsProjectOpen)
 	{
-		<MudNavGroup Expanded="@_queriesExpanded">
+		<MudNavGroup Expanded="@_queriesExpanded" data-testid="nav-queries-group">
 			<TitleContent>
 				<div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
 					<div style="display: flex; align-items: center;">
@@ -54,7 +56,8 @@
 								   Size="Size.Small" 
 								   OnClick="CreateNewQuery"
 								   Color="Color.Primary"
-								   Style="margin-right: 8px;" />
+								   Style="margin-right: 8px;"
+								   data-testid="nav-query-create" />
 				</div>
 			</TitleContent>
 			<ChildContent>
@@ -68,14 +71,15 @@
 						
 						<MudNavLink Href="@GetQueryEditorUrl(index)" 
 									Icon="@(isOpen ? Icons.Material.Filled.Description : Icons.Material.Outlined.Description)"
-									Match="NavLinkMatch.All">
+									Match="NavLinkMatch.All"
+									data-testid="@($"nav-query-{index}")">
 							@displayName
 						</MudNavLink>
 					}
 				}
 				else
 				{
-					<MudText Typo="Typo.body2" Color="Color.Secondary" Class="px-4 py-2">
+					<MudText Typo="Typo.body2" Color="Color.Secondary" Class="px-4 py-2" data-testid="nav-queries-empty">
 						No queries yet
 					</MudText>
 				}
@@ -84,6 +88,6 @@
 	}
 	else
 	{
-		<MudNavLink Href="/editor" Icon="@Icons.Material.Filled.Code" Disabled="true">Editor</MudNavLink>
+		<MudNavLink Href="/editor" Icon="@Icons.Material.Filled.Code" Disabled="true" data-testid="nav-editor-disabled">Editor</MudNavLink>
 	}
 </MudNavMenu>
