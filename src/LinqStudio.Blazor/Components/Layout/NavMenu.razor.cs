@@ -38,8 +38,6 @@ public partial class NavMenu : ComponentBase, IDisposable
 		return "Project";
 	}
 
-	#region Project Actions
-
 	private void NewProject()
 	{
 		// Check for unsaved changes
@@ -68,9 +66,11 @@ public partial class NavMenu : ComponentBase, IDisposable
 	private void CreateNewProject()
 	{
 		// Create a default project with empty connection string
-		Workspace.CreateNew("Untitled", string.Empty);
+		Workspace.CreateNew("Untitled");
 		Snackbar.Add("New project created. Use 'Save' or 'Save As' to save it.", Severity.Info);
-		NavigationManager.NavigateTo("/editor");
+
+		// Navigate to home page since we a an empty project now
+		NavigationManager.NavigateTo("/");
 	}
 
 	private async Task OpenProject()
@@ -214,13 +214,24 @@ public partial class NavMenu : ComponentBase, IDisposable
 		NavigationManager.NavigateTo("/");
 	}
 
-	#endregion
+	private void CreateNewQuery()
+	{
+		if (!Workspace.IsProjectOpen || Workspace.CurrentProject == null)
+		{
+			return;
+		}
 
-	#region Query Actions
+		// Create new query using QueriesWorkspace
+		var (updatedProject, newIndex) = Workspace.Queries.CreateNewQuery(Workspace.CurrentProject);
+
+		// Update the workspace with the new project
+		Workspace.Update(updatedProject);
+
+		// Navigate to the new query
+		NavigationManager.NavigateTo($"/editor/{newIndex}");
+	}
 
 	private string GetQueryEditorUrl(int queryIndex) => $"/editor/{queryIndex}";
-
-	#endregion
 
 	public void Dispose()
 	{

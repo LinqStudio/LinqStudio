@@ -3,21 +3,35 @@ using BlazorMonaco.Editor;
 using BlazorMonaco.Languages;
 using LinqStudio.Blazor.Services;
 using LinqStudio.Core.Services;
+using LinqStudio.Core.Settings;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.CodeAnalysis.Tags;
+using Microsoft.Extensions.Options;
 using MudBlazor;
 
 namespace LinqStudio.Blazor.Components.Pages.Editor;
 
 public partial class Editor : ComponentBase, IDisposable
 {
-	[Inject] private IDialogService DialogService { get; set; } = null!;
+	[Inject] private ISnackbar Snackbar { get; set; } = null!;
+	[Inject] private MonacoProvidersService MonacoProvidersService { get; set; } = null!;
+	[Inject] private CompilerServiceFactory CompilerServiceFactory { get; set; } = null!;
+	[Inject] private IOptionsMonitor<UISettings> UISettings { get; set; } = null!;
+	[Inject] private ProjectWorkspace Workspace { get; set; } = null!;
+	[Inject] private NavigationManager NavigationManager { get; set; } = null!;
+
+	[Parameter] public string? QueryIndexParam { get; set; }
 
 	private StandaloneCodeEditor? _editor;
 	private IDisposable? _providerDisposable;
 	private IDisposable? _hoverProviderDisposable;
 	private CompilerService? _compiler;
 	private string _lastQueryText = string.Empty;
+
+	// Rename state
+	private bool _isEditingName;
+	private string _editedQueryName = string.Empty;
 
 	private StandaloneEditorConstructionOptions EditorConstructionOptions(StandaloneCodeEditor ed) => new()
 	{
@@ -39,45 +53,66 @@ public partial class Editor : ComponentBase, IDisposable
 
 	private bool Delay = true;
 
+	protected override void OnInitialized()
+	{
+		// Subscribe to workspace changes to update UI when project is saved
+		Workspace.WorkspaceChanged += OnWorkspaceChanged;
+	}
+
+	private void OnWorkspaceChanged(object? sender, EventArgs e)
+	{
+		InvokeAsync(StateHasChanged);
+	}
+
 	protected override void OnParametersSet()
 	{
-		if (Workspace.IsProjectOpen)
+		if (!Workspace.IsProjectOpen)
 		{
-			// Handle "new" route
-			if (QueryIndexParam == "new")
-			{
-				var newIndex = Workspace.CreateNewQuery();
-				NavigationManager.NavigateTo($"/editor/{newIndex}", replace: true);
-				return;
-			}
+			NavigationManager.NavigateTo("/", replace: true);
+			return;
+		}
 
-			// Handle query index route
-			if (int.TryParse(QueryIndexParam, out var index))
-			{
-				Workspace.SetCurrentQuery(index);
-			}
-			else if (Workspace.CurrentQueryIndex < 0 && Workspace.CurrentProject?.Queries?.Any() == true)
-			{
-				// Default to first query if none selected
-				Workspace.SetCurrentQuery(0);
-			}
+		// Handle "new" route
+		if (QueryIndexParam == "new")
+		{
+			var (updatedProject, newIndex) = Workspace.Queries.CreateNewQuery(Workspace.CurrentProject!);
+			Workspace.Update(updatedProject);
+			NavigationManager.NavigateTo($"/editor/{newIndex}", replace: true);
+			return;
+		}
 
-			// Update editor value if query changed
-			if (_editor != null)
+		// Handle query index route
+		if (int.TryParse(QueryIndexParam, out var index))
+		{
+			Workspace.Queries.OpenQuery(Workspace.CurrentProject!, index);
+		}
+		else if (Workspace.Queries.CurrentQueryIndex < 0 && Workspace.CurrentProject?.Queries?.Count > 0)
+		{
+			// Default to first query if none selected
+			Workspace.Queries.OpenQuery(Workspace.CurrentProject, 0);
+		}
+
+		// Update editor value if query changed
+		if (_editor is not null)
+		{
+			var newText = GetInitialQueryText();
+			if (newText != _lastQueryText)
 			{
-				var newText = GetInitialQueryText();
-				if (newText != _lastQueryText)
-				{
-					_lastQueryText = newText;
-					_ = _editor.SetValue(newText);
-				}
+				_lastQueryText = newText;
+				_ = _editor.SetValue(newText);
 			}
 		}
 	}
 
 	private string GetInitialQueryText()
 	{
-		return Workspace.CurrentQuery?.QueryText ?? "// Write your LINQ query here\ncontext.";
+		// Use the CurrentQueryState if available, otherwise fall back to saved query text
+		if (Workspace.Queries.CurrentQueryState is not null)
+		{
+			return Workspace.Queries.CurrentQueryState.CurrentText;
+		}
+
+		return Workspace.Queries.GetCurrentQuery(Workspace.CurrentProject)?.QueryText ?? "// Write your LINQ query here\ncontext.";
 	}
 
 	protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -94,7 +129,7 @@ public partial class Editor : ComponentBase, IDisposable
 
 	private async Task OnEditorContentChanged()
 	{
-		if (_editor == null || !Workspace.IsProjectOpen || Workspace.CurrentQueryIndex < 0)
+		if (_editor is null || !Workspace.IsProjectOpen || Workspace.Queries.CurrentQueryIndex < 0)
 		{
 			return;
 		}
@@ -103,28 +138,73 @@ public partial class Editor : ComponentBase, IDisposable
 		if (newText != _lastQueryText)
 		{
 			_lastQueryText = newText;
-			Workspace.UpdateCurrentQueryText(newText);
+			Workspace.Queries.UpdateQueryText(Workspace.CurrentProject!, Workspace.Queries.CurrentQueryIndex, newText);
 		}
 	}
 
-	private async Task RenameQuery()
+	private void StartRename()
 	{
-		if (Workspace.CurrentQuery == null)
+		var currentQuery = Workspace.Queries.GetCurrentQuery(Workspace.CurrentProject);
+		if (currentQuery is null)
 		{
 			return;
 		}
 
-		var parameters = new DialogParameters
-		{
-			{ "CurrentName", Workspace.CurrentQuery.Name }
-		};
+		_editedQueryName = currentQuery.Name;
+		_isEditingName = true;
+	}
 
-		var dialog = await DialogService.ShowAsync<RenameQueryDialog>("Rename Query", parameters);
-		var result = await dialog.Result;
+	private void CancelRename()
+	{
+		_isEditingName = false;
+		_editedQueryName = string.Empty;
+	}
 
-		if (result is not null && !result.Canceled && result.Data is string newName && !string.IsNullOrWhiteSpace(newName))
+	private void SaveRename()
+	{
+		if (Workspace.Queries.CurrentQueryIndex >= 0 && Workspace.CurrentProject != null)
 		{
-			Workspace.RenameCurrentQuery(newName);
+			var updatedProject = Workspace.Queries.RenameQuery(Workspace.CurrentProject, Workspace.Queries.CurrentQueryIndex, _editedQueryName);
+			Workspace.Update(updatedProject);
+			_isEditingName = false;
+			_editedQueryName = string.Empty;
+			Snackbar.Add("Query renamed successfully.", Severity.Success);
+		}
+	}
+
+	private string? ValidateQueryName(string name)
+	{
+		if (string.IsNullOrWhiteSpace(name))
+		{
+			return "Query name cannot be empty.";
+		}
+
+		// Check if name already exists (excluding current query)
+		if (Workspace.CurrentProject?.Queries is not null &&
+			Workspace.CurrentProject.Queries
+				.Where((q, index) => index != Workspace.Queries.CurrentQueryIndex)
+				.Select(q => q.Name)
+				.Contains(name, StringComparer.OrdinalIgnoreCase))
+		{
+			return "A query with this name already exists.";
+		}
+
+		return null; // No errors
+	}
+
+	private void OnNameKeyDown(KeyboardEventArgs e)
+	{
+		if (e.Key == "Enter")
+		{
+			// Only save if validation passes
+			if (ValidateQueryName(_editedQueryName) == null)
+			{
+				SaveRename();
+			}
+		}
+		else if (e.Key == "Escape")
+		{
+			CancelRename();
 		}
 	}
 
@@ -273,6 +353,8 @@ public partial class Editor : ComponentBase, IDisposable
 
 	public void Dispose()
 	{
+		Workspace.WorkspaceChanged -= OnWorkspaceChanged;
+
 		_providerDisposable?.Dispose();
 		_hoverProviderDisposable?.Dispose();
 		try

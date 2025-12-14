@@ -43,30 +43,43 @@
 	
 	@if (Workspace.IsProjectOpen)
 	{
-		<MudNavGroup Title="Queries" Icon="@Icons.Material.Filled.Code" Expanded="@_queriesExpanded">
-			<MudNavLink Href="/editor/new" Icon="@Icons.Material.Filled.Add">
-				New Query
-			</MudNavLink>
-			
-			<MudDivider Class="my-2" />
-			
-			@if (Workspace.CurrentProject!.Queries?.Any() == true)
-			{
-				@foreach (var (query, index) in Workspace.CurrentProject!.Queries.Select((q, i) => (q, i)))
+		<MudNavGroup Expanded="@_queriesExpanded">
+			<TitleContent>
+				<div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+					<div style="display: flex; align-items: center;">
+						<MudIcon Icon="@Icons.Material.Filled.Code" Class="mr-2" />
+						<span>Queries</span>
+					</div>
+					<MudIconButton Icon="@Icons.Material.Filled.Add" 
+								   Size="Size.Small" 
+								   OnClick="CreateNewQuery"
+								   Color="Color.Primary"
+								   Style="margin-right: 8px;" />
+				</div>
+			</TitleContent>
+			<ChildContent>
+				@if (Workspace.CurrentProject!.Queries?.Any() == true)
 				{
-					<MudNavLink Href="@GetQueryEditorUrl(index)" 
-								Icon="@Icons.Material.Filled.Description"
-								Match="NavLinkMatch.All">
-						@query.Name
-					</MudNavLink>
+					@foreach (var (query, index) in Workspace.CurrentProject!.Queries.Select((q, i) => (q, i)))
+					{
+						var isOpen = Workspace.Queries.OpenQueries.ContainsKey(index);
+						var hasUnsaved = isOpen && Workspace.Queries.OpenQueries[index].HasUnsavedChanges;
+						var displayName = hasUnsaved ? $"{query.Name} *" : query.Name;
+						
+						<MudNavLink Href="@GetQueryEditorUrl(index)" 
+									Icon="@(isOpen ? Icons.Material.Filled.Description : Icons.Material.Outlined.Description)"
+									Match="NavLinkMatch.All">
+							@displayName
+						</MudNavLink>
+					}
 				}
-			}
-			else
-			{
-				<MudText Typo="Typo.body2" Color="Color.Secondary" Class="px-4 py-2">
-					No queries yet
-				</MudText>
-			}
+				else
+				{
+					<MudText Typo="Typo.body2" Color="Color.Secondary" Class="px-4 py-2">
+						No queries yet
+					</MudText>
+				}
+			</ChildContent>
 		</MudNavGroup>
 	}
 	else

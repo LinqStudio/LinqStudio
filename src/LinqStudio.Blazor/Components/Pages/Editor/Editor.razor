@@ -4,12 +4,6 @@
 @using BlazorMonaco
 @using BlazorMonaco.Editor
 @using BlazorMonaco.Languages
-@inject IJSRuntime JSRuntime
-@inject MonacoProvidersService MonacoProvidersService
-@inject LinqStudio.Core.Services.CompilerServiceFactory CompilerServiceFactory
-@inject IOptionsMonitor<UISettings> UISettings
-@inject ProjectWorkspace Workspace
-@inject NavigationManager NavigationManager
 
 <PageTitle>Editor - LinqStudio</PageTitle>
 
@@ -21,26 +15,45 @@
 			<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
 				<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
 					<MudIcon Icon="@Icons.Material.Filled.Description" Size="Size.Small" />
-					<MudText Typo="Typo.body1">
-						<strong>@(Workspace.CurrentQuery?.Name ?? "New Query")</strong>
-					</MudText>
-					@if (Workspace.HasUnsavedChanges)
+					
+					@if (_isEditingName)
+					{
+						<MudTextField @bind-Value="_editedQueryName"
+									  Variant="Variant.Outlined"
+									  Margin="Margin.Dense"
+									  Immediate="true"
+									  Validation="@(new Func<string, string?>(ValidateQueryName))"
+									  OnKeyDown="OnNameKeyDown"
+									  Class="query-name-editor"
+									  Style="max-width: 300px;" />
+						<MudIconButton Icon="@Icons.Material.Filled.Check"
+									   Color="Color.Success"
+									   Size="Size.Small"
+									   OnClick="SaveRename"
+									   Disabled="@(ValidateQueryName(_editedQueryName) != null)" />
+						<MudIconButton Icon="@Icons.Material.Filled.Close"
+									   Color="Color.Default"
+									   Size="Size.Small"
+									   OnClick="CancelRename" />
+					}
+					else
+					{
+						<MudText Typo="Typo.body1">
+							<strong>@(Workspace.Queries.GetCurrentQuery(Workspace.CurrentProject)?.Name ?? "New Query")</strong>
+						</MudText>
+						<MudTooltip Text="Rename query">
+							<MudIconButton Icon="@Icons.Material.Filled.Edit" 
+										   Size="Size.Small"
+										   OnClick="StartRename" />
+						</MudTooltip>
+					}
+					
+					@if (Workspace.Queries.CurrentQueryIndex >= 0 && 
+						 Workspace.Queries.OpenQueries.ContainsKey(Workspace.Queries.CurrentQueryIndex) &&
+						 Workspace.Queries.OpenQueries[Workspace.Queries.CurrentQueryIndex].HasUnsavedChanges)
 					{
 						<MudChip T="string" Size="Size.Small" Color="Color.Warning" Icon="@Icons.Material.Filled.Edit">Unsaved</MudChip>
 					}
-				</MudStack>
-				<MudStack Row="true" Spacing="1">
-					<MudTooltip Text="Rename query">
-						<MudIconButton Icon="@Icons.Material.Filled.Edit" 
-									   Size="Size.Small"
-									   OnClick="RenameQuery" />
-					</MudTooltip>
-					<MudTooltip Text="Save project">
-						<MudIconButton Icon="@Icons.Material.Filled.Save" 
-									   Color="Color.Success"
-									   Size="Size.Small"
-									   Disabled="@(!Workspace.HasUnsavedChanges)" />
-					</MudTooltip>
 				</MudStack>
 			</MudStack>
 		</MudPaper>
@@ -65,20 +78,4 @@
 			</MudText>
 		</MudPaper>
 	}
-	else
-	{
-		<!-- No Project Open -->
-		<MudPaper Class="pa-8 d-flex flex-column align-center justify-center" Style="height: 100%">
-			<MudIcon Icon="@Icons.Material.Filled.FolderOff" Size="Size.Large" Color="Color.Default" Class="mb-4" />
-			<MudText Typo="Typo.h5" Align="Align.Center" GutterBottom="true">No Project Open</MudText>
-			<MudText Typo="Typo.body1" Align="Align.Center" Color="Color.Secondary" Class="mb-4">
-				Open or create a project to start writing LINQ queries
-			</MudText>
-		</MudPaper>
-	}
 </div>
-
-@code {
-	[Parameter]
-	public string? QueryIndexParam { get; set; }
-}
