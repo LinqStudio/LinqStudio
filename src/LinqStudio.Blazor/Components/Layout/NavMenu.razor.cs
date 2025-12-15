@@ -1,5 +1,5 @@
 using LinqStudio.Blazor.Abstractions;
-using LinqStudio.Blazor.Components.Pages.Projects;
+using LinqStudio.Blazor.Components.Dialogs;
 using LinqStudio.Blazor.Services;
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
@@ -38,20 +38,36 @@ public partial class NavMenu : ComponentBase, IDisposable
 		return "Project";
 	}
 
+	private async Task<bool> ShowUnsavedChangesDialog(string message = "Current project has unsaved changes. Continue without saving?")
+	{
+		var options = new DialogOptions
+		{
+			CloseOnEscapeKey = true,
+			MaxWidth = MaxWidth.Small
+		};
+
+		var parameters = new DialogParameters<UnsavedChangesDialog>
+		{
+			{ x => x.Message, message }
+		};
+
+		var dialog = await DialogService.ShowAsync<UnsavedChangesDialog>("Unsaved Changes", parameters, options);
+		var result = await dialog.Result;
+
+		return (result is not null) && !result.Canceled && result.Data is bool confirm && confirm;
+	}
+
 	private void NewProject()
 	{
 		// Check for unsaved changes
 		if (Workspace.HasUnsavedChanges)
 		{
-			var confirmTask = DialogService.ShowMessageBox(
-				"Unsaved Changes",
-				"Current project has unsaved changes. Continue without saving?",
-				yesText: "Continue", cancelText: "Cancel");
+			var confirmTask = ShowUnsavedChangesDialog("Current project has unsaved changes. Continue without saving?");
 
 			confirmTask.ContinueWith(async task =>
 			{
 				var confirm = await task;
-				if (confirm == true)
+				if (confirm)
 				{
 					CreateNewProject();
 				}
@@ -78,12 +94,9 @@ public partial class NavMenu : ComponentBase, IDisposable
 		// Check for unsaved changes
 		if (Workspace.HasUnsavedChanges)
 		{
-			bool? confirm = await DialogService.ShowMessageBox(
-				"Unsaved Changes",
-				"Current project has unsaved changes. Continue without saving?",
-				yesText: "Continue", cancelText: "Cancel");
+			bool confirm = await ShowUnsavedChangesDialog("Current project has unsaved changes. Continue without saving?");
 
-			if (confirm != true)
+			if (!confirm)
 			{
 				return;
 			}
@@ -194,18 +207,11 @@ public partial class NavMenu : ComponentBase, IDisposable
 		// Check for unsaved changes
 		if (Workspace.HasUnsavedChanges)
 		{
-			bool? confirm = await DialogService.ShowMessageBox(
-				"Unsaved Changes",
-				"Current project has unsaved changes. Save before closing?",
-				yesText: "Save", noText: "Don't Save", cancelText: "Cancel");
+			bool confirm = await ShowUnsavedChangesDialog("Current project has unsaved changes. Continue without saving?");
 
-			if (confirm == true)
+			if (!confirm)
 			{
-				await SaveProject();
-			}
-			else if (confirm == null)
-			{
-				return; // Cancelled
+				return;
 			}
 		}
 

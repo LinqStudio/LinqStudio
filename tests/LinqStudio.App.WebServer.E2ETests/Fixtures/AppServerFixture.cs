@@ -1,27 +1,28 @@
 using LinqStudio.App.WebServer.E2ETests.Services;
-using System.Diagnostics;
-using System.Net.Http;
 using Xunit;
 
 namespace LinqStudio.App.WebServer.E2ETests.Fixtures;
 
 public class AppServerFixture : IAsyncLifetime
 {
-	private BlazorWebAppFactory? _factory;
+	private readonly BlazorWebAppFactory _factory;
 
-	public Uri BaseUrl => _factory?.ClientOptions.BaseAddress ?? throw new InvalidOperationException("BlazorWebAppFactory not initialized");
+	public Uri BaseUrl => _factory.ClientOptions.BaseAddress ?? throw new InvalidOperationException("BlazorWebAppFactory not initialized");
+	public MockFileSystemService MockFileSystemService => _factory.MockFileSystemService;
+
+	public AppServerFixture()
+	{
+		_factory = new BlazorWebAppFactory();
+	}
 
 	public async Task InitializeAsync()
 	{
-		_factory = new BlazorWebAppFactory();
-
 		_factory.UseKestrel();
 		_factory.StartServer();
 	}
 
 	public async Task DisposeAsync()
 	{
-		if (_factory != null)
-			await _factory.DisposeAsync();
+		await _factory.DisposeAsync();
 	}
 }

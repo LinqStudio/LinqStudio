@@ -2,7 +2,7 @@ using LinqStudio.Core.Models;
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
 
-namespace LinqStudio.Blazor.Components.Pages.Projects;
+namespace LinqStudio.Blazor.Components.Dialogs;
 
 public partial class EditProjectDialog : ComponentBase
 {
