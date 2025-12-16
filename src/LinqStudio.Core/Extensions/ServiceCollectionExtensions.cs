@@ -16,6 +16,7 @@ public static class ServiceCollectionExtensions
 		AddAndBindOptions(services);
 
 		// register the CompilerServiceFactory so Blazor components can create CompilerService instances
+		services.AddSingleton<CompilerServiceProvider>();
 		services.AddScoped<CompilerServiceFactory>();
 
 		return services;

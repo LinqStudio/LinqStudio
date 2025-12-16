@@ -21,17 +21,17 @@ public class MockFileSystemService : IFileSystemService
 	/// <summary>
 	/// Sets the result that will be returned by the next call to PromptOpenFileAsync.
 	/// </summary>
-	public void SetNextOpenFileResult(string? filePath)
+	public void SetNextOpenFileResult(string fileName)
 	{
-		_nextOpenFileResult = filePath;
+		_nextOpenFileResult = Path.Combine(_testFilesDirectory, fileName);
 	}
 
 	/// <summary>
 	/// Sets the result that will be returned by the next call to PromptSaveFileAsync.
 	/// </summary>
-	public void SetNextSaveFileResult(string? filePath)
+	public void SetNextSaveFileResult(string fileName)
 	{
-		_nextSaveFileResult = filePath;
+		_nextSaveFileResult = Path.Combine(_testFilesDirectory, fileName);
 	}
 
 	/// <summary>

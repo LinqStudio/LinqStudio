@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Components.Web;
 using Microsoft.CodeAnalysis.Tags;
 using Microsoft.Extensions.Options;
 using MudBlazor;
+using System.Diagnostics;
 
 namespace LinqStudio.Blazor.Components.Pages.Editor;
 
@@ -33,6 +34,10 @@ public partial class Editor : ComponentBase, IDisposable
 	private bool _isEditingName;
 	private string _editedQueryName = string.Empty;
 
+	// Debounce state
+	private CancellationTokenSource? _debounceTokenSource;
+	private const int DebounceDelayMs = 300;
+
 	private StandaloneEditorConstructionOptions EditorConstructionOptions(StandaloneCodeEditor ed) => new()
 	{
 		AutomaticLayout = true,
@@ -55,7 +60,6 @@ public partial class Editor : ComponentBase, IDisposable
 
 	protected override void OnInitialized()
 	{
-		// Subscribe to workspace changes to update UI when project is saved
 		Workspace.WorkspaceChanged += OnWorkspaceChanged;
 	}
 
@@ -72,7 +76,6 @@ public partial class Editor : ComponentBase, IDisposable
 			return;
 		}
 
-		// Handle "new" route
 		if (QueryIndexParam == "new")
 		{
 			var (updatedProject, newIndex) = Workspace.Queries.CreateNewQuery(Workspace.CurrentProject!);
@@ -81,18 +84,15 @@ public partial class Editor : ComponentBase, IDisposable
 			return;
 		}
 
-		// Handle query index route
 		if (int.TryParse(QueryIndexParam, out var index))
 		{
 			Workspace.Queries.OpenQuery(Workspace.CurrentProject!, index);
 		}
 		else if (Workspace.Queries.CurrentQueryIndex < 0 && Workspace.CurrentProject?.Queries?.Count > 0)
 		{
-			// Default to first query if none selected
 			Workspace.Queries.OpenQuery(Workspace.CurrentProject, 0);
 		}
 
-		// Update editor value if query changed
 		if (_editor is not null)
 		{
 			var newText = GetInitialQueryText();
@@ -106,7 +106,6 @@ public partial class Editor : ComponentBase, IDisposable
 
 	private string GetInitialQueryText()
 	{
-		// Use the CurrentQueryState if available, otherwise fall back to saved query text
 		if (Workspace.Queries.CurrentQueryState is not null)
 		{
 			return Workspace.Queries.CurrentQueryState.CurrentText;
@@ -138,7 +137,28 @@ public partial class Editor : ComponentBase, IDisposable
 		if (newText != _lastQueryText)
 		{
 			_lastQueryText = newText;
+			await DebounceUpdateAsync(newText);
+		}
+	}
+
+	/// <summary>
+	/// Debounces query text updates to avoid excessive workspace updates while typing.
+	/// Expected to throw TaskCanceledException when user continues typing.
+	/// </summary>
+	[DebuggerNonUserCode]
+	private async Task DebounceUpdateAsync(string newText)
+	{
+		_debounceTokenSource?.Cancel();
+		_debounceTokenSource = new CancellationTokenSource();
+
+		try
+		{
+			await Task.Delay(DebounceDelayMs, _debounceTokenSource.Token);
 			Workspace.Queries.UpdateQueryText(Workspace.CurrentProject!, Workspace.Queries.CurrentQueryIndex, newText);
+		}
+		catch (TaskCanceledException)
+		{
+			// Expected - user typed before delay completed
 		}
 	}
 
@@ -179,7 +199,6 @@ public partial class Editor : ComponentBase, IDisposable
 			return "Query name cannot be empty.";
 		}
 
-		// Check if name already exists (excluding current query)
 		if (Workspace.CurrentProject?.Queries is not null &&
 			Workspace.CurrentProject.Queries
 				.Where((q, index) => index != Workspace.Queries.CurrentQueryIndex)
@@ -189,14 +208,13 @@ public partial class Editor : ComponentBase, IDisposable
 			return "A query with this name already exists.";
 		}
 
-		return null; // No errors
+		return null;
 	}
 
 	private void OnNameKeyDown(KeyboardEventArgs e)
 	{
 		if (e.Key == "Enter")
 		{
-			// Only save if validation passes
 			if (ValidateQueryName(_editedQueryName) == null)
 			{
 				SaveRename();
@@ -357,11 +375,10 @@ public partial class Editor : ComponentBase, IDisposable
 
 		_providerDisposable?.Dispose();
 		_hoverProviderDisposable?.Dispose();
-		try
-		{
-			_compiler?.Dispose();
-		}
-		catch { }
+
+		// DON'T dispose _compiler - it's managed by CompilerServiceProvider
+		// The provider will dispose it when the app shuts down
+
 		GC.SuppressFinalize(this);
 	}
 }

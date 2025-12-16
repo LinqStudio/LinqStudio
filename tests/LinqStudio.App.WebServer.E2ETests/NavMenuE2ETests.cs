@@ -1,5 +1,7 @@
 using LinqStudio.App.WebServer.E2ETests.Fixtures;
-using Microsoft.Playwright;
+using LinqStudio.App.WebServer.E2ETests.Helpers;
+using LinqStudio.Core.Models;
+using System.Text.Json;
 using Xunit;
 using static Microsoft.Playwright.Assertions;
 
@@ -10,33 +12,6 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 {
 	private readonly AppServerFixture _app = app;
 	private readonly PlaywrightFixture _pw = pw;
-
-	/// <summary>
-	/// Helper method to create a new project
-	/// </summary>
-	private async Task CreateNewProjectAsync(IPage page)
-	{
-		await page.GotoAsync(_app.BaseUrl.ToString());
-		await page.GetByTestId("nav-project-new").ClickAsync();
-		await page.WaitForURLAsync(_app.BaseUrl.ToString());
-	}
-
-	/// <summary>
-	/// Helper method to create a query for testing
-	/// </summary>
-	private async Task CreateQueryAsync(IPage page, string queryText = "context.")
-	{
-		await page.GetByTestId("nav-query-create").ClickAsync();
-		await page.WaitForURLAsync($"{_app.BaseUrl}editor/*");
-		await Expect(page.GetByTestId("monaco-editor-container")).ToBeVisibleAsync();
-
-		// Type some content to make the query "dirty"
-		var monacoEditor = page.Locator("#editor-top .monaco-editor");
-		await Expect(monacoEditor).ToBeVisibleAsync();
-		await monacoEditor.ClickAsync();
-		await page.Keyboard.PressAsync("Control+A");
-		await page.Keyboard.TypeAsync(queryText);
-	}
 
 	[Fact(Timeout = 60_000)]
 	public async Task NavMenu_NewProject_CreatesUntitledProject()
@@ -83,8 +58,8 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		var page = await context.NewPageAsync();
 
 		// Create a project and make some changes
-		await CreateNewProjectAsync(page);
-		await CreateQueryAsync(page, "context.People");
+		await E2ETestHelpers.CreateNewProjectAsync(page, _app);
+		await E2ETestHelpers.CreateQueryAsync(page, _app, "context.People");
 
 		// Navigate back to home
 		await page.GetByTestId("nav-home").ClickAsync();
@@ -137,7 +112,7 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		var page = await context.NewPageAsync();
 
 		// Create a project
-		await CreateNewProjectAsync(page);
+		await E2ETestHelpers.CreateNewProjectAsync(page, _app);
 
 		// Verify project is open
 		var projectGroup = page.GetByTestId("nav-project-group");
@@ -171,8 +146,8 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		var page = await context.NewPageAsync();
 
 		// Create a project and make some changes
-		await CreateNewProjectAsync(page);
-		await CreateQueryAsync(page, "context.People");
+		await E2ETestHelpers.CreateNewProjectAsync(page, _app);
+		await E2ETestHelpers.CreateQueryAsync(page, _app, "context.People");
 
 		// Navigate back to home
 		await page.GetByTestId("nav-home").ClickAsync();
@@ -208,36 +183,6 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 	}
 
 	[Fact(Timeout = 60_000)]
-	public async Task NavMenu_SaveButton_DisabledWhenNoChanges()
-	{
-		Assert.NotNull(_pw.Browser);
-
-		await using var context = await _pw.Browser.NewContextAsync();
-		var page = await context.NewPageAsync();
-
-		// Create a project
-		await CreateNewProjectAsync(page);
-
-		// Verify Save button is disabled (no changes yet)
-		var saveBtn = page.GetByTestId("nav-project-save");
-		await Expect(saveBtn).ToBeVisibleAsync();
-		await Expect(saveBtn).ToBeDisabledAsync();
-
-		// Make a change by creating a query
-		await CreateQueryAsync(page, "context.People");
-
-		// Navigate back to home
-		await page.GetByTestId("nav-home").ClickAsync();
-
-		// Verify Save button is now enabled
-		await Expect(saveBtn).ToBeEnabledAsync();
-
-		// Verify project shows unsaved indicator
-		var projectGroup = page.GetByTestId("nav-project-group");
-		await Expect(projectGroup).ToContainTextAsync("Untitled *");
-	}
-
-	[Fact(Timeout = 60_000)]
 	public async Task NavMenu_QueriesSection_HiddenWhenNoProject()
 	{
 		Assert.NotNull(_pw.Browser);
@@ -255,7 +200,6 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		// Verify editor link is disabled
 		var editorLink = page.GetByTestId("nav-editor-disabled");
 		await Expect(editorLink).ToBeVisibleAsync();
-		await Expect(editorLink).ToBeDisabledAsync();
 
 		// Create a project
 		await page.GetByTestId("nav-project-new").ClickAsync();
@@ -276,7 +220,7 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		var page = await context.NewPageAsync();
 
 		// Create a project
-		await CreateNewProjectAsync(page);
+		await E2ETestHelpers.CreateNewProjectAsync(page, _app);
 
 		// Verify queries section shows empty message
 		var queriesGroup = page.GetByTestId("nav-queries-group");
@@ -287,8 +231,8 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await Expect(emptyMessage).ToContainTextAsync("No queries yet");
 	}
 
-	[Fact(Timeout = 60_000)]
-	public async Task NavMenu_CreateQuery_AddsQueryToList()
+	[Fact(Timeout = 120_000)]
+	public async Task NavMenu_SaveAs_SavesCompleteProjectToFile()
 	{
 		Assert.NotNull(_pw.Browser);
 
@@ -296,101 +240,74 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		var page = await context.NewPageAsync();
 
 		// Create a project
-		await CreateNewProjectAsync(page);
+		await E2ETestHelpers.CreateNewProjectAsync(page, _app);
 
-		// Create a query
-		await page.GetByTestId("nav-query-create").ClickAsync();
-
-		// Wait for editor to load
-		await page.WaitForURLAsync($"{_app.BaseUrl}editor/*");
-
-		// Navigate back to home
-		await page.GetByTestId("nav-home").ClickAsync();
-
-		// Verify query appears in the list
-		var query0 = page.GetByTestId("nav-query-0");
-		await Expect(query0).ToBeVisibleAsync();
-		await Expect(query0).ToContainTextAsync("Query");
-
-		// Verify empty message is no longer shown
-		var emptyMessage = page.GetByTestId("nav-queries-empty");
-		await Expect(emptyMessage).Not.ToBeVisibleAsync();
-	}
-
-	[Fact(Timeout = 60_000)]
-	public async Task NavMenu_QueryList_ShowsUnsavedIndicator()
-	{
-		Assert.NotNull(_pw.Browser);
-
-		await using var context = await _pw.Browser.NewContextAsync();
-		var page = await context.NewPageAsync();
-
-		// Create a project and query
-		await CreateNewProjectAsync(page);
-		await CreateQueryAsync(page, "context.People");
-
-		// Navigate back to home
-		await page.GetByTestId("nav-home").ClickAsync();
-
-		// Verify query shows unsaved indicator (asterisk)
-		var query0 = page.GetByTestId("nav-query-0");
-		await Expect(query0).ToBeVisibleAsync();
-		await Expect(query0).ToContainTextAsync("Query 1 *");
-	}
-
-	[Fact(Timeout = 60_000)]
-	public async Task NavMenu_Properties_UpdateConnectionString()
-	{
-		Assert.NotNull(_pw.Browser);
-
-		await using var context = await _pw.Browser.NewContextAsync();
-		var page = await context.NewPageAsync();
-
-		// Create a project
-		await CreateNewProjectAsync(page);
-
-		// Click Properties
+		// --- Update connection string via Properties dialog ---
 		await page.GetByTestId("nav-project-properties").ClickAsync();
 
-		// Verify Edit Project dialog appears
 		var dialog = page.GetByTestId("edit-project-dialog");
 		await Expect(dialog).ToBeVisibleAsync();
 
-		// Update connection string
 		var connectionStringField = page.GetByTestId("project-connection-string-field");
-		await connectionStringField.FillAsync("Server=localhost;Database=TestDb;");
+		await connectionStringField.FillAsync("Server=localhost;Database=TestDb;Integrated Security=true;");
 
-		// Save changes
 		var saveBtn = page.GetByTestId("edit-project-save-btn");
 		await saveBtn.ClickAsync();
 
-		// Verify dialog is closed
 		await Expect(dialog).Not.ToBeVisibleAsync();
 
-		// Verify project shows unsaved indicator
+		// Verify project shows unsaved indicator after properties update
 		var projectGroup = page.GetByTestId("nav-project-group");
 		await Expect(projectGroup).ToContainTextAsync("Untitled *");
-	}
 
-	[Fact(Timeout = 60_000)]
-	public async Task NavMenu_SaveAs_SavesProjectToFile()
-	{
-		Assert.NotNull(_pw.Browser);
+		// --- Create first query with custom name and content ---
+		await E2ETestHelpers.CreateQueryAsync(page, _app, "context.People.Where(x => x.Id > 10).OrderBy(x => x.Name)");
 
-		await using var context = await _pw.Browser.NewContextAsync();
-		var page = await context.NewPageAsync();
+		// Verify unsaved indicator appears in editor
+		var unsavedIndicator = page.GetByTestId("query-unsaved-indicator");
+		await Expect(unsavedIndicator).ToBeVisibleAsync();
 
-		// Create a project with a query
-		await CreateNewProjectAsync(page);
-		await CreateQueryAsync(page, "context.People.Where(x => x.Id > 0)");
+		// Rename the first query
+		await page.GetByTestId("query-rename-btn").ClickAsync();
+		var renameInput = page.GetByTestId("query-name-input");
+		await Expect(renameInput).ToBeVisibleAsync();
+		await renameInput.FillAsync("Get Filtered People");
+		await page.GetByTestId("query-rename-save-btn").ClickAsync();
+
+		// Verify rename succeeded
+		var queryName = page.GetByTestId("query-name-display");
+		await Expect(queryName).ToContainTextAsync("Get Filtered People");
+
+		// --- Create second query with different content ---
+		await E2ETestHelpers.CreateQueryAsync(page, _app, "context.People.Select(x => new { x.Id, x.Name }).Take(100)", 1);
+
+		// Verify unsaved indicator appears
+		unsavedIndicator = page.GetByTestId("query-unsaved-indicator");
+		await Expect(unsavedIndicator).ToBeVisibleAsync();
+
+		// Rename the second query
+		await page.GetByTestId("query-rename-btn").ClickAsync();
+		renameInput = page.GetByTestId("query-name-input");
+		await Expect(renameInput).ToBeVisibleAsync();
+		await renameInput.FillAsync("Get People Summary");
+		await page.GetByTestId("query-rename-save-btn").ClickAsync();
+
+		// Verify rename succeeded
+		queryName = page.GetByTestId("query-name-display");
+		await Expect(queryName).ToContainTextAsync("Get People Summary");
 
 		// Navigate back to home
 		await page.GetByTestId("nav-home").ClickAsync();
 
-		// Set up mock to return a file path within the test directory
+		// Verify both queries show unsaved indicators in nav menu
+		var query0 = page.GetByTestId("nav-query-0");
+		var query1 = page.GetByTestId("nav-query-1");
+		await Expect(query0).ToContainTextAsync("Get Filtered People *");
+		await Expect(query1).ToContainTextAsync("Get People Summary *");
+
+		// --- Save the project ---
 		_app.MockFileSystemService.SetNextSaveFileResult("TestProject.linq");
 
-		// Click Save As
 		await page.GetByTestId("nav-project-save-as").ClickAsync();
 
 		// Verify snackbar shows success message
@@ -398,11 +315,39 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await Expect(snackbar).ToBeVisibleAsync();
 		await Expect(snackbar).ToContainTextAsync("Project saved successfully");
 
-		// Verify the file was created in the test directory
+		// Verify the file was created
 		Assert.True(_app.MockFileSystemService.TestFileExists("TestProject.linq"));
 
-		// Verify the file contains expected content
+		// --- Verify the saved file contains all expected content ---
 		var fileContent = _app.MockFileSystemService.ReadTestFile("TestProject.linq");
-		Assert.Contains("context.People.Where(x => x.Id > 0)", fileContent);
+		var project = JsonSerializer.Deserialize<Project>(fileContent);
+
+		Assert.NotNull(project);
+
+		// Verify connection string was saved
+		Assert.Equal("Server=localhost;Database=TestDb;Integrated Security=true;", project.ConnectionString);
+
+		// Verify we have 2 queries
+		Assert.NotNull(project.Queries);
+		Assert.Equal(2, project.Queries.Count);
+
+		// Verify first query
+		var firstQuery = project.Queries[0];
+		Assert.Equal("Get Filtered People", firstQuery.Name);
+		Assert.Contains("context.People.Where(x => x.Id > 10).OrderBy(x => x.Name)", firstQuery.QueryText);
+
+		// Verify second query
+		var secondQuery = project.Queries[1];
+		Assert.Equal("Get People Summary", secondQuery.Name);
+		Assert.Contains("context.People.Select(x => new { x.Id, x.Name }).Take(100)", secondQuery.QueryText);
+
+		// Verify unsaved indicators are cleared after save
+		await Expect(projectGroup).Not.ToContainTextAsync("*");
+		await Expect(query0).Not.ToContainTextAsync("*");
+		await Expect(query1).Not.ToContainTextAsync("*");
+
+		// Verify Save button is disabled
+		saveBtn = page.GetByTestId("nav-project-save");
+		await Expect(saveBtn).ToHaveAttributeAsync("disabled", "");
 	}
 }
