@@ -1,0 +1,31 @@
+@using MudBlazor
+
+<MudDialog data-testid="editor-menu-dialog">
+	<TitleContent>
+		<MudText Typo="Typo.h6">
+			Editor
+		</MudText>
+	</TitleContent>
+	<DialogContent>
+		<MudStack Spacing="1">
+			<MudList T="string" Dense="true">
+				<MudListItem T="string" OnClick="New" data-testid="editor-menu-new">
+					<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+						<MudIcon Icon="@Icons.Material.Filled.Add" />
+						<MudText>New</MudText>
+					</MudStack>
+				</MudListItem>
+
+				<MudListItem T="string" Disabled="@(!HasSavedQueries)" OnClick="Open" data-testid="editor-menu-open">
+					<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+						<MudIcon Icon="@Icons.Material.Filled.FolderOpen" />
+						<MudText>Open</MudText>
+					</MudStack>
+				</MudListItem>
+			</MudList>
+		</MudStack>
+	</DialogContent>
+	<DialogActions>
+		<MudButton Variant="Variant.Text" OnClick="Cancel" data-testid="editor-menu-cancel">Close</MudButton>
+	</DialogActions>
+</MudDialog>

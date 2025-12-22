@@ -24,7 +24,7 @@ public class QueriesWorkspaceTests
 		_workspace.Initialize(project);
 
 		// Assert
-		Assert.Equal(-1, _workspace.CurrentQueryIndex);
+		Assert.Null(_workspace.CurrentQueryId);
 		Assert.Empty(_workspace.OpenQueries);
 	}
 
@@ -32,17 +32,16 @@ public class QueriesWorkspaceTests
 	public void Initialize_WithQueries_OpensFirstQuery()
 	{
 		// Arrange
-		var project = CreateTestProject(
-			new SavedQuery { Name = "Query1", QueryText = "context.People", CreatedDate = DateTimeOffset.UtcNow }
-		);
+		var q1 = new SavedQuery { Name = "Query1", QueryText = "context.People", CreatedDate = DateTimeOffset.UtcNow };
+		var project = CreateTestProject(q1);
 
 		// Act
 		_workspace.Initialize(project);
 
 		// Assert
-		Assert.Equal(0, _workspace.CurrentQueryIndex);
+		Assert.Equal(q1.Id, _workspace.CurrentQueryId);
 		Assert.Single(_workspace.OpenQueries);
-		Assert.True(_workspace.OpenQueries.ContainsKey(0));
+		Assert.True(_workspace.OpenQueries.ContainsKey(q1.Id));
 	}
 
 	[Fact]
@@ -60,7 +59,7 @@ public class QueriesWorkspaceTests
 		_workspace.Initialize(project2);
 
 		// Assert
-		Assert.Equal(-1, _workspace.CurrentQueryIndex);
+		Assert.Null(_workspace.CurrentQueryId);
 		Assert.Empty(_workspace.OpenQueries);
 	}
 
@@ -87,17 +86,16 @@ public class QueriesWorkspaceTests
 	public void OpenQuery_OpensQueryAndSetsAsCurrent()
 	{
 		// Arrange
-		var project = CreateTestProject(
-			new SavedQuery { Name = "Query1", QueryText = "context.People", CreatedDate = DateTimeOffset.UtcNow },
-			new SavedQuery { Name = "Query2", QueryText = "context.Orders", CreatedDate = DateTimeOffset.UtcNow }
-		);
+		var q1 = new SavedQuery { Name = "Query1", QueryText = "context.People", CreatedDate = DateTimeOffset.UtcNow };
+		var q2 = new SavedQuery { Name = "Query2", QueryText = "context.Orders", CreatedDate = DateTimeOffset.UtcNow };
+		var project = CreateTestProject(q1, q2);
 
 		// Act
-		_workspace.OpenQuery(project, 1);
+		_workspace.OpenQuery(project, q2.Id);
 
 		// Assert
-		Assert.Equal(1, _workspace.CurrentQueryIndex);
-		Assert.True(_workspace.OpenQueries.ContainsKey(1));
+		Assert.Equal(q2.Id, _workspace.CurrentQueryId);
+		Assert.True(_workspace.OpenQueries.ContainsKey(q2.Id));
 		Assert.Equal("context.Orders", _workspace.CurrentQueryState!.CurrentText);
 	}
 
@@ -105,13 +103,12 @@ public class QueriesWorkspaceTests
 	public void OpenQuery_DoesNotDuplicateIfAlreadyOpen()
 	{
 		// Arrange
-		var project = CreateTestProject(
-			new SavedQuery { Name = "Query1", QueryText = "context.People", CreatedDate = DateTimeOffset.UtcNow }
-		);
+		var q1 = new SavedQuery { Name = "Query1", QueryText = "context.People", CreatedDate = DateTimeOffset.UtcNow };
+		var project = CreateTestProject(q1);
 
 		// Act
-		_workspace.OpenQuery(project, 0);
-		_workspace.OpenQuery(project, 0);
+		_workspace.OpenQuery(project, q1.Id);
+		_workspace.OpenQuery(project, q1.Id);
 
 		// Assert
 		Assert.Single(_workspace.OpenQueries);
@@ -124,10 +121,10 @@ public class QueriesWorkspaceTests
 		var project = CreateTestProject(
 			new SavedQuery { Name = "Query1", QueryText = "test", CreatedDate = DateTimeOffset.UtcNow }
 		);
+		var missingId = Guid.NewGuid();
 
 		// Act & Assert
-		Assert.Throws<ArgumentOutOfRangeException>(() => _workspace.OpenQuery(project, 10));
-		Assert.Throws<ArgumentOutOfRangeException>(() => _workspace.OpenQuery(project, -1));
+		Assert.Throws<InvalidOperationException>(() => _workspace.OpenQuery(project, missingId));
 	}
 
 	#endregion
@@ -138,13 +135,12 @@ public class QueriesWorkspaceTests
 	public void CloseQuery_RemovesQueryFromOpenList()
 	{
 		// Arrange
-		var project = CreateTestProject(
-			new SavedQuery { Name = "Query1", QueryText = "test", CreatedDate = DateTimeOffset.UtcNow }
-		);
-		_workspace.OpenQuery(project, 0);
+		var q1 = new SavedQuery { Name = "Query1", QueryText = "test", CreatedDate = DateTimeOffset.UtcNow };
+		var project = CreateTestProject(q1);
+		_workspace.OpenQuery(project, q1.Id);
 
 		// Act
-		_workspace.CloseQuery(0);
+		_workspace.CloseQuery(q1.Id);
 
 		// Assert
 		Assert.Empty(_workspace.OpenQueries);
@@ -154,18 +150,17 @@ public class QueriesWorkspaceTests
 	public void CloseQuery_SwitchesToAnotherOpenQuery_WhenClosingCurrent()
 	{
 		// Arrange
-		var project = CreateTestProject(
-			new SavedQuery { Name = "Query1", QueryText = "test1", CreatedDate = DateTimeOffset.UtcNow },
-			new SavedQuery { Name = "Query2", QueryText = "test2", CreatedDate = DateTimeOffset.UtcNow }
-		);
-		_workspace.OpenQuery(project, 0);
-		_workspace.OpenQuery(project, 1);
+		var q1 = new SavedQuery { Name = "Query1", QueryText = "test1", CreatedDate = DateTimeOffset.UtcNow };
+		var q2 = new SavedQuery { Name = "Query2", QueryText = "test2", CreatedDate = DateTimeOffset.UtcNow };
+		var project = CreateTestProject(q1, q2);
+		_workspace.OpenQuery(project, q1.Id);
+		_workspace.OpenQuery(project, q2.Id);
 
 		// Act
-		_workspace.CloseQuery(1);
+		_workspace.CloseQuery(q2.Id);
 
 		// Assert
-		Assert.Equal(0, _workspace.CurrentQueryIndex);
+		Assert.Equal(q1.Id, _workspace.CurrentQueryId);
 	}
 
 	[Fact]
@@ -175,7 +170,7 @@ public class QueriesWorkspaceTests
 		var project = CreateTestProject();
 
 		// Act & Assert (should not throw)
-		_workspace.CloseQuery(5);
+		_workspace.CloseQuery(Guid.NewGuid());
 		Assert.Empty(_workspace.OpenQueries);
 	}
 
@@ -190,15 +185,14 @@ public class QueriesWorkspaceTests
 		var project = CreateTestProject();
 
 		// Act
-		var (updatedProject, newIndex) = _workspace.CreateNewQuery(project);
+		var newId = _workspace.CreateNewQuery(project);
 
 		// Assert
-		Assert.NotNull(updatedProject.Queries);
-		Assert.Single(updatedProject.Queries);
-		Assert.Equal("Query", updatedProject.Queries[0].Name);
-		Assert.Equal(0, newIndex);
-		Assert.Equal(0, _workspace.CurrentQueryIndex);
-		Assert.True(_workspace.OpenQueries.ContainsKey(0));
+		Assert.NotNull(project.Queries);
+		Assert.Single(project.Queries);
+		Assert.Equal("Query", project.Queries[0].Name);
+		Assert.Equal(newId, _workspace.CurrentQueryId);
+		Assert.True(_workspace.OpenQueries.ContainsKey(newId));
 	}
 
 	[Fact]
@@ -208,10 +202,10 @@ public class QueriesWorkspaceTests
 		var project = CreateTestProject();
 
 		// Act
-		var (updatedProject, _) = _workspace.CreateNewQuery(project, "MyCustomQuery");
+		_ = _workspace.CreateNewQuery(project, "MyCustomQuery");
 
 		// Assert
-		Assert.Equal("MyCustomQuery", updatedProject.Queries![0].Name);
+		Assert.Equal("MyCustomQuery", project.Queries![0].Name);
 	}
 
 	[Fact]
@@ -223,11 +217,11 @@ public class QueriesWorkspaceTests
 		);
 
 		// Act
-		var (updatedProject, _) = _workspace.CreateNewQuery(project);
+		_ = _workspace.CreateNewQuery(project);
 
 		// Assert
-		Assert.Equal(2, updatedProject.Queries!.Count);
-		Assert.Equal("Query 1", updatedProject.Queries[1].Name);
+		Assert.Equal(2, project.Queries!.Count);
+		Assert.Equal("Query 1", project.Queries[1].Name);
 	}
 
 	[Fact]
@@ -240,10 +234,10 @@ public class QueriesWorkspaceTests
 		);
 
 		// Act
-		var (updatedProject, _) = _workspace.CreateNewQuery(project);
+		_ = _workspace.CreateNewQuery(project);
 
 		// Assert
-		Assert.Equal("Query 2", updatedProject.Queries![2].Name);
+		Assert.Equal("Query 2", project.Queries![2].Name);
 	}
 
 	[Fact]
@@ -255,10 +249,10 @@ public class QueriesWorkspaceTests
 		);
 
 		// Act
-		var (updatedProject, _) = _workspace.CreateNewQuery(project, "QUERY");
+		_ = _workspace.CreateNewQuery(project, "QUERY");
 
 		// Assert
-		Assert.Equal("QUERY 1", updatedProject.Queries![1].Name);
+		Assert.Equal("QUERY 1", project.Queries![1].Name);
 	}
 
 	#endregion
@@ -269,13 +263,12 @@ public class QueriesWorkspaceTests
 	public void UpdateQueryText_UpdatesCurrentText()
 	{
 		// Arrange
-		var project = CreateTestProject(
-			new SavedQuery { Name = "Query1", QueryText = "original", CreatedDate = DateTimeOffset.UtcNow }
-		);
-		_workspace.OpenQuery(project, 0);
+		var q1 = new SavedQuery { Name = "Query1", QueryText = "original", CreatedDate = DateTimeOffset.UtcNow };
+		var project = CreateTestProject(q1);
+		_workspace.OpenQuery(project, q1.Id);
 
 		// Act
-		_workspace.UpdateQueryText(project, 0, "updated");
+		_workspace.UpdateQueryText(project, q1.Id, "updated");
 
 		// Assert
 		Assert.Equal("updated", _workspace.CurrentQueryState!.CurrentText);
@@ -285,13 +278,12 @@ public class QueriesWorkspaceTests
 	public void UpdateQueryText_SetsHasUnsavedChanges_WhenTextDiffers()
 	{
 		// Arrange
-		var project = CreateTestProject(
-			new SavedQuery { Name = "Query1", QueryText = "original", CreatedDate = DateTimeOffset.UtcNow }
-		);
-		_workspace.OpenQuery(project, 0);
+		var q1 = new SavedQuery { Name = "Query1", QueryText = "original", CreatedDate = DateTimeOffset.UtcNow };
+		var project = CreateTestProject(q1);
+		_workspace.OpenQuery(project, q1.Id);
 
 		// Act
-		_workspace.UpdateQueryText(project, 0, "updated");
+		_workspace.UpdateQueryText(project, q1.Id, "updated");
 
 		// Assert
 		Assert.True(_workspace.CurrentQueryState!.HasUnsavedChanges);
@@ -302,13 +294,12 @@ public class QueriesWorkspaceTests
 	public void UpdateQueryText_DoesNotSetUnsaved_WhenTextSameAsSaved()
 	{
 		// Arrange
-		var project = CreateTestProject(
-			new SavedQuery { Name = "Query1", QueryText = "original", CreatedDate = DateTimeOffset.UtcNow }
-		);
-		_workspace.OpenQuery(project, 0);
+		var q1 = new SavedQuery { Name = "Query1", QueryText = "original", CreatedDate = DateTimeOffset.UtcNow };
+		var project = CreateTestProject(q1);
+		_workspace.OpenQuery(project, q1.Id);
 
 		// Act
-		_workspace.UpdateQueryText(project, 0, "original");
+		_workspace.UpdateQueryText(project, q1.Id, "original");
 
 		// Assert
 		Assert.False(_workspace.CurrentQueryState!.HasUnsavedChanges);
@@ -318,12 +309,11 @@ public class QueriesWorkspaceTests
 	public void UpdateQueryText_ThrowsException_WhenQueryNotOpen()
 	{
 		// Arrange
-		var project = CreateTestProject(
-			new SavedQuery { Name = "Query1", QueryText = "test", CreatedDate = DateTimeOffset.UtcNow }
-		);
+		var q1 = new SavedQuery { Name = "Query1", QueryText = "test", CreatedDate = DateTimeOffset.UtcNow };
+		var project = CreateTestProject(q1);
 
 		// Act & Assert
-		Assert.Throws<InvalidOperationException>(() => _workspace.UpdateQueryText(project, 0, "new"));
+		Assert.Throws<InvalidOperationException>(() => _workspace.UpdateQueryText(project, q1.Id, "new"));
 	}
 
 	#endregion
@@ -334,12 +324,11 @@ public class QueriesWorkspaceTests
 	public void RenameQuery_UpdatesQueryName()
 	{
 		// Arrange
-		var project = CreateTestProject(
-			new SavedQuery { Name = "OldName", QueryText = "test", CreatedDate = DateTimeOffset.UtcNow }
-		);
+		var q1 = new SavedQuery { Name = "OldName", QueryText = "test", CreatedDate = DateTimeOffset.UtcNow };
+		var project = CreateTestProject(q1);
 
 		// Act
-		var updatedProject = _workspace.RenameQuery(project, 0, "NewName");
+		var updatedProject = _workspace.RenameQuery(project, q1.Id, "NewName");
 
 		// Assert
 		Assert.Equal("NewName", updatedProject.Queries![0].Name);
@@ -349,13 +338,12 @@ public class QueriesWorkspaceTests
 	public void RenameQuery_MarksAsUnsaved_WhenOpen()
 	{
 		// Arrange
-		var project = CreateTestProject(
-			new SavedQuery { Name = "OldName", QueryText = "test", CreatedDate = DateTimeOffset.UtcNow }
-		);
-		_workspace.OpenQuery(project, 0);
+		var q1 = new SavedQuery { Name = "OldName", QueryText = "test", CreatedDate = DateTimeOffset.UtcNow };
+		var project = CreateTestProject(q1);
+		_workspace.OpenQuery(project, q1.Id);
 
 		// Act
-		var updatedProject = _workspace.RenameQuery(project, 0, "NewName");
+		_ = _workspace.RenameQuery(project, q1.Id, "NewName");
 
 		// Assert
 		Assert.True(_workspace.CurrentQueryState!.HasUnsavedChanges);
@@ -368,7 +356,7 @@ public class QueriesWorkspaceTests
 		var project = CreateTestProject();
 
 		// Act & Assert
-		Assert.Throws<ArgumentOutOfRangeException>(() => _workspace.RenameQuery(project, 0, "New"));
+		Assert.Throws<InvalidOperationException>(() => _workspace.RenameQuery(project, Guid.NewGuid(), "New"));
 	}
 
 	#endregion
@@ -379,13 +367,12 @@ public class QueriesWorkspaceTests
 	public void DeleteQuery_RemovesQueryFromProject()
 	{
 		// Arrange
-		var project = CreateTestProject(
-			new SavedQuery { Name = "Query1", QueryText = "test1", CreatedDate = DateTimeOffset.UtcNow },
-			new SavedQuery { Name = "Query2", QueryText = "test2", CreatedDate = DateTimeOffset.UtcNow }
-		);
+		var q1 = new SavedQuery { Name = "Query1", QueryText = "test1", CreatedDate = DateTimeOffset.UtcNow };
+		var q2 = new SavedQuery { Name = "Query2", QueryText = "test2", CreatedDate = DateTimeOffset.UtcNow };
+		var project = CreateTestProject(q1, q2);
 
 		// Act
-		var updatedProject = _workspace.DeleteQuery(project, 0);
+		var updatedProject = _workspace.DeleteQuery(project, q1.Id);
 
 		// Assert
 		Assert.Single(updatedProject.Queries!);
@@ -396,39 +383,37 @@ public class QueriesWorkspaceTests
 	public void DeleteQuery_ReindexesOpenQueries()
 	{
 		// Arrange
-		var project = CreateTestProject(
-			new SavedQuery { Name = "Query1", QueryText = "test1", CreatedDate = DateTimeOffset.UtcNow },
-			new SavedQuery { Name = "Query2", QueryText = "test2", CreatedDate = DateTimeOffset.UtcNow },
-			new SavedQuery { Name = "Query3", QueryText = "test3", CreatedDate = DateTimeOffset.UtcNow }
-		);
-		_workspace.OpenQuery(project, 1);
-		_workspace.OpenQuery(project, 2);
+		var q1 = new SavedQuery { Name = "Query1", QueryText = "test1", CreatedDate = DateTimeOffset.UtcNow };
+		var q2 = new SavedQuery { Name = "Query2", QueryText = "test2", CreatedDate = DateTimeOffset.UtcNow };
+		var q3 = new SavedQuery { Name = "Query3", QueryText = "test3", CreatedDate = DateTimeOffset.UtcNow };
+		var project = CreateTestProject(q1, q2, q3);
+		_workspace.OpenQuery(project, q2.Id);
+		_workspace.OpenQuery(project, q3.Id);
 
 		// Act
-		var updatedProject = _workspace.DeleteQuery(project, 0);
+		var updatedProject = _workspace.DeleteQuery(project, q1.Id);
 
 		// Assert
-		Assert.True(_workspace.OpenQueries.ContainsKey(0)); // Was index 1
-		Assert.True(_workspace.OpenQueries.ContainsKey(1)); // Was index 2
-		Assert.False(_workspace.OpenQueries.ContainsKey(2));
+		Assert.True(_workspace.OpenQueries.ContainsKey(q2.Id));
+		Assert.True(_workspace.OpenQueries.ContainsKey(q3.Id));
+		Assert.False(_workspace.OpenQueries.ContainsKey(q1.Id));
 	}
 
 	[Fact]
 	public void DeleteQuery_SwitchesToAnotherQuery_WhenDeletingCurrent()
 	{
 		// Arrange
-		var project = CreateTestProject(
-			new SavedQuery { Name = "Query1", QueryText = "test1", CreatedDate = DateTimeOffset.UtcNow },
-			new SavedQuery { Name = "Query2", QueryText = "test2", CreatedDate = DateTimeOffset.UtcNow }
-		);
-		_workspace.OpenQuery(project, 0);
-		_workspace.OpenQuery(project, 1);
+		var q1 = new SavedQuery { Name = "Query1", QueryText = "test1", CreatedDate = DateTimeOffset.UtcNow };
+		var q2 = new SavedQuery { Name = "Query2", QueryText = "test2", CreatedDate = DateTimeOffset.UtcNow };
+		var project = CreateTestProject(q1, q2);
+		_workspace.OpenQuery(project, q1.Id);
+		_workspace.OpenQuery(project, q2.Id);
 
 		// Act
-		_workspace.DeleteQuery(project, 1);
+		_ = _workspace.DeleteQuery(project, q2.Id);
 
 		// Assert
-		Assert.Equal(0, _workspace.CurrentQueryIndex);
+		Assert.Equal(q1.Id, _workspace.CurrentQueryId);
 	}
 
 	#endregion
@@ -439,11 +424,10 @@ public class QueriesWorkspaceTests
 	public void CommitChanges_UpdatesSavedQueryText()
 	{
 		// Arrange
-		var project = CreateTestProject(
-			new SavedQuery { Name = "Query1", QueryText = "original", CreatedDate = DateTimeOffset.UtcNow }
-		);
-		_workspace.OpenQuery(project, 0);
-		_workspace.UpdateQueryText(project, 0, "updated");
+		var q1 = new SavedQuery { Name = "Query1", QueryText = "original", CreatedDate = DateTimeOffset.UtcNow };
+		var project = CreateTestProject(q1);
+		_workspace.OpenQuery(project, q1.Id);
+		_workspace.UpdateQueryText(project, q1.Id, "updated");
 
 		// Act
 		var updatedProject = _workspace.CommitChanges(project);
@@ -456,14 +440,13 @@ public class QueriesWorkspaceTests
 	public void CommitChanges_OnlyCommitsQueriesWithUnsavedChanges()
 	{
 		// Arrange
-		var project = CreateTestProject(
-			new SavedQuery { Name = "Query1", QueryText = "original1", CreatedDate = DateTimeOffset.UtcNow },
-			new SavedQuery { Name = "Query2", QueryText = "original2", CreatedDate = DateTimeOffset.UtcNow }
-		);
-		_workspace.OpenQuery(project, 0);
-		_workspace.OpenQuery(project, 1);
-		_workspace.UpdateQueryText(project, 0, "updated1");
-		// Query 1 not modified
+		var q1 = new SavedQuery { Name = "Query1", QueryText = "original1", CreatedDate = DateTimeOffset.UtcNow };
+		var q2 = new SavedQuery { Name = "Query2", QueryText = "original2", CreatedDate = DateTimeOffset.UtcNow };
+		var project = CreateTestProject(q1, q2);
+		_workspace.OpenQuery(project, q1.Id);
+		_workspace.OpenQuery(project, q2.Id);
+		_workspace.UpdateQueryText(project, q1.Id, "updated1");
+		// Query 2 not modified
 
 		// Act
 		var updatedProject = _workspace.CommitChanges(project);
@@ -481,11 +464,10 @@ public class QueriesWorkspaceTests
 	public void ClearUnsavedFlags_ResetsAllUnsavedFlags()
 	{
 		// Arrange
-		var project = CreateTestProject(
-			new SavedQuery { Name = "Query1", QueryText = "original", CreatedDate = DateTimeOffset.UtcNow }
-		);
-		_workspace.OpenQuery(project, 0);
-		_workspace.UpdateQueryText(project, 0, "updated");
+		var q1 = new SavedQuery { Name = "Query1", QueryText = "original", CreatedDate = DateTimeOffset.UtcNow };
+		var project = CreateTestProject(q1);
+		_workspace.OpenQuery(project, q1.Id);
+		_workspace.UpdateQueryText(project, q1.Id, "updated");
 
 		// Act
 		_workspace.ClearUnsavedFlags();
@@ -506,13 +488,12 @@ public class QueriesWorkspaceTests
 		var project = CreateTestProject(
 			new SavedQuery { Name = "Query1", QueryText = "original", CreatedDate = DateTimeOffset.UtcNow }
 		);
-		_workspace.OpenQuery(project, 0);
-		_workspace.UpdateQueryText(project, 0, "updated");
+		var q1 = project.Queries.First();
+		_workspace.OpenQuery(project, q1.Id);
+		_workspace.UpdateQueryText(project, q1.Id, "updated");
 
-		var savedProject = project with
-		{
-			Queries = [new SavedQuery { Name = "Query1", QueryText = "updated", CreatedDate = DateTimeOffset.UtcNow }]
-		};
+		var savedProject = project;
+		savedProject.Queries = [new SavedQuery { Name = "Query1", QueryText = "updated", CreatedDate = DateTimeOffset.UtcNow }];
 
 		// Act
 		_workspace.UpdateSavedProject(savedProject);
@@ -532,7 +513,7 @@ public class QueriesWorkspaceTests
 		var project = CreateTestProject(
 			new SavedQuery { Name = "Query1", QueryText = "test", CreatedDate = DateTimeOffset.UtcNow }
 		);
-		_workspace.OpenQuery(project, 0);
+		_workspace.OpenQuery(project, project.Queries.First().Id);
 
 		// Act
 		var current = _workspace.GetCurrentQuery(project);

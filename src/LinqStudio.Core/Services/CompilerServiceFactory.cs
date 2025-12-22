@@ -2,31 +2,19 @@ namespace LinqStudio.Core.Services;
 
 /// <summary>
 /// Scoped factory used by UI pages to create and initialize CompilerService instances.
-/// This factory currently returns a CompilerService pre-initialized with a small hard-coded model
-/// and a DbContext class so the editor has something to complete against out-of-the-box.
 /// </summary>
 public class CompilerServiceFactory
 {
-	private readonly CompilerServiceProvider _provider;
-
 	private readonly string _defaultContextTypeName = "TestDbContext";
 	private readonly string _defaultProjectNamespace = "LinqStudio.TestModels";
-
-	public CompilerServiceFactory(CompilerServiceProvider provider)
-	{
-		_provider = provider;
-	}
 
 	/// <summary>
 	/// Create a new CompilerService instance and initialize it with a small hard-coded model.
 	/// </summary>
 	public async Task<CompilerService> CreateAsync()
 	{
-		// Get or create the compiler service from the provider
-		var svc = await _provider.GetOrCreateAsync(_defaultContextTypeName, _defaultProjectNamespace);
+		var svc = new CompilerService(_defaultContextTypeName, _defaultProjectNamespace);
 
-		// Hard-coded example model files and a DbContext. These are intentionally minimal so the
-		// editor has types and a context to provide completions for.
 		var models = new Dictionary<string, string>
 		{
 			["Person.cs"] =
@@ -66,9 +54,7 @@ public class TestDbContext : DbContext
 }
 ";
 
-		// Initialize with hard-coded models
 		await svc.Initialize(models, dbContext);
-
 		return svc;
 	}
 }

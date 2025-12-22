@@ -1,6 +1,7 @@
 using BlazorMonaco;
 using BlazorMonaco.Editor;
 using BlazorMonaco.Languages;
+using LinqStudio.Blazor.Components.Dialogs;
 using LinqStudio.Blazor.Services;
 using LinqStudio.Core.Services;
 using LinqStudio.Core.Settings;
@@ -21,8 +22,9 @@ public partial class Editor : ComponentBase, IDisposable
 	[Inject] private IOptionsMonitor<UISettings> UISettings { get; set; } = null!;
 	[Inject] private ProjectWorkspace Workspace { get; set; } = null!;
 	[Inject] private NavigationManager NavigationManager { get; set; } = null!;
+	[Inject] private IDialogService DialogService { get; set; } = null!;
 
-	[Parameter] public string? QueryIndexParam { get; set; }
+	[Parameter] public Guid? QueryIdParam { get; set; }
 
 	private StandaloneCodeEditor? _editor;
 	private IDisposable? _providerDisposable;
@@ -30,11 +32,9 @@ public partial class Editor : ComponentBase, IDisposable
 	private CompilerService? _compiler;
 	private string _lastQueryText = string.Empty;
 
-	// Rename state
 	private bool _isEditingName;
 	private string _editedQueryName = string.Empty;
 
-	// Debounce state
 	private CancellationTokenSource? _debounceTokenSource;
 	private const int DebounceDelayMs = 300;
 
@@ -76,21 +76,13 @@ public partial class Editor : ComponentBase, IDisposable
 			return;
 		}
 
-		if (QueryIndexParam == "new")
+		if (QueryIdParam is not null)
 		{
-			var (updatedProject, newIndex) = Workspace.Queries.CreateNewQuery(Workspace.CurrentProject!);
-			Workspace.Update(updatedProject);
-			NavigationManager.NavigateTo($"/editor/{newIndex}", replace: true);
-			return;
+			Workspace.Queries.OpenQuery(Workspace.CurrentProject!, QueryIdParam.Value);
 		}
-
-		if (int.TryParse(QueryIndexParam, out var index))
+		else if (Workspace.Queries.CurrentQueryId is null && Workspace.CurrentProject?.Queries?.Count > 0)
 		{
-			Workspace.Queries.OpenQuery(Workspace.CurrentProject!, index);
-		}
-		else if (Workspace.Queries.CurrentQueryIndex < 0 && Workspace.CurrentProject?.Queries?.Count > 0)
-		{
-			Workspace.Queries.OpenQuery(Workspace.CurrentProject, 0);
+			Workspace.Queries.OpenQuery(Workspace.CurrentProject!, Workspace.CurrentProject.Queries[0].Id);
 		}
 
 		if (_editor is not null)
@@ -102,6 +94,18 @@ public partial class Editor : ComponentBase, IDisposable
 				_ = _editor.SetValue(newText);
 			}
 		}
+	}
+
+	private void NavigateToQuery(Guid queryId)
+	{
+		NavigationManager.NavigateTo($"/editor/{queryId}", replace: true);
+	}
+
+	private void CreateNewQuery()
+	{
+		var queryId = Workspace.Queries.CreateNewQuery(Workspace.CurrentProject!);
+		Workspace.Update(Workspace.CurrentProject!);
+		NavigationManager.NavigateTo($"/editor/{queryId}", replace: true);
 	}
 
 	private string GetInitialQueryText()
@@ -128,7 +132,7 @@ public partial class Editor : ComponentBase, IDisposable
 
 	private async Task OnEditorContentChanged()
 	{
-		if (_editor is null || !Workspace.IsProjectOpen || Workspace.Queries.CurrentQueryIndex < 0)
+		if (_editor is null || !Workspace.IsProjectOpen || Workspace.Queries.CurrentQueryId is null)
 		{
 			return;
 		}
@@ -154,11 +158,10 @@ public partial class Editor : ComponentBase, IDisposable
 		try
 		{
 			await Task.Delay(DebounceDelayMs, _debounceTokenSource.Token);
-			Workspace.Queries.UpdateQueryText(Workspace.CurrentProject!, Workspace.Queries.CurrentQueryIndex, newText);
+			Workspace.Queries.UpdateQueryText(Workspace.CurrentProject!, Workspace.Queries.CurrentQueryId!.Value, newText);
 		}
 		catch (TaskCanceledException)
 		{
-			// Expected - user typed before delay completed
 		}
 	}
 
@@ -182,14 +185,18 @@ public partial class Editor : ComponentBase, IDisposable
 
 	private void SaveRename()
 	{
-		if (Workspace.Queries.CurrentQueryIndex >= 0 && Workspace.CurrentProject != null)
+		if (Workspace.Queries.CurrentQueryId is null || Workspace.CurrentProject is null)
 		{
-			var updatedProject = Workspace.Queries.RenameQuery(Workspace.CurrentProject, Workspace.Queries.CurrentQueryIndex, _editedQueryName);
-			Workspace.Update(updatedProject);
-			_isEditingName = false;
-			_editedQueryName = string.Empty;
-			Snackbar.Add("Query renamed successfully.", Severity.Success);
+			return;
 		}
+
+		Workspace.Queries.RenameQuery(Workspace.CurrentProject, Workspace.Queries.CurrentQueryId.Value, _editedQueryName);
+		Workspace.Update(Workspace.CurrentProject);
+
+		_isEditingName = false;
+		_editedQueryName = string.Empty;
+
+		Snackbar.Add("Query renamed successfully.", Severity.Success);
 	}
 
 	private string? ValidateQueryName(string name)
@@ -199,9 +206,11 @@ public partial class Editor : ComponentBase, IDisposable
 			return "Query name cannot be empty.";
 		}
 
+		var currentId = Workspace.Queries.CurrentQueryId;
+
 		if (Workspace.CurrentProject?.Queries is not null &&
 			Workspace.CurrentProject.Queries
-				.Where((q, index) => index != Workspace.Queries.CurrentQueryIndex)
+				.Where(q => currentId is null || q.Id != currentId.Value)
 				.Select(q => q.Name)
 				.Contains(name, StringComparer.OrdinalIgnoreCase))
 		{
@@ -369,6 +378,90 @@ public partial class Editor : ComponentBase, IDisposable
 		return CompletionItemKind.Text;
 	}
 
+	private async Task<bool> ShowUnsavedChangesDialog(string message)
+	{
+		var options = new DialogOptions
+		{
+			CloseOnEscapeKey = true,
+			MaxWidth = MaxWidth.Small
+		};
+
+		var parameters = new DialogParameters<UnsavedChangesDialog>
+		{
+			{ x => x.Message, message }
+		};
+
+		var dialog = await DialogService.ShowAsync<UnsavedChangesDialog>("Unsaved Changes", parameters, options);
+		var result = await dialog.Result;
+
+		return (result is not null) && !result.Canceled && result.Data is bool confirm && confirm;
+	}
+
+	private IEnumerable<global::SavedQuery> GetOpenQueriesInOrder()
+	{
+		if (Workspace.CurrentProject?.Queries is null)
+		{
+			return Array.Empty<global::SavedQuery>();
+		}
+
+		var openIds = new HashSet<Guid>(Workspace.Queries.OpenQueries.Keys);
+		return Workspace.CurrentProject.Queries.Where(q => openIds.Contains(q.Id));
+	}
+
+	private async Task CloseQueryFromTab(Guid queryId)
+	{
+		if (!Workspace.IsProjectOpen || Workspace.CurrentProject is null)
+		{
+			return;
+		}
+
+		if (Workspace.Queries.OpenQueries.TryGetValue(queryId, out var state) && state.HasUnsavedChanges)
+		{
+			var confirm = await ShowUnsavedChangesDialog("This query has unsaved changes. Close without saving?");
+			if (!confirm)
+			{
+				return;
+			}
+		}
+
+		Workspace.Queries.CloseQuery(queryId);
+
+		if (Workspace.Queries.CurrentQueryId is Guid newId)
+		{
+			NavigationManager.NavigateTo($"/editor/{newId}", replace: true);
+		}
+		else
+		{
+			NavigationManager.NavigateTo("/editor", replace: true);
+		}
+	}
+
+	private void SaveCurrentQuery()
+	{
+		if (!Workspace.IsProjectOpen || Workspace.CurrentProject is null || Workspace.Queries.CurrentQueryId is null)
+		{
+			return;
+		}
+
+		var qid = Workspace.Queries.CurrentQueryId.Value;
+		if (!Workspace.Queries.OpenQueries.TryGetValue(qid, out var state))
+		{
+			return;
+		}
+
+		var query = Workspace.CurrentProject.Queries.FirstOrDefault(q => q.Id == qid);
+		if (query is null)
+		{
+			return;
+		}
+
+		query.QueryText = state.CurrentText;
+		Workspace.Queries.ClearUnsavedFlags();
+		Workspace.Update(Workspace.CurrentProject);
+
+		Snackbar.Add("Query saved (in project). Don't forget to save the project file.", Severity.Success);
+	}
+
 	public void Dispose()
 	{
 		Workspace.WorkspaceChanged -= OnWorkspaceChanged;
@@ -376,8 +469,7 @@ public partial class Editor : ComponentBase, IDisposable
 		_providerDisposable?.Dispose();
 		_hoverProviderDisposable?.Dispose();
 
-		// DON'T dispose _compiler - it's managed by CompilerServiceProvider
-		// The provider will dispose it when the app shuts down
+		_compiler?.Dispose();
 
 		GC.SuppressFinalize(this);
 	}

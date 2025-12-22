@@ -1,5 +1,5 @@
 @page "/editor"
-@page "/editor/{QueryIndexParam}"
+@page "/editor/{QueryIdParam:guid}"
 @page "/editor/new"
 @using BlazorMonaco
 @using BlazorMonaco.Editor
@@ -10,12 +10,37 @@
 <div class="editor-page pa-2" style="height:100%; display:flex; flex-direction:column; gap:8px" data-testid="editor-page">
 	@if (Workspace.IsProjectOpen)
 	{
+		<!-- Query Tabs -->
+		<MudPaper Class="pa-1" Elevation="1">
+			<MudTabs Rounded="true" ApplyEffectsToContainer="true">
+				@foreach (var q in GetOpenQueriesInOrder())
+				{
+					var isOpen = Workspace.Queries.OpenQueries.TryGetValue(q.Id, out var state);
+					var tabName = (isOpen && state?.HasUnsavedChanges == true) ? $"{q.Name} *" : q.Name;
+					<MudTabPanel OnClick="@(() => NavigateToQuery(q.Id))">
+						<ChildContent>
+							<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+								<MudText Typo="Typo.body2">@tabName</MudText>
+								<span @onclick:stopPropagation="true">
+									<MudIconButton Icon="@Icons.Material.Filled.Close"
+												Size="Size.Small"
+												Color="Color.Default"
+												OnClick="@(() => CloseQueryFromTab(q.Id))"
+												data-testid="@($"query-tab-close-{q.Id}")" />
+								</span>
+							</MudStack>
+						</ChildContent>
+					</MudTabPanel>
+				}
+			</MudTabs>
+		</MudPaper>
+
 		<!-- Query Info Bar -->
 		<MudPaper Class="pa-2" Elevation="1" data-testid="query-info-bar">
 			<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
 				<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
 					<MudIcon Icon="@Icons.Material.Filled.Description" Size="Size.Small" />
-					
+
 					@if (_isEditingName)
 					{
 						<MudTextField @bind-Value="_editedQueryName"
@@ -28,16 +53,16 @@
 									  Style="max-width: 300px;"
 									  data-testid="query-name-input" />
 						<MudIconButton Icon="@Icons.Material.Filled.Check"
-									   Color="Color.Success"
-									   Size="Size.Small"
-									   OnClick="SaveRename"
-									   Disabled="@(ValidateQueryName(_editedQueryName) != null)"
-									   data-testid="query-rename-save-btn" />
+								   Color="Color.Success"
+								   Size="Size.Small"
+								   OnClick="SaveRename"
+								   Disabled="@(ValidateQueryName(_editedQueryName) != null)"
+								   data-testid="query-rename-save-btn" />
 						<MudIconButton Icon="@Icons.Material.Filled.Close"
-									   Color="Color.Default"
-									   Size="Size.Small"
-									   OnClick="CancelRename"
-									   data-testid="query-rename-cancel-btn" />
+								   Color="Color.Default"
+								   Size="Size.Small"
+								   OnClick="CancelRename"
+								   data-testid="query-rename-cancel-btn" />
 					}
 					else
 					{
@@ -45,20 +70,27 @@
 							<strong>@(Workspace.Queries.GetCurrentQuery(Workspace.CurrentProject)?.Name ?? "New Query")</strong>
 						</MudText>
 						<MudTooltip Text="Rename query">
-							<MudIconButton Icon="@Icons.Material.Filled.Edit" 
+							<MudIconButton Icon="@Icons.Material.Filled.Edit"
 										   Size="Size.Small"
 										   OnClick="StartRename"
 										   data-testid="query-rename-btn" />
 						</MudTooltip>
 					}
-					
-					@if (Workspace.Queries.CurrentQueryIndex >= 0 && 
-						 Workspace.Queries.OpenQueries.ContainsKey(Workspace.Queries.CurrentQueryIndex) &&
-						 Workspace.Queries.OpenQueries[Workspace.Queries.CurrentQueryIndex].HasUnsavedChanges)
+
+					@if (Workspace.Queries.CurrentQueryState?.HasUnsavedChanges == true)
 					{
 						<MudChip T="string" Size="Size.Small" Color="Color.Warning" Icon="@Icons.Material.Filled.Edit" data-testid="query-unsaved-indicator">Unsaved</MudChip>
 					}
 				</MudStack>
+
+				<MudTooltip Text="Save query (in project)">
+					<MudIconButton Icon="@Icons.Material.Filled.Save"
+								   Color="Color.Primary"
+								   Size="Size.Small"
+								   OnClick="SaveCurrentQuery"
+								   Disabled="@(Workspace.Queries.CurrentQueryId is null || Workspace.Queries.CurrentQueryState?.HasUnsavedChanges != true)"
+								   data-testid="query-save-btn" />
+				</MudTooltip>
 			</MudStack>
 		</MudPaper>
 
@@ -66,10 +98,10 @@
 		<div class="editor-top" style="flex:1" data-testid="monaco-editor-container">
 			@if (!Delay)
 			{
-				<StandaloneCodeEditor @ref="_editor" 
-									  Id="editor-top" 
-									  CssClass="editor" 
-									  ConstructionOptions="EditorConstructionOptions" 
+				<StandaloneCodeEditor @ref="_editor"
+									  Id="editor-top"
+									  CssClass="editor"
+									  ConstructionOptions="EditorConstructionOptions"
 									  OnDidInit="OnEditorInitialized"
 									  OnDidChangeModelContent="OnEditorContentChanged" />
 			}

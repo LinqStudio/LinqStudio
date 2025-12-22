@@ -1,0 +1,30 @@
+@using LinqStudio.Core.Models
+@using MudBlazor
+
+<MudDialog data-testid="open-query-dialog">
+	<TitleContent>
+		<MudText Typo="Typo.h6">
+			Open Query
+		</MudText>
+	</TitleContent>
+	<DialogContent>
+		@if (Queries?.Any() == true)
+		{
+			<MudList T="Guid" Dense="true">
+				@foreach (var q in Queries)
+				{
+					<MudListItem T="Guid" OnClick="@(() => Select(q.Id))" data-testid="@($"open-query-{q.Id}")">
+						<MudText>@q.Name</MudText>
+					</MudListItem>
+				}
+			</MudList>
+		}
+		else
+		{
+			<MudText Color="Color.Secondary">No saved queries.</MudText>
+		}
+	</DialogContent>
+	<DialogActions>
+		<MudButton Variant="Variant.Text" OnClick="Cancel" data-testid="open-query-cancel">Cancel</MudButton>
+	</DialogActions>
+</MudDialog>

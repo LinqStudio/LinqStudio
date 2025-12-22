@@ -42,52 +42,37 @@
 			</MudNavLink>
 		}
 	</MudNavGroup>
-	
+
 	@if (Workspace.IsProjectOpen)
 	{
-		<MudNavGroup Expanded="@_queriesExpanded" data-testid="nav-queries-group">
-			<TitleContent>
-				<div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-					<div style="display: flex; align-items: center;">
-						<MudIcon Icon="@Icons.Material.Filled.Code" Class="mr-2" />
-						<span>Queries</span>
-					</div>
-					<MudIconButton Icon="@Icons.Material.Filled.Add" 
-								   Size="Size.Small" 
-								   OnClick="CreateNewQuery"
-								   Color="Color.Primary"
-								   Style="margin-right: 8px;"
-								   data-testid="nav-query-create" />
-				</div>
-			</TitleContent>
+		<MudMenu Dense="true" AnchorOrigin="Origin.TopRight" TransformOrigin="Origin.TopLeft" data-testid="nav-editor-menu" FullWidth="true">
+			<ActivatorContent>
+				<MudNavLink Icon="@Icons.Material.Filled.Code" data-testid="nav-editor">
+					Editor
+				</MudNavLink>
+			</ActivatorContent>
+
 			<ChildContent>
-				@if (Workspace.CurrentProject!.Queries?.Any() == true)
-				{
-					@foreach (var (query, index) in Workspace.CurrentProject!.Queries.Select((q, i) => (q, i)))
-					{
-						var isOpen = Workspace.Queries.OpenQueries.ContainsKey(index);
-						var hasUnsaved = isOpen && Workspace.Queries.OpenQueries[index].HasUnsavedChanges;
-						var displayName = hasUnsaved ? $"{query.Name} *" : query.Name;
-						
-						<MudNavLink Href="@GetQueryEditorUrl(index)" 
-									Icon="@(isOpen ? Icons.Material.Filled.Description : Icons.Material.Outlined.Description)"
-									Match="NavLinkMatch.All"
-									data-testid="@($"nav-query-{index}")">
-							@displayName
-						</MudNavLink>
-					}
-				}
-				else
-				{
-					<MudText Typo="Typo.body2" Color="Color.Secondary" Class="px-4 py-2" data-testid="nav-queries-empty">
-						No queries yet
-					</MudText>
-				}
+				<MudMenuItem OnClick="CreateNewQuery" data-testid="nav-editor-new">
+					<MudIcon Icon="@Icons.Material.Filled.Add" Class="mr-2" />
+					New
+				</MudMenuItem>
+
+				<MudMenu Label="Open" Dense="true" Disabled="@(Workspace.CurrentProject?.Queries?.Any() != true)" data-testid="nav-editor-open">
+					<ChildContent>
+						@foreach (var q in Workspace.CurrentProject!.Queries)
+						{
+							<MudMenuItem OnClick="@(() => OpenSavedQuery(q.Id))" data-testid="@($"nav-editor-open-{q.Id}")">
+								@q.Name
+							</MudMenuItem>
+						}
+					</ChildContent>
+				</MudMenu>
 			</ChildContent>
-		</MudNavGroup>
+		</MudMenu>
 	}
 	else
 	{
-		<MudNavLink Href="/editor" Icon="@Icons.Material.Filled.Code" Disabled="true" data-testid="nav-editor-disabled">Editor</MudNavLink>
+		<MudNavLink Icon="@Icons.Material.Filled.Code" Disabled="true" data-testid="nav-editor-disabled">Editor</MudNavLink>
 	}
 </MudNavMenu>

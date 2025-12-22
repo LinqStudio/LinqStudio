@@ -1,5 +1,7 @@
+using LinqStudio.Core.Extensions;
 using LinqStudio.Core.Models;
 using LinqStudio.Core.Services;
+using System.Text.Json;
 
 namespace LinqStudio.Blazor.Services;
 
@@ -118,7 +120,7 @@ public class ProjectWorkspace
 			?? throw new InvalidOperationException($"Project file not found: {filePath}");
 
 		_currentProject = project;
-		_savedProject = project; // Track saved state
+		_savedProject = CloneProject(project);
 		_currentFilePath = filePath;
 
 		_queriesWorkspace.Initialize(_currentProject);
@@ -147,7 +149,8 @@ public class ProjectWorkspace
 		await _projectService.SaveProjectAsync(_currentProject, _currentFilePath);
 
 		// Reload to get updated modified date
-		_currentProject = await _projectService.LoadProjectAsync(_currentFilePath);
+		_currentProject = await _projectService.LoadProjectAsync(_currentFilePath)
+			?? throw new InvalidOperationException($"Project file not found: {_currentFilePath}");
 		_savedProject = _currentProject;
 
 		// Update the queries workspace with the newly saved project
@@ -172,7 +175,7 @@ public class ProjectWorkspace
 
 		// Update name with new file name
 		var name = Path.GetFileNameWithoutExtension(filePath);
-		_currentProject = _currentProject with { Name = name };
+		_currentProject.Name = name;
 
 		// Commit all query changes
 		_currentProject = _queriesWorkspace.CommitChanges(_currentProject);
@@ -181,7 +184,8 @@ public class ProjectWorkspace
 		_currentFilePath = filePath;
 
 		// Reload to get updated modified date
-		_currentProject = await _projectService.LoadProjectAsync(_currentFilePath);
+		_currentProject = await _projectService.LoadProjectAsync(_currentFilePath)
+			?? throw new InvalidOperationException($"Project file not found: {_currentFilePath}");
 		_savedProject = _currentProject;
 
 		// Update the queries workspace with the newly saved project
@@ -223,5 +227,12 @@ public class ProjectWorkspace
 	private void OnWorkspaceChanged()
 	{
 		WorkspaceChanged?.Invoke(this, EventArgs.Empty);
+	}
+
+	private static Project CloneProject(Project project)
+	{
+		var json = JsonSerializer.Serialize(project, JsonSerializerOptions.Indented);
+		return JsonSerializer.Deserialize<Project>(json, JsonSerializerOptions.Indented)
+			?? throw new InvalidOperationException("Failed to clone project.");
 	}
 }

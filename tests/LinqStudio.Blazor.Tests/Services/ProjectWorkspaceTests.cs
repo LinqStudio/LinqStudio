@@ -44,7 +44,7 @@ public class ProjectWorkspaceTests : IDisposable
 		_workspace.CreateNew("Test");
 
 		// Assert
-		Assert.Equal(-1, _queriesWorkspace.CurrentQueryIndex); // No queries created by default
+		Assert.Null(_queriesWorkspace.CurrentQueryId); // No queries created by default
 	}
 
 	#endregion
@@ -59,12 +59,9 @@ public class ProjectWorkspaceTests : IDisposable
 
 		// Create and save a project first
 		var project = _projectService.CreateNew("TestProject", "Server=localhost;");
-		project = project with
-		{
-			Queries = [
-				new SavedQuery { Name = "Query1", QueryText = "context.People", CreatedDate = DateTimeOffset.UtcNow }
-			]
-		};
+		project.Queries = [
+			new SavedQuery { Name = "Query1", QueryText = "context.People", CreatedDate = DateTimeOffset.UtcNow }
+		];
 		await _projectService.SaveProjectAsync(project, filePath);
 
 		// Act
@@ -84,20 +81,17 @@ public class ProjectWorkspaceTests : IDisposable
 		// Arrange
 		var filePath = Path.Combine(_testDirectory, "test.linq");
 		var project = _projectService.CreateNew("Test", "");
-		project = project with
-		{
-			Queries = [
-				new SavedQuery { Name = "Query1", QueryText = "context.People", CreatedDate = DateTimeOffset.UtcNow }
-			]
-		};
+		project.Queries = [
+			new SavedQuery { Name = "Query1", QueryText = "context.People", CreatedDate = DateTimeOffset.UtcNow }
+		];
 		await _projectService.SaveProjectAsync(project, filePath);
 
 		// Act
 		await _workspace.LoadAsync(filePath);
 
 		// Assert
-		Assert.Equal(0, _queriesWorkspace.CurrentQueryIndex);
-		Assert.True(_queriesWorkspace.OpenQueries.ContainsKey(0));
+		Assert.NotNull(_queriesWorkspace.CurrentQueryId);
+		Assert.True(_queriesWorkspace.OpenQueries.ContainsKey(_queriesWorkspace.CurrentQueryId!.Value));
 	}
 
 	[Fact]
@@ -123,8 +117,9 @@ public class ProjectWorkspaceTests : IDisposable
 		await _workspace.SaveAsAsync(filePath);
 
 		// Make a change
-		var updatedProject = _workspace.CurrentProject! with { ConnectionString = "Server=newhost;" };
-		_workspace.Update(updatedProject);
+		var updatedProject = _workspace.CurrentProject!;
+		updatedProject.ConnectionString = "Server=newhost;";
+		_workspace.Update(_workspace.CurrentProject!);
 
 		// Act
 		await _workspace.SaveAsync();
@@ -161,17 +156,15 @@ public class ProjectWorkspaceTests : IDisposable
 		// Arrange
 		var filePath = Path.Combine(_testDirectory, "query_save.linq");
 		var project = _projectService.CreateNew("Test");
-		project = project with
-		{
-			Queries = [
-				new SavedQuery { Name = "Query1", QueryText = "context.People", CreatedDate = DateTimeOffset.UtcNow }
-			]
-		};
+		project.Queries = [
+			new SavedQuery { Name = "Query1", QueryText = "context.People", CreatedDate = DateTimeOffset.UtcNow }
+		];
 		await _projectService.SaveProjectAsync(project, filePath);
 		await _workspace.LoadAsync(filePath);
 
 		// Modify query
-		_queriesWorkspace.UpdateQueryText(_workspace.CurrentProject!, 0, "context.People.ToList()");
+		var qid = _workspace.CurrentProject!.Queries[0].Id;
+		_queriesWorkspace.UpdateQueryText(_workspace.CurrentProject!, qid, "context.People.ToList()");
 
 		// Act
 		await _workspace.SaveAsync();
@@ -233,7 +226,8 @@ public class ProjectWorkspaceTests : IDisposable
 	{
 		// Arrange
 		_workspace.CreateNew("Test");
-		var updatedProject = _workspace.CurrentProject! with { ConnectionString = "Updated" };
+		var updatedProject = _workspace.CurrentProject!;
+		updatedProject.ConnectionString = "Updated";
 
 		// Act
 		_workspace.Update(updatedProject);
@@ -279,7 +273,7 @@ public class ProjectWorkspaceTests : IDisposable
 		Assert.Null(_workspace.CurrentProject);
 		Assert.Null(_workspace.CurrentFilePath);
 		Assert.False(_workspace.HasUnsavedChanges);
-		Assert.Equal(-1, _queriesWorkspace.CurrentQueryIndex);
+		Assert.Null(_queriesWorkspace.CurrentQueryId);
 	}
 
 	#endregion
@@ -297,7 +291,8 @@ public class ProjectWorkspaceTests : IDisposable
 		// Quick assert no changes yet
 		Assert.False(_workspace.HasUnsavedChanges);
 
-		var updatedProject = _workspace.CurrentProject! with { ConnectionString = "Updated" };
+		var updatedProject = _workspace.CurrentProject!;
+		updatedProject.ConnectionString = "Updated";
 
 		// Act
 		_workspace.Update(updatedProject);
@@ -312,12 +307,9 @@ public class ProjectWorkspaceTests : IDisposable
 		// Arrange
 		var filePath = Path.Combine(_testDirectory, "test.linq");
 		var project = _projectService.CreateNew("Test");
-		project = project with
-		{
-			Queries = [
-				new SavedQuery { Name = "Query1", QueryText = "context.People", CreatedDate = DateTimeOffset.UtcNow }
-			]
-		};
+		project.Queries = [
+			new SavedQuery { Name = "Query1", QueryText = "context.People", CreatedDate = DateTimeOffset.UtcNow }
+		];
 		await _projectService.SaveProjectAsync(project, filePath);
 		await _workspace.LoadAsync(filePath);
 
@@ -325,7 +317,8 @@ public class ProjectWorkspaceTests : IDisposable
 		Assert.False(_workspace.HasUnsavedChanges);
 
 		// Act
-		_queriesWorkspace.UpdateQueryText(_workspace.CurrentProject!, 0, "context.People.ToList()");
+		var qid2 = _workspace.CurrentProject!.Queries[0].Id;
+		_queriesWorkspace.UpdateQueryText(_workspace.CurrentProject!, qid2, "context.People.ToList()");
 
 		// Assert
 		Assert.True(_workspace.HasUnsavedChanges);

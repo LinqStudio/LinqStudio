@@ -15,7 +15,6 @@ public partial class NavMenu : ComponentBase, IDisposable
 	[Inject] private IDialogService DialogService { get; set; } = null!;
 	[Inject] private ISnackbar Snackbar { get; set; } = null!;
 
-	private readonly bool _queriesExpanded = true;
 	private readonly bool _projectExpanded = true;
 
 	protected override void OnInitialized()
@@ -227,17 +226,21 @@ public partial class NavMenu : ComponentBase, IDisposable
 			return;
 		}
 
-		// Create new query using QueriesWorkspace
-		var (updatedProject, newIndex) = Workspace.Queries.CreateNewQuery(Workspace.CurrentProject);
-
-		// Update the workspace with the new project
-		Workspace.Update(updatedProject);
-
-		// Navigate to the new query
-		NavigationManager.NavigateTo($"/editor/{newIndex}");
+		var queryId = Workspace.Queries.CreateNewQuery(Workspace.CurrentProject);
+		Workspace.Update(Workspace.CurrentProject);
+		NavigationManager.NavigateTo($"/editor/{queryId}");
 	}
 
-	private string GetQueryEditorUrl(int queryIndex) => $"/editor/{queryIndex}";
+	private void OpenSavedQuery(Guid queryId)
+	{
+		if (!Workspace.IsProjectOpen || Workspace.CurrentProject is null)
+		{
+			return;
+		}
+
+		Workspace.Queries.OpenQuery(Workspace.CurrentProject, queryId);
+		NavigationManager.NavigateTo($"/editor/{queryId}");
+	}
 
 	public void Dispose()
 	{

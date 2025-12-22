@@ -9,8 +9,8 @@ namespace LinqStudio.Blazor.Services;
 /// </summary>
 public class QueriesWorkspace
 {
-	private int _currentQueryIndex = -1;
-	private readonly Dictionary<int, OpenQueryState> _openQueries = new();
+	private Guid? _currentQueryId;
+	private readonly Dictionary<Guid, OpenQueryState> _openQueries = new();
 
 	/// <summary>
 	/// Event raised when query state changes.
@@ -18,14 +18,14 @@ public class QueriesWorkspace
 	public event EventHandler? QueriesChanged;
 
 	/// <summary>
-	/// Gets the index of the currently active query.
+	/// Gets the id of the currently active query.
 	/// </summary>
-	public int CurrentQueryIndex => _currentQueryIndex;
+	public Guid? CurrentQueryId => _currentQueryId;
 
 	/// <summary>
 	/// Gets all currently open queries.
 	/// </summary>
-	public IReadOnlyDictionary<int, OpenQueryState> OpenQueries => _openQueries;
+	public IReadOnlyDictionary<Guid, OpenQueryState> OpenQueries => _openQueries;
 
 	/// <summary>
 	/// Gets whether any queries have unsaved changes.
@@ -37,18 +37,19 @@ public class QueriesWorkspace
 	/// </summary>
 	public SavedQuery? GetCurrentQuery(Project? project)
 	{
-		return project?.Queries is not null &&
-			_currentQueryIndex >= 0 &&
-			_currentQueryIndex < project.Queries.Count
-			? project.Queries[_currentQueryIndex]
-			: null;
+		if (project?.Queries is null || _currentQueryId is null)
+		{
+			return null;
+		}
+
+		return project.Queries.FirstOrDefault(q => q.Id == _currentQueryId.Value);
 	}
 
 	/// <summary>
 	/// Gets the state of the currently active query.
 	/// </summary>
 	public OpenQueryState? CurrentQueryState =>
-		_currentQueryIndex >= 0 && _openQueries.TryGetValue(_currentQueryIndex, out var state)
+		_currentQueryId is not null && _openQueries.TryGetValue(_currentQueryId.Value, out var state)
 			? state
 			: null;
 
@@ -57,13 +58,12 @@ public class QueriesWorkspace
 	/// </summary>
 	public void Initialize(Project? project)
 	{
-		_currentQueryIndex = -1;
+		_currentQueryId = null;
 		_openQueries.Clear();
 
-		// Auto-open first query if it exists
 		if (project?.Queries?.Count > 0)
 		{
-			OpenQuery(project, 0);
+			OpenQuery(project, project.Queries[0].Id);
 		}
 
 		OnQueriesChanged();
@@ -74,56 +74,59 @@ public class QueriesWorkspace
 	/// </summary>
 	public void Clear()
 	{
-		_currentQueryIndex = -1;
+		_currentQueryId = null;
 		_openQueries.Clear();
 		OnQueriesChanged();
 	}
 
 	/// <summary>
-	/// Opens a query by index.
+	/// Opens a query by id.
 	/// </summary>
-	public void OpenQuery(Project project, int queryIndex)
+	public void OpenQuery(Project project, Guid queryId)
 	{
+		ArgumentNullException.ThrowIfNull(project);
 		ArgumentNullException.ThrowIfNull(project.Queries);
 
-		if (queryIndex < 0 || queryIndex >= project.Queries.Count)
+		var query = project.Queries.FirstOrDefault(q => q.Id == queryId);
+		if (query is null)
 		{
-			throw new ArgumentOutOfRangeException(nameof(queryIndex));
+			throw new InvalidOperationException($"Query '{queryId}' not found.");
 		}
 
-		// Add to open queries if not already open
-		if (!_openQueries.ContainsKey(queryIndex))
+		if (!_openQueries.ContainsKey(queryId))
 		{
-			var query = project.Queries[queryIndex];
-			_openQueries[queryIndex] = new OpenQueryState
+			_openQueries[queryId] = new OpenQueryState
 			{
-				QueryIndex = queryIndex,
+				QueryId = queryId,
 				CurrentText = query.QueryText,
 				HasUnsavedChanges = false,
 				LastModified = DateTimeOffset.UtcNow
 			};
 		}
 
-		_currentQueryIndex = queryIndex;
+		_currentQueryId = queryId;
 		OnQueriesChanged();
 	}
 
 	/// <summary>
 	/// Closes a query (removes from open queries list).
 	/// </summary>
-	public void CloseQuery(int queryIndex)
+	public void CloseQuery(Guid queryId)
 	{
-		if (!_openQueries.ContainsKey(queryIndex))
+		if (!_openQueries.ContainsKey(queryId))
 		{
 			return;
 		}
 
-		_openQueries.Remove(queryIndex);
+		_openQueries.Remove(queryId);
 
-		// If we closed the current query, switch to another open query
-		if (_currentQueryIndex == queryIndex)
+		if (_currentQueryId == queryId)
 		{
-			_currentQueryIndex = _openQueries.Keys.FirstOrDefault(-1);
+			_currentQueryId = _openQueries.Keys.FirstOrDefault();
+			if (_currentQueryId == Guid.Empty)
+			{
+				_currentQueryId = null;
+			}
 		}
 
 		OnQueriesChanged();
@@ -131,19 +134,14 @@ public class QueriesWorkspace
 
 	/// <summary>
 	/// Creates a new query and opens it.
-	/// Returns the updated project and the new query index.
+	/// Returns the new query id.
 	/// </summary>
-	public (Project updatedProject, int newQueryIndex) CreateNewQuery(Project project, string? name = null)
+	public Guid CreateNewQuery(Project project, string? name = null)
 	{
 		ArgumentNullException.ThrowIfNull(project);
 
-		var queries = project.Queries?.ToList() ?? [];
-
-		// Determine base name
-		string baseName = !string.IsNullOrWhiteSpace(name) ? name : "Query";
-
-		// Ensure unique name
-		var finalName = GetUniqueQueryName(queries, baseName);
+		var baseName = !string.IsNullOrWhiteSpace(name) ? name : "Query";
+		var finalName = GetUniqueQueryName(project.Queries, baseName);
 
 		var newQuery = new SavedQuery
 		{
@@ -152,35 +150,32 @@ public class QueriesWorkspace
 			CreatedDate = DateTimeOffset.UtcNow
 		};
 
-		queries.Add(newQuery);
-		var updatedProject = project with { Queries = queries };
-		var newQueryIndex = queries.Count - 1;
+		project.Queries.Add(newQuery);
 
-		// Open the new query
-		OpenQuery(updatedProject, newQueryIndex);
-
+		OpenQuery(project, newQuery.Id);
 		OnQueriesChanged();
 
-		return (updatedProject, newQueryIndex);
+		return newQuery.Id;
 	}
 
 	/// <summary>
 	/// Updates the text of a query.
 	/// </summary>
-	public void UpdateQueryText(Project project, int queryIndex, string newText)
+	public void UpdateQueryText(Project project, Guid queryId, string newText)
 	{
+		ArgumentNullException.ThrowIfNull(project);
 		ArgumentNullException.ThrowIfNull(project.Queries);
 
-		if (!_openQueries.TryGetValue(queryIndex, out var state))
+		if (!_openQueries.TryGetValue(queryId, out var state))
 		{
-			throw new InvalidOperationException($"Query {queryIndex} is not open.");
+			throw new InvalidOperationException($"Query '{queryId}' is not open.");
 		}
 
-		var query = project.Queries[queryIndex];
+		var query = project.Queries.FirstOrDefault(q => q.Id == queryId)
+			?? throw new InvalidOperationException($"Query '{queryId}' not found.");
 
-		// Update the open query state
 		state.CurrentText = newText;
-		state.HasUnsavedChanges = newText != query.QueryText;
+		state.HasUnsavedChanges = !string.Equals(newText, query.QueryText, StringComparison.Ordinal);
 		state.LastModified = DateTimeOffset.UtcNow;
 
 		OnQueriesChanged();
@@ -190,90 +185,53 @@ public class QueriesWorkspace
 	/// Renames a query.
 	/// Returns the updated project.
 	/// </summary>
-	public Project RenameQuery(Project project, int queryIndex, string newName)
+	public Project RenameQuery(Project project, Guid queryId, string newName)
 	{
+		ArgumentNullException.ThrowIfNull(project);
 		ArgumentNullException.ThrowIfNull(project.Queries);
 
-		var queries = project.Queries.ToList();
-		if (queryIndex < 0 || queryIndex >= queries.Count)
-		{
-			throw new ArgumentOutOfRangeException(nameof(queryIndex));
-		}
+		var query = project.Queries.FirstOrDefault(q => q.Id == queryId)
+			?? throw new InvalidOperationException($"Query '{queryId}' not found.");
 
-		var updatedQuery = queries[queryIndex] with { Name = newName };
-		queries[queryIndex] = updatedQuery;
+		query.Name = newName;
 
-		var updatedProject = project with { Queries = queries };
-
-		// Mark as unsaved if open
-		if (_openQueries.TryGetValue(queryIndex, out var state))
+		if (_openQueries.TryGetValue(queryId, out var state))
 		{
 			state.HasUnsavedChanges = true;
 		}
 
 		OnQueriesChanged();
-
-		return updatedProject;
+		return project;
 	}
 
 	/// <summary>
 	/// Deletes a query.
 	/// Returns the updated project.
 	/// </summary>
-	public Project DeleteQuery(Project project, int queryIndex)
+	public Project DeleteQuery(Project project, Guid queryId)
 	{
+		ArgumentNullException.ThrowIfNull(project);
 		ArgumentNullException.ThrowIfNull(project.Queries);
 
-		var queries = project.Queries.ToList();
-		if (queryIndex < 0 || queryIndex >= queries.Count)
+		var removed = project.Queries.RemoveAll(q => q.Id == queryId);
+		if (removed == 0)
 		{
-			throw new ArgumentOutOfRangeException(nameof(queryIndex));
+			throw new InvalidOperationException($"Query '{queryId}' not found.");
 		}
 
-		queries.RemoveAt(queryIndex);
-		var updatedProject = project with { Queries = queries };
+		_openQueries.Remove(queryId);
 
-		// Close the query if it's open
-		_openQueries.Remove(queryIndex);
-
-		// Re-index open queries
-		var updatedOpenQueries = new Dictionary<int, OpenQueryState>();
-		foreach (var (index, state) in _openQueries)
+		if (_currentQueryId == queryId)
 		{
-			if (index > queryIndex)
+			_currentQueryId = project.Queries.FirstOrDefault()?.Id;
+			if (_currentQueryId is not null && _currentQueryId == Guid.Empty)
 			{
-				updatedOpenQueries[index - 1] = new OpenQueryState
-				{
-					QueryIndex = index - 1,
-					CurrentText = state.CurrentText,
-					HasUnsavedChanges = state.HasUnsavedChanges,
-					LastModified = state.LastModified
-				};
+				_currentQueryId = null;
 			}
-			else if (index < queryIndex)
-			{
-				updatedOpenQueries[index] = state;
-			}
-		}
-		_openQueries.Clear();
-		foreach (var kvp in updatedOpenQueries)
-		{
-			_openQueries[kvp.Key] = kvp.Value;
-		}
-
-		// Adjust current query index
-		if (_currentQueryIndex == queryIndex)
-		{
-			_currentQueryIndex = _openQueries.Keys.FirstOrDefault(-1);
-		}
-		else if (_currentQueryIndex > queryIndex)
-		{
-			_currentQueryIndex--;
 		}
 
 		OnQueriesChanged();
-
-		return updatedProject;
+		return project;
 	}
 
 	/// <summary>
@@ -282,19 +240,19 @@ public class QueriesWorkspace
 	/// </summary>
 	public Project CommitChanges(Project project)
 	{
+		ArgumentNullException.ThrowIfNull(project);
 		ArgumentNullException.ThrowIfNull(project.Queries);
 
-		var queries = project.Queries.ToList();
-
-		foreach (var (queryIndex, state) in _openQueries.Where(kvp => kvp.Value.HasUnsavedChanges))
+		foreach (var (queryId, state) in _openQueries.Where(kvp => kvp.Value.HasUnsavedChanges))
 		{
-			if (queryIndex >= 0 && queryIndex < queries.Count)
+			var query = project.Queries.FirstOrDefault(q => q.Id == queryId);
+			if (query is not null)
 			{
-				queries[queryIndex] = queries[queryIndex] with { QueryText = state.CurrentText };
+				query.QueryText = state.CurrentText;
 			}
 		}
 
-		return project with { Queries = queries };
+		return project;
 	}
 
 	/// <summary>
@@ -310,8 +268,7 @@ public class QueriesWorkspace
 	}
 
 	/// <summary>
-	/// Updates the saved project reference after a save operation.
-	/// This syncs the open query states with the newly saved query text without closing them.
+	/// Syncs open query states with the saved project content.
 	/// </summary>
 	public void UpdateSavedProject(Project savedProject)
 	{
@@ -320,24 +277,18 @@ public class QueriesWorkspace
 			return;
 		}
 
-		// Update the CurrentText in open queries to match the saved text
-		// This ensures HasUnsavedChanges will be false after save
-		foreach (var (queryIndex, state) in _openQueries.ToList())
+		foreach (var (queryId, state) in _openQueries.ToList())
 		{
-			if (queryIndex >= 0 && queryIndex < savedProject.Queries.Count)
+			var savedQuery = savedProject.Queries.FirstOrDefault(q => q.Id == queryId);
+			if (savedQuery is not null)
 			{
-				var savedQuery = savedProject.Queries[queryIndex];
 				state.CurrentText = savedQuery.QueryText;
-				// HasUnsavedChanges is already cleared by ClearUnsavedFlags()
 			}
 		}
 
 		OnQueriesChanged();
 	}
 
-	/// <summary>
-	/// Generates a unique query name by appending a number if needed.
-	/// </summary>
 	private static string GetUniqueQueryName(List<SavedQuery> existingQueries, string baseName)
 	{
 		var existingNames = new HashSet<string>(
@@ -349,7 +300,7 @@ public class QueriesWorkspace
 			return baseName;
 		}
 
-		int counter = 1;
+		var counter = 1;
 		string candidateName;
 
 		do

@@ -158,7 +158,7 @@ public class ProjectServiceTests : IDisposable
 		var filePath = Path.Combine(_testDirectory, "overwrite.linq");
 
 		var project1 = service.CreateNew("First Version", "Connection1");
-		var project2 = project1 with { Name = "Second Version", ConnectionString = "Connection2" };
+		var project2 = service.CreateNew("Second Version", "Connection2");
 
 		// Act
 		await service.SaveProjectAsync(project1, filePath);
@@ -180,20 +180,18 @@ public class ProjectServiceTests : IDisposable
 		var filePath = Path.Combine(_testDirectory, "optional_props.linq");
 
 		var project = service.CreateNew("Test", "Server=localhost;");
-		var projectWithOptionals = project with
+		project.Models = new Dictionary<string, string> { ["Person.cs"] = "public class Person { }" };
+		project.DbContextCode = "public class TestContext : DbContext { }";
+		project.Queries = new List<SavedQuery>
 		{
-			Models = new Dictionary<string, string> { ["Person.cs"] = "public class Person { }" },
-			DbContextCode = "public class TestContext : DbContext { }",
-			Queries = new List<SavedQuery>
+			new()
 			{
-				new()
-				{
-					Name = "Test Query",
-					QueryText = "context.People.ToList()",
-					CreatedDate = DateTimeOffset.UtcNow
-				}
+				Name = "Test Query",
+				QueryText = "context.People.ToList()",
+				CreatedDate = DateTimeOffset.UtcNow
 			}
 		};
+		var projectWithOptionals = project;
 
 		// Act
 		await service.SaveProjectAsync(projectWithOptionals, filePath);
@@ -271,20 +269,18 @@ public class ProjectServiceTests : IDisposable
 		var filePath = Path.Combine(_testDirectory, "full_project.linq");
 
 		var originalProject = service.CreateNew("Full Project", "Server=localhost;");
-		var fullProject = originalProject with
+		originalProject.Models = new Dictionary<string, string>
 		{
-			Models = new Dictionary<string, string>
-			{
-				["Person.cs"] = "namespace Test; public class Person { public int Id { get; set; } }",
-				["Order.cs"] = "namespace Test; public class Order { public int Id { get; set; } }"
-			},
-			DbContextCode = "using Microsoft.EntityFrameworkCore; public class MyContext : DbContext { }",
-			Queries = new List<SavedQuery>
-			{
-				new() { Name = "Query 1", QueryText = "context.People.ToList()", CreatedDate = DateTimeOffset.UtcNow },
-				new() { Name = "Query 2", QueryText = "context.Orders.Where(o => o.Id > 5)", CreatedDate = DateTimeOffset.UtcNow }
-			}
+			["Person.cs"] = "namespace Test; public class Person { public int Id { get; set; } }",
+			["Order.cs"] = "namespace Test; public class Order { public int Id { get; set; } }"
 		};
+		originalProject.DbContextCode = "using Microsoft.EntityFrameworkCore; public class MyContext : DbContext { }";
+		originalProject.Queries = new List<SavedQuery>
+		{
+			new() { Name = "Query 1", QueryText = "context.People.ToList()", CreatedDate = DateTimeOffset.UtcNow },
+			new() { Name = "Query 2", QueryText = "context.Orders.Where(o => o.Id > 5)", CreatedDate = DateTimeOffset.UtcNow }
+		};
+		var fullProject = originalProject;
 
 		await service.SaveProjectAsync(fullProject, filePath);
 

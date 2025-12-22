@@ -24,7 +24,7 @@ public class ProjectService
 	/// </summary>
 	public ProjectService(ProjectVersionConfig versionConfig)
 	{
-		_versionConfig = versionConfig ?? throw new ArgumentNullException(nameof(versionConfig));
+		_versionConfig = versionConfig;
 	}
 
 	/// <summary>
@@ -84,8 +84,9 @@ public class ProjectService
 	}
 
 	/// <summary>
-	/// Saves a project to a file path.
+	/// Saves a project to a file path using atomic write-then-replace.
 	/// Updates the ModifiedDate and SchemaVersion before saving.
+	/// Original file is preserved if serialization fails.
 	/// </summary>
 	public async Task SaveProjectAsync(Project project, string filePath)
 	{
@@ -99,14 +100,38 @@ public class ProjectService
 			throw new DirectoryNotFoundException($"Directory '{directory}' does not exist.");
 		}
 
-		var updatedProject = project with
-		{
-			ModifiedDate = DateTimeOffset.UtcNow,
-			SchemaVersion = _versionConfig.CurrentSchemaVersion // Always save with current version
-		};
+		project.ModifiedDate = DateTimeOffset.UtcNow;
+		project.SchemaVersion = _versionConfig.CurrentSchemaVersion;
 
-		await using var stream = File.Create(filePath);
-		await JsonSerializer.SerializeAsync(stream, updatedProject, JsonSerializerOptions.Indented);
+		// Write to temporary file first (atomic save pattern)
+		var tempFilePath = $"{filePath}.tmp";
+		try
+		{
+			await using (var stream = File.Create(tempFilePath))
+			{
+				await JsonSerializer.SerializeAsync(stream, project, JsonSerializerOptions.Indented);
+			}
+
+			// Only replace original if serialization succeeded
+			File.Move(tempFilePath, filePath, overwrite: true);
+		}
+		catch
+		{
+			// Clean up temp file on failure
+			if (File.Exists(tempFilePath))
+			{
+				try
+				{
+					File.Delete(tempFilePath);
+				}
+				catch
+				{
+					// Ignore cleanup failures
+				}
+			}
+			// Re-throw original exception
+			throw;
+		}
 	}
 
 	/// <summary>

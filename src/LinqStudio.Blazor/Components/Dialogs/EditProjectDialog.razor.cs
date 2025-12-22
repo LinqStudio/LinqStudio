@@ -23,11 +23,8 @@ public partial class EditProjectDialog : ComponentBase
 
 	private void Save()
 	{
-		var updatedProject = Project with
-		{
-			ConnectionString = _connectionString
-		};
+		Project.ConnectionString = _connectionString;
 
-		MudDialog.Close(DialogResult.Ok(updatedProject));
+		MudDialog.Close(DialogResult.Ok(Project));
 	}
 }
