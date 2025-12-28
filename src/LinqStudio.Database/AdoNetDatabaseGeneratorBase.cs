@@ -27,7 +27,7 @@ public abstract class AdoNetDatabaseGeneratorBase : IDatabaseQueryGenerator
 	}
 
 	/// <inheritdoc/>
-	public async Task<IReadOnlyList<DatabaseTableName>> GetTablesAsync(CancellationToken cancellationToken = default)
+	public virtual async Task<IReadOnlyList<DatabaseTableName>> GetTablesAsync(CancellationToken cancellationToken = default)
 	{
 		var tables = new List<DatabaseTableName>();
 		var connection = Database.GetDbConnection();
