@@ -104,7 +104,10 @@ public class SqliteGenerator : AdoNetDatabaseGeneratorBase
 		var columns = new List<TableColumn>();
 
 		// SQLite: use PRAGMA table_info to get columns
-		var query = $"PRAGMA table_info({tableName})";
+		// Note: PRAGMA commands don't support parameterized table names
+		// Sanitize table name by ensuring it only contains valid identifier characters
+		var sanitizedTableName = SanitizeIdentifier(tableName);
+		var query = $"PRAGMA table_info({sanitizedTableName})";
 
 		await using var command = connection.CreateCommand();
 		command.CommandText = query;
@@ -208,7 +211,10 @@ public class SqliteGenerator : AdoNetDatabaseGeneratorBase
 		var foreignKeys = new List<ForeignKey>();
 
 		// SQLite: use PRAGMA foreign_key_list to get foreign keys
-		var query = $"PRAGMA foreign_key_list({tableName})";
+		// Note: PRAGMA commands don't support parameterized table names
+		// Sanitize table name by ensuring it only contains valid identifier characters
+		var sanitizedTableName = SanitizeIdentifier(tableName);
+		var query = $"PRAGMA foreign_key_list({sanitizedTableName})";
 
 		await using var command = connection.CreateCommand();
 		command.CommandText = query;
@@ -232,5 +238,21 @@ public class SqliteGenerator : AdoNetDatabaseGeneratorBase
 		}
 
 		return foreignKeys;
+	}
+
+	/// <summary>
+	/// Sanitizes a table name to prevent SQL injection in PRAGMA commands.
+	/// SQLite PRAGMA commands don't support parameterized table names.
+	/// </summary>
+	private static string SanitizeIdentifier(string identifier)
+	{
+		// Remove any characters that aren't alphanumeric or underscore
+		// This is a conservative approach that prevents SQL injection
+		var sanitized = new string(identifier.Where(c => char.IsLetterOrDigit(c) || c == '_').ToArray());
+		
+		if (string.IsNullOrEmpty(sanitized))
+			throw new ArgumentException($"Invalid table name: {identifier}", nameof(identifier));
+		
+		return sanitized;
 	}
 }
