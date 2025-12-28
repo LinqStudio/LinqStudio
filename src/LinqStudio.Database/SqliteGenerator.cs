@@ -198,9 +198,13 @@ public class SqliteGenerator : AdoNetDatabaseGeneratorBase
 			var upperColumnName = columnName.ToUpperInvariant();
 
 			// Look for patterns like: "Id" INTEGER PRIMARY KEY or "Id" INTEGER PRIMARY KEY AUTOINCREMENT
-			return upperSql.Contains($"{upperColumnName}\" INTEGER PRIMARY KEY") ||
-				   upperSql.Contains($"{upperColumnName} INTEGER PRIMARY KEY") ||
-				   upperSql.Contains($"\"{upperColumnName}\" INTEGER") && upperSql.Contains("PRIMARY KEY") && upperSql.Contains("AUTOINCREMENT");
+			var pattern1 = upperSql.Contains($"{upperColumnName}\" INTEGER PRIMARY KEY");
+			var pattern2 = upperSql.Contains($"{upperColumnName} INTEGER PRIMARY KEY");
+			var pattern3 = upperSql.Contains($"\"{upperColumnName}\" INTEGER") && 
+			                upperSql.Contains("PRIMARY KEY") && 
+			                upperSql.Contains("AUTOINCREMENT");
+			
+			return pattern1 || pattern2 || pattern3;
 		}
 
 		return false;
@@ -230,7 +234,7 @@ public class SqliteGenerator : AdoNetDatabaseGeneratorBase
 
 			foreignKeys.Add(new ForeignKey
 			{
-				Name = $"FK_{tableName}_{referencedTable}_{fkId}",
+				Name = $"FK_{sanitizedTableName}_{referencedTable}_{fkId}",
 				ColumnName = columnName,
 				ReferencedTable = $"main.{referencedTable}",
 				ReferencedColumn = referencedColumn
