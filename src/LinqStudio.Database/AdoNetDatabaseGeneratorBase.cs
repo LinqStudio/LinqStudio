@@ -66,6 +66,14 @@ public abstract class AdoNetDatabaseGeneratorBase : IDatabaseQueryGenerator
 	protected abstract DatabaseTableName? ParseTableFromSchemaRow(DataRow row);
 
 	/// <summary>
+	/// Maps a database-specific data type to a generic DbColumnType.
+	/// Each database implementation must provide its own type mapping logic.
+	/// </summary>
+	/// <param name="dataType">Database-specific type name (e.g., "int", "varchar", "timestamp").</param>
+	/// <returns>Corresponding generic DbColumnType.</returns>
+	protected abstract DbColumnType MapToGenericType(string dataType);
+
+	/// <summary>
 	/// Parses a table name into schema and name components.
 	/// </summary>
 	/// <param name="tableName">Full table name in format "schema.name" or just "name".</param>
