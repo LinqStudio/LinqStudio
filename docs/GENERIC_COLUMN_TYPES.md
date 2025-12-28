@@ -21,7 +21,7 @@ The `DbColumnType` enum (in `LinqStudio.Abstractions.Models`) defines generic ty
 
 ## Type Mapping
 
-Each database generator implements the abstract `MapToGenericType(string dataType)` method in `AdoNetDatabaseGeneratorBase` to convert database-specific type names to `DbColumnType`.
+Each database generator implements `MapToGenericType(string dataType)` from `IDatabaseQueryGenerator` to convert database-specific type names to `DbColumnType`.
 
 ### MSSQL Type Mappings
 
@@ -93,38 +93,3 @@ SQLite uses type affinity, so mappings are based on type name patterns:
 - Types containing `bool` → `Boolean`
 - Types containing `guid`, `uuid` → `Guid`
 
-## Usage
-
-The `GenericType` property on `TableColumn` is automatically populated when retrieving table schemas:
-
-```csharp
-var generator = new MssqlGenerator(database);
-var table = await generator.GetTableAsync("MyTable");
-
-foreach (var column in table.Columns)
-{
-    Console.WriteLine($"{column.Name}: {column.DataType} → {column.GenericType}");
-    // Example: "Id: int → Int32"
-    // Example: "Name: nvarchar → String"
-}
-```
-
-## Testing
-
-Comprehensive unit tests validate all type mappings for each database:
-
-- `MssqlTypeMapperTests` - 60+ tests covering all SQL Server types
-- `PostgreSqlTypeMapperTests` - 70+ tests covering all PostgreSQL types
-- `MySqlTypeMapperTests` - 80+ tests covering all MySQL types
-- `SqliteTypeMapperTests` - 50+ tests covering SQLite type affinity
-
-Run tests: `dotnet test --filter "FullyQualifiedName~TypeMapperTests"`
-
-## Extending for New Databases
-
-To add support for a new database:
-
-1. Create a new generator inheriting from `AdoNetDatabaseGeneratorBase`
-2. Implement the abstract `MapToGenericType(string dataType)` method
-3. Map database-specific types to `DbColumnType` values
-4. Add comprehensive unit tests for all type mappings

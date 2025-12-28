@@ -16,20 +16,13 @@ public class MySqlTypeMapperTests : IClassFixture<MySqlDatabaseFixture>
 		_generator = new MySqlGenerator(fixture.DbContext.Database);
 	}
 
-	// Use reflection to access the protected MapToGenericType method
-	private DbColumnType MapToGenericType(string mysqlType)
-	{
-		var method = typeof(MySqlGenerator).GetMethod("MapToGenericType",
-			System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-		return (DbColumnType)method!.Invoke(_generator, new object[] { mysqlType })!;
-	}
 	[Theory]
 	[InlineData("bool", DbColumnType.Boolean)]
 	[InlineData("boolean", DbColumnType.Boolean)]
 	[InlineData("BOOL", DbColumnType.Boolean)]
 	public void MapToGenericType_BooleanTypes_ReturnsBoolean(string mysqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(mysqlType);
+		var result = _generator.MapToGenericType(mysqlType);
 		Assert.Equal(expected, result);
 	}
 
@@ -38,7 +31,7 @@ public class MySqlTypeMapperTests : IClassFixture<MySqlDatabaseFixture>
 	[InlineData("TINYINT", DbColumnType.SByte)]
 	public void MapToGenericType_TinyInt_ReturnsSByte(string mysqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(mysqlType);
+		var result = _generator.MapToGenericType(mysqlType);
 		Assert.Equal(expected, result);
 	}
 
@@ -47,7 +40,7 @@ public class MySqlTypeMapperTests : IClassFixture<MySqlDatabaseFixture>
 	[InlineData("TINYINT UNSIGNED", DbColumnType.Byte)]
 	public void MapToGenericType_TinyIntUnsigned_ReturnsByte(string mysqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(mysqlType);
+		var result = _generator.MapToGenericType(mysqlType);
 		Assert.Equal(expected, result);
 	}
 
@@ -56,7 +49,7 @@ public class MySqlTypeMapperTests : IClassFixture<MySqlDatabaseFixture>
 	[InlineData("SMALLINT", DbColumnType.Int16)]
 	public void MapToGenericType_SmallInt_ReturnsInt16(string mysqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(mysqlType);
+		var result = _generator.MapToGenericType(mysqlType);
 		Assert.Equal(expected, result);
 	}
 
@@ -65,7 +58,7 @@ public class MySqlTypeMapperTests : IClassFixture<MySqlDatabaseFixture>
 	[InlineData("SMALLINT UNSIGNED", DbColumnType.UInt16)]
 	public void MapToGenericType_SmallIntUnsigned_ReturnsUInt16(string mysqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(mysqlType);
+		var result = _generator.MapToGenericType(mysqlType);
 		Assert.Equal(expected, result);
 	}
 
@@ -76,7 +69,7 @@ public class MySqlTypeMapperTests : IClassFixture<MySqlDatabaseFixture>
 	[InlineData("INT", DbColumnType.Int32)]
 	public void MapToGenericType_Int_ReturnsInt32(string mysqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(mysqlType);
+		var result = _generator.MapToGenericType(mysqlType);
 		Assert.Equal(expected, result);
 	}
 
@@ -87,7 +80,7 @@ public class MySqlTypeMapperTests : IClassFixture<MySqlDatabaseFixture>
 	[InlineData("INT UNSIGNED", DbColumnType.UInt32)]
 	public void MapToGenericType_IntUnsigned_ReturnsUInt32(string mysqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(mysqlType);
+		var result = _generator.MapToGenericType(mysqlType);
 		Assert.Equal(expected, result);
 	}
 
@@ -96,7 +89,7 @@ public class MySqlTypeMapperTests : IClassFixture<MySqlDatabaseFixture>
 	[InlineData("BIGINT", DbColumnType.Int64)]
 	public void MapToGenericType_BigInt_ReturnsInt64(string mysqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(mysqlType);
+		var result = _generator.MapToGenericType(mysqlType);
 		Assert.Equal(expected, result);
 	}
 
@@ -105,7 +98,7 @@ public class MySqlTypeMapperTests : IClassFixture<MySqlDatabaseFixture>
 	[InlineData("BIGINT UNSIGNED", DbColumnType.UInt64)]
 	public void MapToGenericType_BigIntUnsigned_ReturnsUInt64(string mysqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(mysqlType);
+		var result = _generator.MapToGenericType(mysqlType);
 		Assert.Equal(expected, result);
 	}
 
@@ -114,7 +107,7 @@ public class MySqlTypeMapperTests : IClassFixture<MySqlDatabaseFixture>
 	[InlineData("FLOAT", DbColumnType.Float)]
 	public void MapToGenericType_Float_ReturnsFloat(string mysqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(mysqlType);
+		var result = _generator.MapToGenericType(mysqlType);
 		Assert.Equal(expected, result);
 	}
 
@@ -125,7 +118,7 @@ public class MySqlTypeMapperTests : IClassFixture<MySqlDatabaseFixture>
 	[InlineData("DOUBLE", DbColumnType.Double)]
 	public void MapToGenericType_Double_ReturnsDouble(string mysqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(mysqlType);
+		var result = _generator.MapToGenericType(mysqlType);
 		Assert.Equal(expected, result);
 	}
 
@@ -137,7 +130,7 @@ public class MySqlTypeMapperTests : IClassFixture<MySqlDatabaseFixture>
 	[InlineData("DECIMAL", DbColumnType.Decimal)]
 	public void MapToGenericType_DecimalTypes_ReturnsDecimal(string mysqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(mysqlType);
+		var result = _generator.MapToGenericType(mysqlType);
 		Assert.Equal(expected, result);
 	}
 
@@ -155,7 +148,7 @@ public class MySqlTypeMapperTests : IClassFixture<MySqlDatabaseFixture>
 	[InlineData("TEXT", DbColumnType.String)]
 	public void MapToGenericType_StringTypes_ReturnsString(string mysqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(mysqlType);
+		var result = _generator.MapToGenericType(mysqlType);
 		Assert.Equal(expected, result);
 	}
 
@@ -168,7 +161,7 @@ public class MySqlTypeMapperTests : IClassFixture<MySqlDatabaseFixture>
 	[InlineData("DATETIME", DbColumnType.DateTime)]
 	public void MapToGenericType_DateTimeTypes_ReturnsDateTime(string mysqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(mysqlType);
+		var result = _generator.MapToGenericType(mysqlType);
 		Assert.Equal(expected, result);
 	}
 
@@ -177,7 +170,7 @@ public class MySqlTypeMapperTests : IClassFixture<MySqlDatabaseFixture>
 	[InlineData("TIME", DbColumnType.TimeSpan)]
 	public void MapToGenericType_Time_ReturnsTimeSpan(string mysqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(mysqlType);
+		var result = _generator.MapToGenericType(mysqlType);
 		Assert.Equal(expected, result);
 	}
 
@@ -193,7 +186,7 @@ public class MySqlTypeMapperTests : IClassFixture<MySqlDatabaseFixture>
 	[InlineData("BLOB", DbColumnType.Binary)]
 	public void MapToGenericType_BinaryTypes_ReturnsBinary(string mysqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(mysqlType);
+		var result = _generator.MapToGenericType(mysqlType);
 		Assert.Equal(expected, result);
 	}
 
@@ -202,7 +195,7 @@ public class MySqlTypeMapperTests : IClassFixture<MySqlDatabaseFixture>
 	[InlineData("JSON", DbColumnType.Json)]
 	public void MapToGenericType_Json_ReturnsJson(string mysqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(mysqlType);
+		var result = _generator.MapToGenericType(mysqlType);
 		Assert.Equal(expected, result);
 	}
 
@@ -217,7 +210,7 @@ public class MySqlTypeMapperTests : IClassFixture<MySqlDatabaseFixture>
 	[InlineData("geometrycollection", DbColumnType.Binary)]
 	public void MapToGenericType_GeometricTypes_ReturnsBinary(string mysqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(mysqlType);
+		var result = _generator.MapToGenericType(mysqlType);
 		Assert.Equal(expected, result);
 	}
 
@@ -225,7 +218,7 @@ public class MySqlTypeMapperTests : IClassFixture<MySqlDatabaseFixture>
 	[InlineData("unknown_type", DbColumnType.Unknown)]
 	public void MapToGenericType_UnknownTypes_ReturnsUnknown(string mysqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(mysqlType);
+		var result = _generator.MapToGenericType(mysqlType);
 		Assert.Equal(expected, result);
 	}
 }

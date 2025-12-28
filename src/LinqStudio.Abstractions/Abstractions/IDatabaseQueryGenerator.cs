@@ -32,4 +32,11 @@ public interface IDatabaseQueryGenerator
 	{
 		return GetTableAsync(table.FullName, cancellationToken);
 	}
+
+	/// <summary>
+	/// Maps a database-specific data type to a generic DbColumnType.
+	/// </summary>
+	/// <param name="dataType">Database-specific type name (e.g., "int", "varchar", "timestamp").</param>
+	/// <returns>Corresponding generic DbColumnType.</returns>
+	DbColumnType MapToGenericType(string dataType);
 }

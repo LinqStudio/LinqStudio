@@ -16,14 +16,6 @@ public class SqliteTypeMapperTests : IClassFixture<SqliteDatabaseFixture>
 		_generator = new SqliteGenerator(fixture.DbContext.Database);
 	}
 
-	// Use reflection to access the protected MapToGenericType method
-	private DbColumnType MapToGenericType(string sqliteType)
-	{
-		var method = typeof(SqliteGenerator).GetMethod("MapToGenericType",
-			System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-		return (DbColumnType)method!.Invoke(_generator, new object[] { sqliteType })!;
-	}
-
 	[Theory]
 	[InlineData("INTEGER", DbColumnType.Int32)]
 	[InlineData("integer", DbColumnType.Int32)]
@@ -31,7 +23,7 @@ public class SqliteTypeMapperTests : IClassFixture<SqliteDatabaseFixture>
 	[InlineData("int", DbColumnType.Int32)]
 	public void MapToGenericType_IntegerTypes_ReturnsInt32(string sqliteType, DbColumnType expected)
 	{
-		var result = MapToGenericType(sqliteType);
+		var result = _generator.MapToGenericType(sqliteType);
 		Assert.Equal(expected, result);
 	}
 
@@ -40,7 +32,7 @@ public class SqliteTypeMapperTests : IClassFixture<SqliteDatabaseFixture>
 	[InlineData("tinyint", DbColumnType.SByte)]
 	public void MapToGenericType_TinyInt_ReturnsSByte(string sqliteType, DbColumnType expected)
 	{
-		var result = MapToGenericType(sqliteType);
+		var result = _generator.MapToGenericType(sqliteType);
 		Assert.Equal(expected, result);
 	}
 
@@ -49,7 +41,7 @@ public class SqliteTypeMapperTests : IClassFixture<SqliteDatabaseFixture>
 	[InlineData("smallint", DbColumnType.Int16)]
 	public void MapToGenericType_SmallInt_ReturnsInt16(string sqliteType, DbColumnType expected)
 	{
-		var result = MapToGenericType(sqliteType);
+		var result = _generator.MapToGenericType(sqliteType);
 		Assert.Equal(expected, result);
 	}
 
@@ -58,7 +50,7 @@ public class SqliteTypeMapperTests : IClassFixture<SqliteDatabaseFixture>
 	[InlineData("bigint", DbColumnType.Int64)]
 	public void MapToGenericType_BigInt_ReturnsInt64(string sqliteType, DbColumnType expected)
 	{
-		var result = MapToGenericType(sqliteType);
+		var result = _generator.MapToGenericType(sqliteType);
 		Assert.Equal(expected, result);
 	}
 
@@ -75,7 +67,7 @@ public class SqliteTypeMapperTests : IClassFixture<SqliteDatabaseFixture>
 	[InlineData("CHARACTER(50)", DbColumnType.String)]
 	public void MapToGenericType_StringTypes_ReturnsString(string sqliteType, DbColumnType expected)
 	{
-		var result = MapToGenericType(sqliteType);
+		var result = _generator.MapToGenericType(sqliteType);
 		Assert.Equal(expected, result);
 	}
 
@@ -84,7 +76,7 @@ public class SqliteTypeMapperTests : IClassFixture<SqliteDatabaseFixture>
 	[InlineData("blob", DbColumnType.Binary)]
 	public void MapToGenericType_Blob_ReturnsBinary(string sqliteType, DbColumnType expected)
 	{
-		var result = MapToGenericType(sqliteType);
+		var result = _generator.MapToGenericType(sqliteType);
 		Assert.Equal(expected, result);
 	}
 
@@ -95,7 +87,7 @@ public class SqliteTypeMapperTests : IClassFixture<SqliteDatabaseFixture>
 	[InlineData("double", DbColumnType.Double)]
 	public void MapToGenericType_RealTypes_ReturnsDouble(string sqliteType, DbColumnType expected)
 	{
-		var result = MapToGenericType(sqliteType);
+		var result = _generator.MapToGenericType(sqliteType);
 		Assert.Equal(expected, result);
 	}
 
@@ -104,7 +96,7 @@ public class SqliteTypeMapperTests : IClassFixture<SqliteDatabaseFixture>
 	[InlineData("float", DbColumnType.Float)]
 	public void MapToGenericType_Float_ReturnsFloat(string sqliteType, DbColumnType expected)
 	{
-		var result = MapToGenericType(sqliteType);
+		var result = _generator.MapToGenericType(sqliteType);
 		Assert.Equal(expected, result);
 	}
 
@@ -117,7 +109,7 @@ public class SqliteTypeMapperTests : IClassFixture<SqliteDatabaseFixture>
 	[InlineData("MONEY", DbColumnType.Decimal)]
 	public void MapToGenericType_DecimalTypes_ReturnsDecimal(string sqliteType, DbColumnType expected)
 	{
-		var result = MapToGenericType(sqliteType);
+		var result = _generator.MapToGenericType(sqliteType);
 		Assert.Equal(expected, result);
 	}
 
@@ -129,7 +121,7 @@ public class SqliteTypeMapperTests : IClassFixture<SqliteDatabaseFixture>
 	[InlineData("TIMESTAMP", DbColumnType.DateTime)]
 	public void MapToGenericType_DateTimeTypes_ReturnsDateTime(string sqliteType, DbColumnType expected)
 	{
-		var result = MapToGenericType(sqliteType);
+		var result = _generator.MapToGenericType(sqliteType);
 		Assert.Equal(expected, result);
 	}
 
@@ -138,7 +130,7 @@ public class SqliteTypeMapperTests : IClassFixture<SqliteDatabaseFixture>
 	[InlineData("time", DbColumnType.TimeSpan)]
 	public void MapToGenericType_Time_ReturnsTimeSpan(string sqliteType, DbColumnType expected)
 	{
-		var result = MapToGenericType(sqliteType);
+		var result = _generator.MapToGenericType(sqliteType);
 		Assert.Equal(expected, result);
 	}
 
@@ -149,7 +141,7 @@ public class SqliteTypeMapperTests : IClassFixture<SqliteDatabaseFixture>
 	[InlineData("bool", DbColumnType.Boolean)]
 	public void MapToGenericType_Boolean_ReturnsBoolean(string sqliteType, DbColumnType expected)
 	{
-		var result = MapToGenericType(sqliteType);
+		var result = _generator.MapToGenericType(sqliteType);
 		Assert.Equal(expected, result);
 	}
 
@@ -160,7 +152,7 @@ public class SqliteTypeMapperTests : IClassFixture<SqliteDatabaseFixture>
 	[InlineData("uuid", DbColumnType.Guid)]
 	public void MapToGenericType_Guid_ReturnsGuid(string sqliteType, DbColumnType expected)
 	{
-		var result = MapToGenericType(sqliteType);
+		var result = _generator.MapToGenericType(sqliteType);
 		Assert.Equal(expected, result);
 	}
 
@@ -169,7 +161,7 @@ public class SqliteTypeMapperTests : IClassFixture<SqliteDatabaseFixture>
 	[InlineData("CUSTOM", DbColumnType.Unknown)]
 	public void MapToGenericType_UnknownTypes_ReturnsUnknown(string sqliteType, DbColumnType expected)
 	{
-		var result = MapToGenericType(sqliteType);
+		var result = _generator.MapToGenericType(sqliteType);
 		Assert.Equal(expected, result);
 	}
 }

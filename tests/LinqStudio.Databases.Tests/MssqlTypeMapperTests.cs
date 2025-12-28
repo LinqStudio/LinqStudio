@@ -16,19 +16,11 @@ public class MssqlTypeMapperTests : IClassFixture<MssqlDatabaseFixture>
 		_generator = new MssqlGenerator(fixture.DbContext.Database);
 	}
 
-	// Use reflection to access the protected MapToGenericType method
-	private DbColumnType MapToGenericType(string sqlType)
-	{
-		var method = typeof(MssqlGenerator).GetMethod("MapToGenericType",
-			System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-		return (DbColumnType)method!.Invoke(_generator, new object[] { sqlType })!;
-	}
-
 	[Theory]
 	[InlineData("bit", DbColumnType.Boolean)]
 	public void MapToGenericType_BooleanTypes_ReturnsBoolean(string sqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(sqlType);
+		var result = _generator.MapToGenericType(sqlType);
 		Assert.Equal(expected, result);
 	}
 
@@ -37,7 +29,7 @@ public class MssqlTypeMapperTests : IClassFixture<MssqlDatabaseFixture>
 	[InlineData("TINYINT", DbColumnType.SByte)]
 	public void MapToGenericType_TinyInt_ReturnsSByte(string sqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(sqlType);
+		var result = _generator.MapToGenericType(sqlType);
 		Assert.Equal(expected, result);
 	}
 
@@ -46,7 +38,7 @@ public class MssqlTypeMapperTests : IClassFixture<MssqlDatabaseFixture>
 	[InlineData("SMALLINT", DbColumnType.Int16)]
 	public void MapToGenericType_SmallInt_ReturnsInt16(string sqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(sqlType);
+		var result = _generator.MapToGenericType(sqlType);
 		Assert.Equal(expected, result);
 	}
 
@@ -55,7 +47,7 @@ public class MssqlTypeMapperTests : IClassFixture<MssqlDatabaseFixture>
 	[InlineData("INT", DbColumnType.Int32)]
 	public void MapToGenericType_Int_ReturnsInt32(string sqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(sqlType);
+		var result = _generator.MapToGenericType(sqlType);
 		Assert.Equal(expected, result);
 	}
 
@@ -64,7 +56,7 @@ public class MssqlTypeMapperTests : IClassFixture<MssqlDatabaseFixture>
 	[InlineData("BIGINT", DbColumnType.Int64)]
 	public void MapToGenericType_BigInt_ReturnsInt64(string sqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(sqlType);
+		var result = _generator.MapToGenericType(sqlType);
 		Assert.Equal(expected, result);
 	}
 
@@ -73,7 +65,7 @@ public class MssqlTypeMapperTests : IClassFixture<MssqlDatabaseFixture>
 	[InlineData("REAL", DbColumnType.Float)]
 	public void MapToGenericType_Real_ReturnsFloat(string sqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(sqlType);
+		var result = _generator.MapToGenericType(sqlType);
 		Assert.Equal(expected, result);
 	}
 
@@ -82,7 +74,7 @@ public class MssqlTypeMapperTests : IClassFixture<MssqlDatabaseFixture>
 	[InlineData("FLOAT", DbColumnType.Double)]
 	public void MapToGenericType_Float_ReturnsDouble(string sqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(sqlType);
+		var result = _generator.MapToGenericType(sqlType);
 		Assert.Equal(expected, result);
 	}
 
@@ -95,7 +87,7 @@ public class MssqlTypeMapperTests : IClassFixture<MssqlDatabaseFixture>
 	[InlineData("NUMERIC", DbColumnType.Decimal)]
 	public void MapToGenericType_DecimalTypes_ReturnsDecimal(string sqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(sqlType);
+		var result = _generator.MapToGenericType(sqlType);
 		Assert.Equal(expected, result);
 	}
 
@@ -111,7 +103,7 @@ public class MssqlTypeMapperTests : IClassFixture<MssqlDatabaseFixture>
 	[InlineData("NVARCHAR", DbColumnType.String)]
 	public void MapToGenericType_StringTypes_ReturnsString(string sqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(sqlType);
+		var result = _generator.MapToGenericType(sqlType);
 		Assert.Equal(expected, result);
 	}
 
@@ -124,7 +116,7 @@ public class MssqlTypeMapperTests : IClassFixture<MssqlDatabaseFixture>
 	[InlineData("DATETIME", DbColumnType.DateTime)]
 	public void MapToGenericType_DateTimeTypes_ReturnsDateTime(string sqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(sqlType);
+		var result = _generator.MapToGenericType(sqlType);
 		Assert.Equal(expected, result);
 	}
 
@@ -133,7 +125,7 @@ public class MssqlTypeMapperTests : IClassFixture<MssqlDatabaseFixture>
 	[InlineData("TIME", DbColumnType.TimeSpan)]
 	public void MapToGenericType_Time_ReturnsTimeSpan(string sqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(sqlType);
+		var result = _generator.MapToGenericType(sqlType);
 		Assert.Equal(expected, result);
 	}
 
@@ -142,7 +134,7 @@ public class MssqlTypeMapperTests : IClassFixture<MssqlDatabaseFixture>
 	[InlineData("DATETIMEOFFSET", DbColumnType.DateTimeOffset)]
 	public void MapToGenericType_DateTimeOffset_ReturnsDateTimeOffset(string sqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(sqlType);
+		var result = _generator.MapToGenericType(sqlType);
 		Assert.Equal(expected, result);
 	}
 
@@ -151,7 +143,7 @@ public class MssqlTypeMapperTests : IClassFixture<MssqlDatabaseFixture>
 	[InlineData("UNIQUEIDENTIFIER", DbColumnType.Guid)]
 	public void MapToGenericType_UniqueIdentifier_ReturnsGuid(string sqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(sqlType);
+		var result = _generator.MapToGenericType(sqlType);
 		Assert.Equal(expected, result);
 	}
 
@@ -165,7 +157,7 @@ public class MssqlTypeMapperTests : IClassFixture<MssqlDatabaseFixture>
 	[InlineData("VARBINARY", DbColumnType.Binary)]
 	public void MapToGenericType_BinaryTypes_ReturnsBinary(string sqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(sqlType);
+		var result = _generator.MapToGenericType(sqlType);
 		Assert.Equal(expected, result);
 	}
 
@@ -174,7 +166,7 @@ public class MssqlTypeMapperTests : IClassFixture<MssqlDatabaseFixture>
 	[InlineData("XML", DbColumnType.Xml)]
 	public void MapToGenericType_Xml_ReturnsXml(string sqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(sqlType);
+		var result = _generator.MapToGenericType(sqlType);
 		Assert.Equal(expected, result);
 	}
 
@@ -184,7 +176,7 @@ public class MssqlTypeMapperTests : IClassFixture<MssqlDatabaseFixture>
 	[InlineData("hierarchyid", DbColumnType.Binary)]
 	public void MapToGenericType_SpatialTypes_ReturnsBinary(string sqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(sqlType);
+		var result = _generator.MapToGenericType(sqlType);
 		Assert.Equal(expected, result);
 	}
 
@@ -193,7 +185,7 @@ public class MssqlTypeMapperTests : IClassFixture<MssqlDatabaseFixture>
 	[InlineData("unknown_type", DbColumnType.Unknown)]
 	public void MapToGenericType_UnknownTypes_ReturnsUnknown(string sqlType, DbColumnType expected)
 	{
-		var result = MapToGenericType(sqlType);
+		var result = _generator.MapToGenericType(sqlType);
 		Assert.Equal(expected, result);
 	}
 }

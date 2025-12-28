@@ -20,7 +20,7 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 	}
 
 	/// <inheritdoc/>
-	protected override DbColumnType MapToGenericType(string dataType)
+	public override DbColumnType MapToGenericType(string dataType)
 	{
 		var type = dataType.ToLowerInvariant();
 

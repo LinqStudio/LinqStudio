@@ -16,20 +16,13 @@ public class PostgreSqlTypeMapperTests : IClassFixture<PostgreSqlDatabaseFixture
 		_generator = new PostgreSqlGenerator(fixture.DbContext.Database);
 	}
 
-	// Use reflection to access the protected MapToGenericType method
-	private DbColumnType MapToGenericType(string pgType)
-	{
-		var method = typeof(PostgreSqlGenerator).GetMethod("MapToGenericType",
-			System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-		return (DbColumnType)method!.Invoke(_generator, new object[] { pgType })!;
-	}
 	[Theory]
 	[InlineData("boolean", DbColumnType.Boolean)]
 	[InlineData("bool", DbColumnType.Boolean)]
 	[InlineData("BOOLEAN", DbColumnType.Boolean)]
 	public void MapToGenericType_BooleanTypes_ReturnsBoolean(string pgType, DbColumnType expected)
 	{
-		var result = MapToGenericType(pgType);
+		var result = _generator.MapToGenericType(pgType);
 		Assert.Equal(expected, result);
 	}
 
@@ -41,7 +34,7 @@ public class PostgreSqlTypeMapperTests : IClassFixture<PostgreSqlDatabaseFixture
 	[InlineData("SMALLINT", DbColumnType.Int16)]
 	public void MapToGenericType_SmallInt_ReturnsInt16(string pgType, DbColumnType expected)
 	{
-		var result = MapToGenericType(pgType);
+		var result = _generator.MapToGenericType(pgType);
 		Assert.Equal(expected, result);
 	}
 
@@ -54,7 +47,7 @@ public class PostgreSqlTypeMapperTests : IClassFixture<PostgreSqlDatabaseFixture
 	[InlineData("INTEGER", DbColumnType.Int32)]
 	public void MapToGenericType_Int_ReturnsInt32(string pgType, DbColumnType expected)
 	{
-		var result = MapToGenericType(pgType);
+		var result = _generator.MapToGenericType(pgType);
 		Assert.Equal(expected, result);
 	}
 
@@ -66,7 +59,7 @@ public class PostgreSqlTypeMapperTests : IClassFixture<PostgreSqlDatabaseFixture
 	[InlineData("BIGINT", DbColumnType.Int64)]
 	public void MapToGenericType_BigInt_ReturnsInt64(string pgType, DbColumnType expected)
 	{
-		var result = MapToGenericType(pgType);
+		var result = _generator.MapToGenericType(pgType);
 		Assert.Equal(expected, result);
 	}
 
@@ -76,7 +69,7 @@ public class PostgreSqlTypeMapperTests : IClassFixture<PostgreSqlDatabaseFixture
 	[InlineData("REAL", DbColumnType.Float)]
 	public void MapToGenericType_Real_ReturnsFloat(string pgType, DbColumnType expected)
 	{
-		var result = MapToGenericType(pgType);
+		var result = _generator.MapToGenericType(pgType);
 		Assert.Equal(expected, result);
 	}
 
@@ -86,7 +79,7 @@ public class PostgreSqlTypeMapperTests : IClassFixture<PostgreSqlDatabaseFixture
 	[InlineData("DOUBLE PRECISION", DbColumnType.Double)]
 	public void MapToGenericType_Double_ReturnsDouble(string pgType, DbColumnType expected)
 	{
-		var result = MapToGenericType(pgType);
+		var result = _generator.MapToGenericType(pgType);
 		Assert.Equal(expected, result);
 	}
 
@@ -98,7 +91,7 @@ public class PostgreSqlTypeMapperTests : IClassFixture<PostgreSqlDatabaseFixture
 	[InlineData("DECIMAL", DbColumnType.Decimal)]
 	public void MapToGenericType_DecimalTypes_ReturnsDecimal(string pgType, DbColumnType expected)
 	{
-		var result = MapToGenericType(pgType);
+		var result = _generator.MapToGenericType(pgType);
 		Assert.Equal(expected, result);
 	}
 
@@ -113,7 +106,7 @@ public class PostgreSqlTypeMapperTests : IClassFixture<PostgreSqlDatabaseFixture
 	[InlineData("TEXT", DbColumnType.String)]
 	public void MapToGenericType_StringTypes_ReturnsString(string pgType, DbColumnType expected)
 	{
-		var result = MapToGenericType(pgType);
+		var result = _generator.MapToGenericType(pgType);
 		Assert.Equal(expected, result);
 	}
 
@@ -125,7 +118,7 @@ public class PostgreSqlTypeMapperTests : IClassFixture<PostgreSqlDatabaseFixture
 	[InlineData("DATE", DbColumnType.DateTime)]
 	public void MapToGenericType_DateTimeTypes_ReturnsDateTime(string pgType, DbColumnType expected)
 	{
-		var result = MapToGenericType(pgType);
+		var result = _generator.MapToGenericType(pgType);
 		Assert.Equal(expected, result);
 	}
 
@@ -134,7 +127,7 @@ public class PostgreSqlTypeMapperTests : IClassFixture<PostgreSqlDatabaseFixture
 	[InlineData("timestamptz", DbColumnType.DateTimeOffset)]
 	public void MapToGenericType_DateTimeOffset_ReturnsDateTimeOffset(string pgType, DbColumnType expected)
 	{
-		var result = MapToGenericType(pgType);
+		var result = _generator.MapToGenericType(pgType);
 		Assert.Equal(expected, result);
 	}
 
@@ -145,7 +138,7 @@ public class PostgreSqlTypeMapperTests : IClassFixture<PostgreSqlDatabaseFixture
 	[InlineData("TIME", DbColumnType.TimeSpan)]
 	public void MapToGenericType_TimeSpan_ReturnsTimeSpan(string pgType, DbColumnType expected)
 	{
-		var result = MapToGenericType(pgType);
+		var result = _generator.MapToGenericType(pgType);
 		Assert.Equal(expected, result);
 	}
 
@@ -154,7 +147,7 @@ public class PostgreSqlTypeMapperTests : IClassFixture<PostgreSqlDatabaseFixture
 	[InlineData("UUID", DbColumnType.Guid)]
 	public void MapToGenericType_Uuid_ReturnsGuid(string pgType, DbColumnType expected)
 	{
-		var result = MapToGenericType(pgType);
+		var result = _generator.MapToGenericType(pgType);
 		Assert.Equal(expected, result);
 	}
 
@@ -163,7 +156,7 @@ public class PostgreSqlTypeMapperTests : IClassFixture<PostgreSqlDatabaseFixture
 	[InlineData("BYTEA", DbColumnType.Binary)]
 	public void MapToGenericType_Bytea_ReturnsBinary(string pgType, DbColumnType expected)
 	{
-		var result = MapToGenericType(pgType);
+		var result = _generator.MapToGenericType(pgType);
 		Assert.Equal(expected, result);
 	}
 
@@ -172,7 +165,7 @@ public class PostgreSqlTypeMapperTests : IClassFixture<PostgreSqlDatabaseFixture
 	[InlineData("XML", DbColumnType.Xml)]
 	public void MapToGenericType_Xml_ReturnsXml(string pgType, DbColumnType expected)
 	{
-		var result = MapToGenericType(pgType);
+		var result = _generator.MapToGenericType(pgType);
 		Assert.Equal(expected, result);
 	}
 
@@ -183,7 +176,7 @@ public class PostgreSqlTypeMapperTests : IClassFixture<PostgreSqlDatabaseFixture
 	[InlineData("JSONB", DbColumnType.Json)]
 	public void MapToGenericType_Json_ReturnsJson(string pgType, DbColumnType expected)
 	{
-		var result = MapToGenericType(pgType);
+		var result = _generator.MapToGenericType(pgType);
 		Assert.Equal(expected, result);
 	}
 
@@ -194,7 +187,7 @@ public class PostgreSqlTypeMapperTests : IClassFixture<PostgreSqlDatabaseFixture
 	[InlineData("macaddr8", DbColumnType.String)]
 	public void MapToGenericType_NetworkTypes_ReturnsString(string pgType, DbColumnType expected)
 	{
-		var result = MapToGenericType(pgType);
+		var result = _generator.MapToGenericType(pgType);
 		Assert.Equal(expected, result);
 	}
 
@@ -203,7 +196,7 @@ public class PostgreSqlTypeMapperTests : IClassFixture<PostgreSqlDatabaseFixture
 	[InlineData("bit varying", DbColumnType.Binary)]
 	public void MapToGenericType_BitTypes_ReturnsBinary(string pgType, DbColumnType expected)
 	{
-		var result = MapToGenericType(pgType);
+		var result = _generator.MapToGenericType(pgType);
 		Assert.Equal(expected, result);
 	}
 
@@ -212,7 +205,7 @@ public class PostgreSqlTypeMapperTests : IClassFixture<PostgreSqlDatabaseFixture
 	[InlineData("tsquery", DbColumnType.String)]
 	public void MapToGenericType_TextSearchTypes_ReturnsString(string pgType, DbColumnType expected)
 	{
-		var result = MapToGenericType(pgType);
+		var result = _generator.MapToGenericType(pgType);
 		Assert.Equal(expected, result);
 	}
 
@@ -226,7 +219,7 @@ public class PostgreSqlTypeMapperTests : IClassFixture<PostgreSqlDatabaseFixture
 	[InlineData("circle", DbColumnType.Binary)]
 	public void MapToGenericType_GeometricTypes_ReturnsBinary(string pgType, DbColumnType expected)
 	{
-		var result = MapToGenericType(pgType);
+		var result = _generator.MapToGenericType(pgType);
 		Assert.Equal(expected, result);
 	}
 
@@ -239,7 +232,7 @@ public class PostgreSqlTypeMapperTests : IClassFixture<PostgreSqlDatabaseFixture
 	[InlineData("daterange", DbColumnType.String)]
 	public void MapToGenericType_RangeTypes_ReturnsString(string pgType, DbColumnType expected)
 	{
-		var result = MapToGenericType(pgType);
+		var result = _generator.MapToGenericType(pgType);
 		Assert.Equal(expected, result);
 	}
 
@@ -250,7 +243,7 @@ public class PostgreSqlTypeMapperTests : IClassFixture<PostgreSqlDatabaseFixture
 	[InlineData("unknown_type", DbColumnType.Unknown)]
 	public void MapToGenericType_UnknownTypes_ReturnsUnknown(string pgType, DbColumnType expected)
 	{
-		var result = MapToGenericType(pgType);
+		var result = _generator.MapToGenericType(pgType);
 		Assert.Equal(expected, result);
 	}
 }
