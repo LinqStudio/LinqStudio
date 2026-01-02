@@ -1,6 +1,7 @@
 using LinqStudio.App.WebServer.E2ETests.Fixtures;
 using LinqStudio.App.WebServer.E2ETests.Helpers;
 using LinqStudio.Core.Models;
+using LinqStudio.Core.Services;
 using System.Text.Json;
 using Xunit;
 using static Microsoft.Playwright.Assertions;
@@ -327,18 +328,19 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		// Verify connection string was saved
 		Assert.Equal("Server=localhost;Database=TestDb;Integrated Security=true;", project.ConnectionString);
 
-		// Verify we have 2 queries
-		Assert.NotNull(project.Queries);
-		Assert.Equal(2, project.Queries.Count);
+		// Verify we have 2 queries in separate files
+		var queryService = new QueryService();
+		var queries = await queryService.LoadQueriesAsync("TestProject.linq");
+		Assert.Equal(2, queries.Count);
 
 		// Verify first query
-		var firstQuery = project.Queries[0];
-		Assert.Equal("Get Filtered People", firstQuery.Name);
+		var firstQuery = queries.FirstOrDefault(q => q.Name == "Get Filtered People");
+		Assert.NotNull(firstQuery);
 		Assert.Contains("context.People.Where(x => x.Id > 10).OrderBy(x => x.Name)", firstQuery.QueryText);
 
 		// Verify second query
-		var secondQuery = project.Queries[1];
-		Assert.Equal("Get People Summary", secondQuery.Name);
+		var secondQuery = queries.FirstOrDefault(q => q.Name == "Get People Summary");
+		Assert.NotNull(secondQuery);
 		Assert.Contains("context.People.Select(x => new { x.Id, x.Name }).Take(100)", secondQuery.QueryText);
 
 		// Verify unsaved indicators are cleared after save
