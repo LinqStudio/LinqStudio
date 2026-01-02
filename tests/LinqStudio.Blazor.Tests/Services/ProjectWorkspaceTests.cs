@@ -148,7 +148,7 @@ public class ProjectWorkspaceTests : IDisposable
 	public async Task SaveAsync_ThrowsException_WhenNoFilePathSet()
 	{
 		// Arrange
-		_workspace.CreateNewAsync("Test");
+		await _workspace.CreateNewAsync("Test");
 
 		// Act & Assert
 		await Assert.ThrowsAsync<InvalidOperationException>(() => _workspace.SaveAsync());
@@ -192,7 +192,7 @@ public class ProjectWorkspaceTests : IDisposable
 		// Arrange
 		var originalPath = Path.Combine(_testDirectory, "original.linq");
 		var newPath = Path.Combine(_testDirectory, "new.linq");
-		_workspace.CreateNewAsync("original");
+		await _workspace.CreateNewAsync("original");
 		await _workspace.SaveAsAsync(originalPath);
 
 		// Act
@@ -209,7 +209,7 @@ public class ProjectWorkspaceTests : IDisposable
 	{
 		// Arrange
 		var filePath = Path.Combine(_testDirectory, "NewProjectName.linq");
-		_workspace.CreateNewAsync("OldName");
+		await _workspace.CreateNewAsync("OldName");
 
 		// Act
 		await _workspace.SaveAsAsync(filePath);

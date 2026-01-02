@@ -152,7 +152,7 @@ public class ProjectWorkspace
 		// Reload to get updated modified date
 		_currentProject = await _projectService.LoadProjectAsync(_currentFilePath)
 			?? throw new InvalidOperationException($"Project file not found: {_currentFilePath}");
-		_savedProject = _currentProject;
+		_savedProject = CloneProject(_currentProject);
 
 		OnWorkspaceChanged();
 	}
@@ -182,7 +182,7 @@ public class ProjectWorkspace
 		// Reload to get updated modified date
 		_currentProject = await _projectService.LoadProjectAsync(_currentFilePath)
 			?? throw new InvalidOperationException($"Project file not found: {_currentFilePath}");
-		_savedProject = _currentProject;
+		_savedProject = CloneProject(_currentProject);
 
 		OnWorkspaceChanged();
 	}
