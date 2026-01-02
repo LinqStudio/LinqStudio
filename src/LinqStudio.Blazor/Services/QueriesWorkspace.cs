@@ -176,7 +176,19 @@ public class QueriesWorkspace
 
 		_allQueries[newQuery.Id] = newQuery;
 
-		OpenQuery(newQuery.Id);
+		// Open the query and mark it as having unsaved changes (new query)
+		if (!_openQueries.ContainsKey(newQuery.Id))
+		{
+			_openQueries[newQuery.Id] = new OpenQueryState
+			{
+				QueryId = newQuery.Id,
+				CurrentText = newQuery.QueryText,
+				HasUnsavedChanges = true, // Mark as unsaved since it's a new query
+				LastModified = DateTimeOffset.UtcNow
+			};
+		}
+
+		_currentQueryId = newQuery.Id;
 		OnQueriesChanged();
 
 		return newQuery.Id;
@@ -304,7 +316,69 @@ public class QueriesWorkspace
 	}
 
 	/// <summary>
-	/// Clears the unsaved flags for all open queries.
+	/// Saves a specific query to disk using a file dialog to prompt for location.
+	/// </summary>
+	public async Task<bool> SaveQueryWithDialogAsync(Guid queryId, Func<string, Task<string?>> promptSaveFile)
+	{
+		if (!_allQueries.TryGetValue(queryId, out var query))
+		{
+			throw new InvalidOperationException($"Query '{queryId}' not found.");
+		}
+
+		// Update query text from open state if available
+		if (_openQueries.TryGetValue(queryId, out var state))
+		{
+			query.QueryText = state.CurrentText;
+		}
+
+		// Prompt for file location if not already set
+		string? filePath = query.FilePath;
+		if (string.IsNullOrEmpty(filePath))
+		{
+			var defaultFileName = $"{query.Name}.linq.query";
+			filePath = await promptSaveFile(defaultFileName);
+			
+			if (string.IsNullOrEmpty(filePath))
+			{
+				return false; // User cancelled
+			}
+		}
+
+		// Save to file
+		await _queryService.SaveQueryToFileAsync(filePath, query);
+		
+		// Mark as saved
+		if (_openQueries.TryGetValue(queryId, out var openState))
+		{
+			openState.HasUnsavedChanges = false;
+		}
+
+		OnQueriesChanged();
+		return true;
+	}
+
+	/// <summary>
+	/// Opens a query from a file selected via file dialog.
+	/// </summary>
+	public async Task<Guid?> OpenQueryFromFileAsync(string filePath)
+	{
+		var query = await _queryService.LoadQueryFromFileAsync(filePath);
+		if (query is null)
+		{
+			return null;
+		}
+
+		// Add to all queries if not already present
+		if (!_allQueries.ContainsKey(query.Id))
+		{
+			_allQueries[query.Id] = query;
+		}
+
+		// Open the query
+		OpenQuery(query.Id);
+		
+		return query.Id;
+	}
 	/// </summary>
 	public void ClearUnsavedFlags()
 	{

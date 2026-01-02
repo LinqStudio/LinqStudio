@@ -73,16 +73,16 @@
 				</MudStack>
 
 				<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-					<MudTooltip Text="Save query (in project)">
+					<MudTooltip Text="Save query">
 						<MudIconButton Icon="@Icons.Material.Filled.Save"
 									   Color="Color.Primary"
 									   Size="Size.Small"
 									   OnClick="SaveCurrentQuery"
-									   Disabled="@(Workspace.Queries.CurrentQueryId is null || Workspace.Queries.CurrentQueryState?.HasUnsavedChanges != true)"
+									   Disabled="@(Workspace.Queries.CurrentQueryId is null)"
 									   data-testid="query-save-btn" />
 					</MudTooltip>
 
-					<MudTooltip Text="Close query (in project)">
+					<MudTooltip Text="Close query">
 						<MudIconButton Icon="@Icons.Material.Filled.Close"
 									   Color="Color.Primary"
 									   Size="Size.Small"

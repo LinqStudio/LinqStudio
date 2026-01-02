@@ -230,6 +230,40 @@ public partial class NavMenu : ComponentBase, IDisposable
 		NavigationManager.NavigateTo($"/editor/{queryId}");
 	}
 
+	private async Task OpenQueryFromFile()
+	{
+		if (!Workspace.IsProjectOpen)
+		{
+			return;
+		}
+
+		try
+		{
+			var filePath = await FileSystemService.PromptOpenFileAsync(".linq.query");
+			
+			if (string.IsNullOrEmpty(filePath))
+			{
+				return; // User cancelled
+			}
+
+			var queryId = await Workspace.Queries.OpenQueryFromFileAsync(filePath);
+			
+			if (queryId.HasValue)
+			{
+				NavigationManager.NavigateTo($"/editor/{queryId.Value}");
+				Snackbar.Add("Query opened successfully.", Severity.Success);
+			}
+			else
+			{
+				Snackbar.Add("Failed to open query file.", Severity.Error);
+			}
+		}
+		catch (Exception ex)
+		{
+			await ErrorHandlingService.HandleErrorAsync(ex, "Failed to open query file.");
+		}
+	}
+
 	private void OpenSavedQuery(Guid queryId)
 	{
 		if (!Workspace.IsProjectOpen)

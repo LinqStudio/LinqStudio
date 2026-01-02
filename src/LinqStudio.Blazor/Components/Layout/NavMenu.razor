@@ -55,19 +55,13 @@
 			<ChildContent>
 				<MudMenuItem OnClick="CreateNewQuery" data-testid="nav-editor-new">
 					<MudIcon Icon="@Icons.Material.Filled.Add" Class="mr-2" />
-					New
+					New Query
 				</MudMenuItem>
 
-				<MudMenu Label="Open" Dense="true" Disabled="@(Workspace.Queries.AllQueries.Count == 0)" data-testid="nav-editor-open">
-					<ChildContent>
-						@foreach (var q in Workspace.Queries.AllQueries)
-						{
-							<MudMenuItem OnClick="@(() => OpenSavedQuery(q.Id))" data-testid="@($"nav-editor-open-{q.Id}")">
-								@q.Name
-							</MudMenuItem>
-						}
-					</ChildContent>
-				</MudMenu>
+				<MudMenuItem OnClick="OpenQueryFromFile" data-testid="nav-editor-open-file">
+					<MudIcon Icon="@Icons.Material.Filled.FolderOpen" Class="mr-2" />
+					Open Query...
+				</MudMenuItem>
 			</ChildContent>
 		</MudMenu>
 	}

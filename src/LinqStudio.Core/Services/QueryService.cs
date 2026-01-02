@@ -175,4 +175,91 @@ public class QueryService
 		var queryFilePath = GetQueryFilePath(projectFilePath, queryId);
 		return File.Exists(queryFilePath);
 	}
+
+	/// <summary>
+	/// Loads a query from a specific file path (standalone mode).
+	/// </summary>
+	/// <param name="filePath">Path to the query file.</param>
+	/// <returns>The loaded query.</returns>
+	public async Task<SavedQuery?> LoadQueryFromFileAsync(string filePath)
+	{
+		if (!File.Exists(filePath))
+		{
+			return null;
+		}
+
+		try
+		{
+			await using var stream = File.OpenRead(filePath);
+			var query = await JsonSerializer.DeserializeAsync<SavedQuery>(stream, JsonSerializerOptions.Default);
+
+			if (query is not null)
+			{
+				// Store the file path in the query
+				query.FilePath = filePath;
+			}
+
+			return query;
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Warning: Failed to load query from {filePath}: {ex.Message}");
+			return null;
+		}
+	}
+
+	/// <summary>
+	/// Saves a query to a specific file path (standalone mode).
+	/// </summary>
+	/// <param name="filePath">Path where to save the query file.</param>
+	/// <param name="query">Query to save.</param>
+	public async Task SaveQueryToFileAsync(string filePath, SavedQuery query)
+	{
+		ArgumentNullException.ThrowIfNull(query);
+
+		if (query.Id == Guid.Empty)
+		{
+			throw new InvalidOperationException("Cannot save query with invalid ID (Guid.Empty).");
+		}
+
+		// Ensure directory exists
+		var directory = Path.GetDirectoryName(filePath);
+		if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+		{
+			Directory.CreateDirectory(directory);
+		}
+
+		// Write to temporary file first (atomic save pattern)
+		var tempFilePath = $"{filePath}.tmp";
+		try
+		{
+			await using (var stream = File.Create(tempFilePath))
+			{
+				await JsonSerializer.SerializeAsync(stream, query, JsonSerializerOptions.Indented);
+			}
+
+			// Only replace original if serialization succeeded
+			File.Move(tempFilePath, filePath, overwrite: true);
+			
+			// Update the query's file path
+			query.FilePath = filePath;
+		}
+		catch
+		{
+			// Clean up temp file on failure
+			if (File.Exists(tempFilePath))
+			{
+				try
+				{
+					File.Delete(tempFilePath);
+				}
+				catch
+				{
+					// Ignore cleanup failures
+				}
+			}
+			// Re-throw original exception
+			throw;
+		}
+	}
 }

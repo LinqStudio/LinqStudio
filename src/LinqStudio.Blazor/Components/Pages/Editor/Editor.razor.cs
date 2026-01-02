@@ -1,6 +1,7 @@
 using BlazorMonaco;
 using BlazorMonaco.Editor;
 using BlazorMonaco.Languages;
+using LinqStudio.Blazor.Abstractions;
 using LinqStudio.Blazor.Components.Dialogs;
 using LinqStudio.Blazor.Services;
 using LinqStudio.Core.Services;
@@ -23,6 +24,7 @@ public partial class Editor : ComponentBase, IDisposable
 	[Inject] private ProjectWorkspace Workspace { get; set; } = null!;
 	[Inject] private NavigationManager NavigationManager { get; set; } = null!;
 	[Inject] private IDialogService DialogService { get; set; } = null!;
+	[Inject] private IFileSystemService FileSystemService { get; set; } = null!;
 
 	[Parameter] public Guid? QueryIdParam { get; set; }
 
@@ -140,28 +142,35 @@ public partial class Editor : ComponentBase, IDisposable
 		if (newText != _lastQueryText)
 		{
 			_lastQueryText = newText;
-			await DebounceUpdateAsync(newText);
+			DebounceUpdate(newText);
 		}
 	}
 
 	/// <summary>
 	/// Debounces query text updates to avoid excessive workspace updates while typing.
-	/// Expected to throw TaskCanceledException when user continues typing.
+	/// Uses a cancellation token without throwing exceptions.
 	/// </summary>
-	[DebuggerNonUserCode]
-	private async Task DebounceUpdateAsync(string newText)
+	private void DebounceUpdate(string newText)
 	{
 		_debounceTokenSource?.Cancel();
 		_debounceTokenSource = new CancellationTokenSource();
+		var token = _debounceTokenSource.Token;
 
-		try
+		_ = Task.Run(async () =>
 		{
-			await Task.Delay(DebounceDelayMs, _debounceTokenSource.Token);
-			Workspace.Queries.UpdateQueryText(Workspace.Queries.CurrentQueryId!.Value, newText);
-		}
-		catch (TaskCanceledException)
-		{
-		}
+			await Task.Delay(DebounceDelayMs, token);
+			
+			if (!token.IsCancellationRequested && Workspace.Queries.CurrentQueryId is not null)
+			{
+				await InvokeAsync(() =>
+				{
+					if (!token.IsCancellationRequested)
+					{
+						Workspace.Queries.UpdateQueryText(Workspace.Queries.CurrentQueryId.Value, newText);
+					}
+				});
+			}
+		}, token);
 	}
 
 	private void StartRename()
@@ -416,14 +425,17 @@ public partial class Editor : ComponentBase, IDisposable
 			}
 		}
 
-		Workspace.Queries.CloseQuery(Workspace.Queries.CurrentQueryId.Value);
+		var currentId = Workspace.Queries.CurrentQueryId.Value;
+		Workspace.Queries.CloseQuery(currentId);
 
+		// Navigate to the next open query, or to editor home if no queries are open
 		if (Workspace.Queries.CurrentQueryId is Guid newId)
 		{
 			NavigationManager.NavigateTo($"/editor/{newId}", replace: true);
 		}
 		else
 		{
+			// No queries left open - stay on editor page but with no query selected
 			NavigationManager.NavigateTo("/editor", replace: true);
 		}
 	}
@@ -436,13 +448,23 @@ public partial class Editor : ComponentBase, IDisposable
 		}
 
 		var qid = Workspace.Queries.CurrentQueryId.Value;
-		if (!Workspace.Queries.OpenQueries.TryGetValue(qid, out var state))
-		{
-			return;
-		}
 
-		await Workspace.Queries.SaveQueryAsync(qid);
-		Snackbar.Add("Query saved. Don't forget to save the project file.", Severity.Success);
+		try
+		{
+			var success = await Workspace.Queries.SaveQueryWithDialogAsync(qid, async (defaultFileName) =>
+			{
+				return await FileSystemService.PromptSaveFileAsync(defaultFileName);
+			});
+
+			if (success)
+			{
+				Snackbar.Add("Query saved successfully.", Severity.Success);
+			}
+		}
+		catch (Exception ex)
+		{
+			Snackbar.Add($"Failed to save query: {ex.Message}", Severity.Error);
+		}
 	}
 
 	public void Dispose()
