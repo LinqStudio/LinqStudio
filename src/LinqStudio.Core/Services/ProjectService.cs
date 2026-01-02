@@ -40,8 +40,7 @@ public class ProjectService
 			ConnectionString = connectionString,
 			CreatedDate = DateTimeOffset.UtcNow,
 			ModifiedDate = DateTimeOffset.UtcNow,
-			SchemaVersion = _versionConfig.CurrentSchemaVersion,
-			Queries = []
+			SchemaVersion = _versionConfig.CurrentSchemaVersion
 		};
 	}
 

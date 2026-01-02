@@ -100,13 +100,13 @@ public class ProjectWorkspace
 	/// <summary>
 	/// Creates a new project (in-memory only, not saved).
 	/// </summary>
-	public void CreateNew(string name)
+	public async Task CreateNewAsync(string name)
 	{
 		_currentProject = _projectService.CreateNew(name);
 		_savedProject = null; // New project, not saved yet
 		_currentFilePath = null;
 
-		_queriesWorkspace.Initialize(_currentProject);
+		await _queriesWorkspace.InitializeAsync(null);
 
 		OnWorkspaceChanged();
 	}
@@ -123,7 +123,7 @@ public class ProjectWorkspace
 		_savedProject = CloneProject(project);
 		_currentFilePath = filePath;
 
-		_queriesWorkspace.Initialize(_currentProject);
+		await _queriesWorkspace.InitializeAsync(filePath);
 
 		OnWorkspaceChanged();
 	}
@@ -143,22 +143,16 @@ public class ProjectWorkspace
 			throw new InvalidOperationException("Project file path is not set. Use SaveAsAsync instead.");
 		}
 
-		// Commit all query changes
-		_currentProject = _queriesWorkspace.CommitChanges(_currentProject);
+		// Save all query changes to disk
+		await _queriesWorkspace.SaveAllQueriesAsync();
 
+		// Save project file
 		await _projectService.SaveProjectAsync(_currentProject, _currentFilePath);
 
 		// Reload to get updated modified date
 		_currentProject = await _projectService.LoadProjectAsync(_currentFilePath)
 			?? throw new InvalidOperationException($"Project file not found: {_currentFilePath}");
 		_savedProject = _currentProject;
-
-		// Update the queries workspace with the newly saved project
-		// This syncs the saved query text with the open query states
-		_queriesWorkspace.UpdateSavedProject(_currentProject!);
-
-		// Clear unsaved flags now that everything is saved
-		_queriesWorkspace.ClearUnsavedFlags();
 
 		OnWorkspaceChanged();
 	}
@@ -177,22 +171,18 @@ public class ProjectWorkspace
 		var name = Path.GetFileNameWithoutExtension(filePath);
 		_currentProject.Name = name;
 
-		// Commit all query changes
-		_currentProject = _queriesWorkspace.CommitChanges(_currentProject);
-
+		// Save project file
 		await _projectService.SaveProjectAsync(_currentProject, filePath);
 		_currentFilePath = filePath;
+
+		// Save all query changes to disk (with new project path)
+		await _queriesWorkspace.InitializeAsync(filePath); // Reinitialize with new path
+		await _queriesWorkspace.SaveAllQueriesAsync();
 
 		// Reload to get updated modified date
 		_currentProject = await _projectService.LoadProjectAsync(_currentFilePath)
 			?? throw new InvalidOperationException($"Project file not found: {_currentFilePath}");
 		_savedProject = _currentProject;
-
-		// Update the queries workspace with the newly saved project
-		_queriesWorkspace.UpdateSavedProject(_currentProject!);
-
-		// Clear unsaved flags
-		_queriesWorkspace.ClearUnsavedFlags();
 
 		OnWorkspaceChanged();
 	}

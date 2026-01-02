@@ -56,7 +56,7 @@
 					else
 					{
 						<MudText Typo="Typo.body1" data-testid="query-name-display">
-							<strong>@(Workspace.Queries.GetCurrentQuery(Workspace.CurrentProject)?.Name ?? "New Query")</strong>
+							<strong>@(Workspace.Queries.GetCurrentQuery()?.Name ?? "New Query")</strong>
 						</MudText>
 						<MudTooltip Text="Rename query">
 							<MudIconButton Icon="@Icons.Material.Filled.Edit"

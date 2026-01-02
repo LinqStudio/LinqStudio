@@ -12,6 +12,7 @@ public static class ServiceCollectionExtensions
 		// Register default version config
 		services.AddSingleton<ProjectVersionConfig>();
 		services.AddSingleton<ProjectService>();
+		services.AddSingleton<QueryService>();
 
 		AddAndBindOptions(services);
 

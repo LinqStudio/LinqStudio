@@ -78,11 +78,11 @@ public partial class Editor : ComponentBase, IDisposable
 
 		if (QueryIdParam is not null)
 		{
-			Workspace.Queries.OpenQuery(Workspace.CurrentProject!, QueryIdParam.Value);
+			Workspace.Queries.OpenQuery(QueryIdParam.Value);
 		}
-		else if (Workspace.Queries.CurrentQueryId is null && Workspace.CurrentProject?.Queries?.Count > 0)
+		else if (Workspace.Queries.CurrentQueryId is null && Workspace.Queries.AllQueries.Count > 0)
 		{
-			Workspace.Queries.OpenQuery(Workspace.CurrentProject!, Workspace.CurrentProject.Queries[0].Id);
+			Workspace.Queries.OpenQuery(Workspace.Queries.AllQueries[0].Id);
 		}
 
 		if (_editor is not null)
@@ -103,8 +103,7 @@ public partial class Editor : ComponentBase, IDisposable
 
 	private void CreateNewQuery()
 	{
-		var queryId = Workspace.Queries.CreateNewQuery(Workspace.CurrentProject!);
-		Workspace.Update(Workspace.CurrentProject!);
+		var queryId = Workspace.Queries.CreateNewQuery();
 		NavigationManager.NavigateTo($"/editor/{queryId}", replace: true);
 	}
 
@@ -115,7 +114,7 @@ public partial class Editor : ComponentBase, IDisposable
 			return Workspace.Queries.CurrentQueryState.CurrentText;
 		}
 
-		return Workspace.Queries.GetCurrentQuery(Workspace.CurrentProject)?.QueryText ?? "// Write your LINQ query here\ncontext.";
+		return Workspace.Queries.GetCurrentQuery()?.QueryText ?? "// Write your LINQ query here\ncontext.";
 	}
 
 	protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -158,7 +157,7 @@ public partial class Editor : ComponentBase, IDisposable
 		try
 		{
 			await Task.Delay(DebounceDelayMs, _debounceTokenSource.Token);
-			Workspace.Queries.UpdateQueryText(Workspace.CurrentProject!, Workspace.Queries.CurrentQueryId!.Value, newText);
+			Workspace.Queries.UpdateQueryText(Workspace.Queries.CurrentQueryId!.Value, newText);
 		}
 		catch (TaskCanceledException)
 		{
@@ -167,7 +166,7 @@ public partial class Editor : ComponentBase, IDisposable
 
 	private void StartRename()
 	{
-		var currentQuery = Workspace.Queries.GetCurrentQuery(Workspace.CurrentProject);
+		var currentQuery = Workspace.Queries.GetCurrentQuery();
 		if (currentQuery is null)
 		{
 			return;
@@ -185,13 +184,12 @@ public partial class Editor : ComponentBase, IDisposable
 
 	private void SaveRename()
 	{
-		if (Workspace.Queries.CurrentQueryId is null || Workspace.CurrentProject is null)
+		if (Workspace.Queries.CurrentQueryId is null)
 		{
 			return;
 		}
 
-		Workspace.Queries.RenameQuery(Workspace.CurrentProject, Workspace.Queries.CurrentQueryId.Value, _editedQueryName);
-		Workspace.Update(Workspace.CurrentProject);
+		Workspace.Queries.RenameQuery(Workspace.Queries.CurrentQueryId.Value, _editedQueryName);
 
 		_isEditingName = false;
 		_editedQueryName = string.Empty;
@@ -208,8 +206,7 @@ public partial class Editor : ComponentBase, IDisposable
 
 		var currentId = Workspace.Queries.CurrentQueryId;
 
-		if (Workspace.CurrentProject?.Queries is not null &&
-			Workspace.CurrentProject.Queries
+		if (Workspace.Queries.AllQueries
 				.Where(q => currentId is null || q.Id != currentId.Value)
 				.Select(q => q.Name)
 				.Contains(name, StringComparer.OrdinalIgnoreCase))
@@ -399,18 +396,13 @@ public partial class Editor : ComponentBase, IDisposable
 
 	private IEnumerable<global::SavedQuery> GetOpenQueriesInOrder()
 	{
-		if (Workspace.CurrentProject?.Queries is null)
-		{
-			return Array.Empty<global::SavedQuery>();
-		}
-
 		var openIds = new HashSet<Guid>(Workspace.Queries.OpenQueries.Keys);
-		return Workspace.CurrentProject.Queries.Where(q => openIds.Contains(q.Id));
+		return Workspace.Queries.AllQueries.Where(q => openIds.Contains(q.Id));
 	}
 
 	private async Task CloseCurrentQuery()
 	{
-		if (!Workspace.IsProjectOpen || Workspace.CurrentProject is null || Workspace.Queries.CurrentQueryId is null)
+		if (!Workspace.IsProjectOpen || Workspace.Queries.CurrentQueryId is null)
 		{
 			return;
 		}
@@ -436,9 +428,9 @@ public partial class Editor : ComponentBase, IDisposable
 		}
 	}
 
-	private void SaveCurrentQuery()
+	private async Task SaveCurrentQuery()
 	{
-		if (!Workspace.IsProjectOpen || Workspace.CurrentProject is null || Workspace.Queries.CurrentQueryId is null)
+		if (!Workspace.IsProjectOpen || Workspace.Queries.CurrentQueryId is null)
 		{
 			return;
 		}
@@ -449,17 +441,8 @@ public partial class Editor : ComponentBase, IDisposable
 			return;
 		}
 
-		var query = Workspace.CurrentProject.Queries.FirstOrDefault(q => q.Id == qid);
-		if (query is null)
-		{
-			return;
-		}
-
-		query.QueryText = state.CurrentText;
-		Workspace.Queries.ClearUnsavedFlags();
-		Workspace.Update(Workspace.CurrentProject);
-
-		Snackbar.Add("Query saved (in project). Don't forget to save the project file.", Severity.Success);
+		await Workspace.Queries.SaveQueryAsync(qid);
+		Snackbar.Add("Query saved. Don't forget to save the project file.", Severity.Success);
 	}
 
 	public void Dispose()

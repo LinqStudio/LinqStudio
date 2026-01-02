@@ -68,20 +68,20 @@ public partial class NavMenu : ComponentBase, IDisposable
 				var confirm = await task;
 				if (confirm)
 				{
-					CreateNewProject();
+					await CreateNewProjectAsync();
 				}
 			}, TaskScheduler.FromCurrentSynchronizationContext());
 
 			return;
 		}
 
-		CreateNewProject();
+		_ = CreateNewProjectAsync();
 	}
 
-	private void CreateNewProject()
+	private async Task CreateNewProjectAsync()
 	{
 		// Create a default project with empty connection string
-		Workspace.CreateNew("Untitled");
+		await Workspace.CreateNewAsync("Untitled");
 		Snackbar.Add("New project created. Use 'Save' or 'Save As' to save it.", Severity.Info);
 
 		// Navigate to home page since we a an empty project now
@@ -226,19 +226,18 @@ public partial class NavMenu : ComponentBase, IDisposable
 			return;
 		}
 
-		var queryId = Workspace.Queries.CreateNewQuery(Workspace.CurrentProject);
-		Workspace.Update(Workspace.CurrentProject);
+		var queryId = Workspace.Queries.CreateNewQuery();
 		NavigationManager.NavigateTo($"/editor/{queryId}");
 	}
 
 	private void OpenSavedQuery(Guid queryId)
 	{
-		if (!Workspace.IsProjectOpen || Workspace.CurrentProject is null)
+		if (!Workspace.IsProjectOpen)
 		{
 			return;
 		}
 
-		Workspace.Queries.OpenQuery(Workspace.CurrentProject, queryId);
+		Workspace.Queries.OpenQuery(queryId);
 		NavigationManager.NavigateTo($"/editor/{queryId}");
 	}
 
