@@ -17,20 +17,9 @@
 				{
 					var isOpen = Workspace.Queries.OpenQueries.TryGetValue(q.Id, out var state);
 					var tabName = (isOpen && state?.HasUnsavedChanges == true) ? $"{q.Name} *" : q.Name;
-					<MudTabPanel OnClick="@(() => NavigateToQuery(q.Id))">
-						<ChildContent>
-							<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-								<MudText Typo="Typo.body2">@tabName</MudText>
-								<span @onclick:stopPropagation="true">
-									<MudIconButton Icon="@Icons.Material.Filled.Close"
-												Size="Size.Small"
-												Color="Color.Default"
-												OnClick="@(() => CloseQueryFromTab(q.Id))"
-												data-testid="@($"query-tab-close-{q.Id}")" />
-								</span>
-							</MudStack>
-						</ChildContent>
-					</MudTabPanel>
+					<MudTabPanel 
+						Text="@tabName" 
+						OnClick="@(() => NavigateToQuery(q.Id))" />
 				}
 			</MudTabs>
 		</MudPaper>
@@ -83,14 +72,25 @@
 					}
 				</MudStack>
 
-				<MudTooltip Text="Save query (in project)">
-					<MudIconButton Icon="@Icons.Material.Filled.Save"
-								   Color="Color.Primary"
-								   Size="Size.Small"
-								   OnClick="SaveCurrentQuery"
-								   Disabled="@(Workspace.Queries.CurrentQueryId is null || Workspace.Queries.CurrentQueryState?.HasUnsavedChanges != true)"
-								   data-testid="query-save-btn" />
-				</MudTooltip>
+				<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+					<MudTooltip Text="Save query (in project)">
+						<MudIconButton Icon="@Icons.Material.Filled.Save"
+									   Color="Color.Primary"
+									   Size="Size.Small"
+									   OnClick="SaveCurrentQuery"
+									   Disabled="@(Workspace.Queries.CurrentQueryId is null || Workspace.Queries.CurrentQueryState?.HasUnsavedChanges != true)"
+									   data-testid="query-save-btn" />
+					</MudTooltip>
+
+					<MudTooltip Text="Close query (in project)">
+						<MudIconButton Icon="@Icons.Material.Filled.Close"
+									   Color="Color.Primary"
+									   Size="Size.Small"
+									   OnClick="CloseCurrentQuery"
+									   Disabled="@(Workspace.Queries.CurrentQueryId is null)"
+									   data-testid="query-close-btn" />
+					</MudTooltip>
+				</MudStack>
 			</MudStack>
 		</MudPaper>
 

@@ -408,14 +408,14 @@ public partial class Editor : ComponentBase, IDisposable
 		return Workspace.CurrentProject.Queries.Where(q => openIds.Contains(q.Id));
 	}
 
-	private async Task CloseQueryFromTab(Guid queryId)
+	private async Task CloseCurrentQuery()
 	{
-		if (!Workspace.IsProjectOpen || Workspace.CurrentProject is null)
+		if (!Workspace.IsProjectOpen || Workspace.CurrentProject is null || Workspace.Queries.CurrentQueryId is null)
 		{
 			return;
 		}
 
-		if (Workspace.Queries.OpenQueries.TryGetValue(queryId, out var state) && state.HasUnsavedChanges)
+		if (Workspace.Queries.OpenQueries.TryGetValue(Workspace.Queries.CurrentQueryId.Value, out var state) && state.HasUnsavedChanges)
 		{
 			var confirm = await ShowUnsavedChangesDialog("This query has unsaved changes. Close without saving?");
 			if (!confirm)
@@ -424,7 +424,7 @@ public partial class Editor : ComponentBase, IDisposable
 			}
 		}
 
-		Workspace.Queries.CloseQuery(queryId);
+		Workspace.Queries.CloseQuery(Workspace.Queries.CurrentQueryId.Value);
 
 		if (Workspace.Queries.CurrentQueryId is Guid newId)
 		{
