@@ -153,12 +153,21 @@ public partial class Editor : ComponentBase, IDisposable
 	private void DebounceUpdate(string newText)
 	{
 		_debounceTokenSource?.Cancel();
+		_debounceTokenSource?.Dispose();
 		_debounceTokenSource = new CancellationTokenSource();
 		var token = _debounceTokenSource.Token;
 
 		_ = Task.Run(async () =>
 		{
-			await Task.Delay(DebounceDelayMs, token);
+			try
+			{
+				await Task.Delay(DebounceDelayMs, token);
+			}
+			catch (TaskCanceledException)
+			{
+				// Expected when user continues typing - just exit silently
+				return;
+			}
 			
 			if (!token.IsCancellationRequested && Workspace.Queries.CurrentQueryId is not null)
 			{
@@ -170,7 +179,7 @@ public partial class Editor : ComponentBase, IDisposable
 					}
 				});
 			}
-		}, token);
+		});
 	}
 
 	private void StartRename()
