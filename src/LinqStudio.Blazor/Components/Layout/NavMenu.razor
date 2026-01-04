@@ -4,44 +4,51 @@
 <MudNavMenu data-testid="nav-menu">
 	<MudNavLink Href="/" Icon="@Icons.Material.Filled.Home" Match="NavLinkMatch.All" data-testid="nav-home">Home</MudNavLink>
 	
-	<!-- Project Node with Actions -->
-	<MudNavGroup Title="@GetProjectTitle()" 
-				 Icon="@Icons.Material.Filled.Folder" 
-				 Expanded="@_projectExpanded"
-				 data-testid="nav-project-group">
-		
-		<MudNavLink Icon="@Icons.Material.Filled.Add" OnClick="NewProject" data-testid="nav-project-new">
-			New
-		</MudNavLink>
-		
-		<MudNavLink Icon="@Icons.Material.Filled.FolderOpen" OnClick="OpenProject" data-testid="nav-project-open">
-			Open
-		</MudNavLink>
-		
-		@if (Workspace.IsProjectOpen)
-		{
-			<MudDivider Class="my-2" />
-			
-			<MudNavLink Icon="@Icons.Material.Filled.Edit" OnClick="EditProject" data-testid="nav-project-properties">
-				Properties
+	<!-- Project Menu -->
+	<MudMenu Dense="true" AnchorOrigin="Origin.TopRight" TransformOrigin="Origin.TopLeft" data-testid="nav-project-menu" FullWidth="true">
+		<ActivatorContent>
+			<MudNavLink Icon="@Icons.Material.Filled.Folder" data-testid="nav-project">
+				@GetProjectTitle()
 			</MudNavLink>
+		</ActivatorContent>
+
+		<ChildContent>
+			<MudMenuItem OnClick="NewProject" data-testid="nav-project-new">
+				<MudIcon Icon="@Icons.Material.Filled.Add" Class="mr-2" />
+				New
+			</MudMenuItem>
 			
-			<MudNavLink Icon="@Icons.Material.Filled.Save" 
-						OnClick="SaveProject"
-						Disabled="@(!Workspace.HasUnsavedChanges)"
-						data-testid="nav-project-save">
-				Save
-			</MudNavLink>
+			<MudMenuItem OnClick="OpenProject" data-testid="nav-project-open">
+				<MudIcon Icon="@Icons.Material.Filled.FolderOpen" Class="mr-2" />
+				Open
+			</MudMenuItem>
 			
-			<MudNavLink Icon="@Icons.Material.Filled.SaveAs" OnClick="SaveAsProject" data-testid="nav-project-save-as">
-				Save As...
-			</MudNavLink>
-			
-			<MudNavLink Icon="@Icons.Material.Filled.Close" OnClick="CloseProject" data-testid="nav-project-close">
-				Close
-			</MudNavLink>
-		}
-	</MudNavGroup>
+			@if (Workspace.IsProjectOpen)
+			{
+				<MudDivider Class="my-2" />
+				
+				<MudMenuItem OnClick="EditProject" data-testid="nav-project-properties">
+					<MudIcon Icon="@Icons.Material.Filled.Edit" Class="mr-2" />
+					Properties
+				</MudMenuItem>
+				
+				<MudMenuItem OnClick="SaveProject" Disabled="@(!Workspace.HasUnsavedChanges)" data-testid="nav-project-save">
+					<MudIcon Icon="@Icons.Material.Filled.Save" Class="mr-2" />
+					Save
+				</MudMenuItem>
+				
+				<MudMenuItem OnClick="SaveAsProject" data-testid="nav-project-save-as">
+					<MudIcon Icon="@Icons.Material.Filled.SaveAs" Class="mr-2" />
+					Save As...
+				</MudMenuItem>
+				
+				<MudMenuItem OnClick="CloseProject" data-testid="nav-project-close">
+					<MudIcon Icon="@Icons.Material.Filled.Close" Class="mr-2" />
+					Close
+				</MudMenuItem>
+			}
+		</ChildContent>
+	</MudMenu>
 
 	@if (Workspace.IsProjectOpen)
 	{

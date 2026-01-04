@@ -15,8 +15,6 @@ public partial class NavMenu : ComponentBase, IDisposable
 	[Inject] private IDialogService DialogService { get; set; } = null!;
 	[Inject] private ISnackbar Snackbar { get; set; } = null!;
 
-	private readonly bool _projectExpanded = true;
-
 	protected override void OnInitialized()
 	{
 		Workspace.WorkspaceChanged += OnWorkspaceChanged;
