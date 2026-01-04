@@ -82,10 +82,7 @@ public partial class Editor : ComponentBase, IDisposable
 		{
 			Workspace.Queries.OpenQuery(QueryIdParam.Value);
 		}
-		else if (Workspace.Queries.CurrentQueryId is null && Workspace.Queries.AllQueries.Count > 0)
-		{
-			Workspace.Queries.OpenQuery(Workspace.Queries.AllQueries[0].Id);
-		}
+		// Don't auto-open queries - let the user explicitly open them
 
 		if (_editor is not null)
 		{

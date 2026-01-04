@@ -223,4 +223,39 @@ public class EditorE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await Expect(unsavedIndicator).ToBeVisibleAsync();
 		await Expect(unsavedIndicator).ToContainTextAsync("Unsaved");
 	}
+
+	[Fact(Timeout = 60_000)]
+	public async Task Editor_ShowsNoQueryMessage_WhenAllQueriesClosed()
+	{
+		Assert.NotNull(_pw.Browser);
+
+		await using var context = await _pw.Browser.NewContextAsync();
+		var page = await context.NewPageAsync();
+
+		await E2ETestHelpers.SetupEditorAsync(page, _app);
+
+		// Verify editor is showing with a query
+		var monacoContainer = page.GetByTestId("monaco-editor-container");
+		await Expect(monacoContainer).ToBeVisibleAsync();
+
+		// Close the current query
+		var closeBtn = page.GetByTestId("query-close-btn");
+		await Expect(closeBtn).ToBeVisibleAsync();
+		await closeBtn.ClickAsync();
+
+		// Verify we're redirected to /editor with no query
+		await page.WaitForURLAsync($"{_app.BaseUrl}editor");
+
+		// Verify the "no query" alert is visible
+		var noQueryAlert = page.GetByTestId("no-query-alert");
+		await Expect(noQueryAlert).ToBeVisibleAsync();
+		await Expect(noQueryAlert).ToContainTextAsync("No queries are currently open");
+
+		// Verify Monaco editor is NOT visible
+		await Expect(monacoContainer).Not.ToBeVisibleAsync();
+
+		// Verify query info bar is NOT visible
+		var queryInfoBar = page.GetByTestId("query-info-bar");
+		await Expect(queryInfoBar).Not.ToBeVisibleAsync();
+	}
 }
