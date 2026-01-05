@@ -105,7 +105,8 @@ public class QueryService
 		var queryFilePath = GetQueryFilePath(projectFilePath, query.Id);
 
 		// Write to temporary file first (atomic save pattern)
-		var tempFilePath = $"{queryFilePath}.tmp";
+		// Use a unique name to avoid conflicts with concurrent saves
+		var tempFilePath = $"{queryFilePath}.{Guid.NewGuid():N}.tmp";
 		try
 		{
 			await using (var stream = File.Create(tempFilePath))
@@ -230,7 +231,8 @@ public class QueryService
 		}
 
 		// Write to temporary file first (atomic save pattern)
-		var tempFilePath = $"{filePath}.tmp";
+		// Use a unique name to avoid conflicts with concurrent saves
+		var tempFilePath = $"{filePath}.{Guid.NewGuid():N}.tmp";
 		try
 		{
 			await using (var stream = File.Create(tempFilePath))
