@@ -26,7 +26,7 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await page.GotoAsync(_app.BaseUrl.ToString());
 
 		// Verify no project is open initially
-		var projectGroup = page.GetByTestId("nav-project-group");
+		var projectGroup = page.GetByTestId("nav-project");
 		await Expect(projectGroup).ToContainTextAsync("Project");
 
 		// Click "New" to create a project
@@ -65,11 +65,9 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		// Navigate back to home
 		await page.GetByTestId("nav-home").ClickAsync();
 
-		// Verify project shows unsaved indicator and has a query
-		var projectGroup = page.GetByTestId("nav-project-group");
+		// Verify project shows unsaved indicator
+		var projectGroup = page.GetByTestId("nav-project");
 		await Expect(projectGroup).ToContainTextAsync("Untitled *");
-		var query0 = page.GetByTestId("nav-query-0");
-		await Expect(query0).ToBeVisibleAsync();
 
 		// Try to create a new project (should show confirmation dialog)
 		await page.GetByTestId("nav-project-new").ClickAsync();
@@ -82,9 +80,8 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		var cancelBtn = page.GetByTestId("unsaved-changes-cancel-btn");
 		await cancelBtn.ClickAsync();
 
-		// Verify we're still on the same project with the query
+		// Verify we're still on the same project
 		await Expect(projectGroup).ToContainTextAsync("Untitled *");
-		await Expect(query0).ToBeVisibleAsync();
 
 		// Try again and confirm
 		await page.GetByTestId("nav-project-new").ClickAsync();
@@ -94,14 +91,17 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await confirmBtn.ClickAsync();
 
 		// Verify new project was created
-		// New projects are also "Untitled" with unsaved changes (asterisk), 
-		// but the queries list should be empty
+		// New projects are also "Untitled" with unsaved changes (asterisk)
 		await Expect(projectGroup).ToContainTextAsync("Untitled *");
 
-		// Verify the queries list is empty (proving it's a new project)
-		var emptyMessage = page.GetByTestId("nav-queries-empty");
-		await Expect(emptyMessage).ToBeVisibleAsync();
-		await Expect(emptyMessage).ToContainTextAsync("No queries yet");
+		// Navigate to editor to verify it's a new project with no queries
+		await page.GetByTestId("nav-editor").ClickAsync();
+		await page.WaitForURLAsync($"{_app.BaseUrl}editor");
+
+		// Verify "no queries" message is shown (proving it's a new project)
+		var noQueryAlert = page.GetByTestId("no-query-alert");
+		await Expect(noQueryAlert).ToBeVisibleAsync();
+		await Expect(noQueryAlert).ToContainTextAsync("No queries are currently open");
 	}
 
 	[Fact(Timeout = 60_000)]
@@ -116,7 +116,7 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await E2ETestHelpers.CreateNewProjectAsync(page, _app);
 
 		// Verify project is open
-		var projectGroup = page.GetByTestId("nav-project-group");
+		var projectGroup = page.GetByTestId("nav-project");
 		await Expect(projectGroup).ToContainTextAsync("Untitled");
 
 		// Close the project (new projects have unsaved changes, so we need to handle the dialog)
@@ -154,7 +154,7 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await page.GetByTestId("nav-home").ClickAsync();
 
 		// Verify project shows unsaved indicator
-		var projectGroup = page.GetByTestId("nav-project-group");
+		var projectGroup = page.GetByTestId("nav-project");
 		await Expect(projectGroup).ToContainTextAsync("Untitled *");
 
 		// Try to close the project
@@ -194,9 +194,9 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		// Navigate to home page
 		await page.GotoAsync(_app.BaseUrl.ToString());
 
-		// Verify queries section is not visible
-		var queriesGroup = page.GetByTestId("nav-queries-group");
-		await Expect(queriesGroup).Not.ToBeVisibleAsync();
+		// Verify editor menu is not visible when no project
+		var editorMenu = page.GetByTestId("nav-editor-menu");
+		await Expect(editorMenu).Not.ToBeVisibleAsync();
 
 		// Verify editor link is disabled
 		var editorLink = page.GetByTestId("nav-editor-disabled");
@@ -205,10 +205,10 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		// Create a project
 		await page.GetByTestId("nav-project-new").ClickAsync();
 
-		// Verify queries section is now visible
-		await Expect(queriesGroup).ToBeVisibleAsync();
+		// Verify editor menu is now visible
+		await Expect(editorMenu).ToBeVisibleAsync();
 
-		// Verify editor link is no longer shown (queries section replaces it)
+		// Verify disabled editor link is no longer shown
 		await Expect(editorLink).Not.ToBeVisibleAsync();
 	}
 
@@ -223,13 +223,14 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		// Create a project
 		await E2ETestHelpers.CreateNewProjectAsync(page, _app);
 
-		// Verify queries section shows empty message
-		var queriesGroup = page.GetByTestId("nav-queries-group");
-		await Expect(queriesGroup).ToBeVisibleAsync();
+		// Navigate to editor page
+		await page.GetByTestId("nav-editor").ClickAsync();
+		await page.WaitForURLAsync($"{_app.BaseUrl}editor");
 
-		var emptyMessage = page.GetByTestId("nav-queries-empty");
-		await Expect(emptyMessage).ToBeVisibleAsync();
-		await Expect(emptyMessage).ToContainTextAsync("No queries yet");
+		// Verify "no queries" message is shown
+		var noQueryAlert = page.GetByTestId("no-query-alert");
+		await Expect(noQueryAlert).ToBeVisibleAsync();
+		await Expect(noQueryAlert).ToContainTextAsync("No queries are currently open");
 	}
 
 	[Fact(Timeout = 120_000)]
@@ -258,7 +259,7 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await Expect(dialog).Not.ToBeVisibleAsync();
 
 		// Verify project shows unsaved indicator after properties update
-		var projectGroup = page.GetByTestId("nav-project-group");
+		var projectGroup = page.GetByTestId("nav-project");
 		await Expect(projectGroup).ToContainTextAsync("Untitled *");
 
 		// --- Create first query with custom name and content ---
@@ -300,11 +301,8 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		// Navigate back to home
 		await page.GetByTestId("nav-home").ClickAsync();
 
-		// Verify both queries show unsaved indicators in nav menu
-		var query0 = page.GetByTestId("nav-query-0");
-		var query1 = page.GetByTestId("nav-query-1");
-		await Expect(query0).ToContainTextAsync("Get Filtered People *");
-		await Expect(query1).ToContainTextAsync("Get People Summary *");
+		// Verify project still shows unsaved indicator
+		await Expect(projectGroup).ToContainTextAsync("Untitled *");
 
 		// --- Save the project ---
 		_app.MockFileSystemService.SetNextSaveFileResult("TestProject.linq");

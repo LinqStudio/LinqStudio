@@ -18,7 +18,8 @@ public static class E2ETestHelpers
 		await page.GotoAsync(app.BaseUrl.ToString());
 		await page.GetByTestId("nav-project-new").ClickAsync();
 		await page.WaitForURLAsync(app.BaseUrl.ToString());
-		await Expect(page.GetByTestId("nav-project-group")).ToContainTextAsync("Untitled");
+		// Changed from nav-project-group to nav-project since we now use MudMenu instead of MudNavGroup
+		await Expect(page.GetByTestId("nav-project")).ToContainTextAsync("Untitled");
 	}
 
 	/// <summary>
@@ -29,7 +30,8 @@ public static class E2ETestHelpers
 	/// <param name="queryText">Optional text to type into the editor. Defaults to "context."</param>
 	public static async Task CreateQueryAsync(IPage page, AppServerFixture app, string queryText = "context.", int index = 0)
 	{
-		await page.GetByTestId("nav-query-create").ClickAsync();
+		// Changed from nav-query-create to nav-editor-new
+		await page.GetByTestId("nav-editor-new").ClickAsync();
 		await page.WaitForURLAsync($"{app.BaseUrl}editor/{index}");
 		await Expect(page.GetByTestId("monaco-editor-container")).ToBeVisibleAsync();
 
@@ -49,8 +51,8 @@ public static class E2ETestHelpers
 	{
 		await CreateNewProjectAsync(page, app);
 
-		// Create a new query
-		await page.GetByTestId("nav-query-create").ClickAsync();
+		// Create a new query - changed from nav-query-create to nav-editor-new
+		await page.GetByTestId("nav-editor-new").ClickAsync();
 
 		// Wait for editor page to load
 		await page.WaitForURLAsync($"{app.BaseUrl}editor/*");
