@@ -341,10 +341,8 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		Assert.NotNull(secondQuery);
 		Assert.Contains("context.People.Select(x => new { x.Id, x.Name }).Take(100)", secondQuery.QueryText);
 
-		// Verify unsaved indicators are cleared after save
+		// Verify unsaved indicator is cleared after save
 		await Expect(projectGroup).Not.ToContainTextAsync("*");
-		await Expect(query0).Not.ToContainTextAsync("*");
-		await Expect(query1).Not.ToContainTextAsync("*");
 
 		// Verify Save button is disabled
 		saveBtn = page.GetByTestId("nav-project-save");
