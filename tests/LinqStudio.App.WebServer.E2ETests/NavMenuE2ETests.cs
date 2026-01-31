@@ -29,7 +29,9 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		var projectGroup = page.GetByTestId("nav-project");
 		await Expect(projectGroup).ToContainTextAsync("Project");
 
-		// Click "New" to create a project
+		// Open the Project menu and click "New" to create a project
+		await page.GetByTestId("nav-project").ClickAsync();
+		await Task.Delay(100); // Wait for menu to open
 		await page.GetByTestId("nav-project-new").ClickAsync();
 
 		// Verify we're redirected to home
@@ -43,7 +45,9 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		// Verify project title shows "Untitled"
 		await Expect(projectGroup).ToContainTextAsync("Untitled");
 
-		// Verify project-specific menu items are now visible
+		// Verify project-specific menu items are now visible (need to open menu to see them)
+		await page.GetByTestId("nav-project").ClickAsync();
+		await Task.Delay(100); // Wait for menu to open
 		await Expect(page.GetByTestId("nav-project-properties")).ToBeVisibleAsync();
 		await Expect(page.GetByTestId("nav-project-save")).ToBeVisibleAsync();
 		await Expect(page.GetByTestId("nav-project-save-as")).ToBeVisibleAsync();
@@ -69,7 +73,9 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		var projectGroup = page.GetByTestId("nav-project");
 		await Expect(projectGroup).ToContainTextAsync("Untitled *");
 
-		// Try to create a new project (should show confirmation dialog)
+		// Try to create a new project (should show confirmation dialog) - need to open menu first
+		await page.GetByTestId("nav-project").ClickAsync();
+		await Task.Delay(100); // Wait for menu to open
 		await page.GetByTestId("nav-project-new").ClickAsync();
 
 		// Verify confirmation dialog appears
@@ -83,7 +89,9 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		// Verify we're still on the same project
 		await Expect(projectGroup).ToContainTextAsync("Untitled *");
 
-		// Try again and confirm
+		// Try again and confirm - need to open menu again
+		await page.GetByTestId("nav-project").ClickAsync();
+		await Task.Delay(100); // Wait for menu to open
 		await page.GetByTestId("nav-project-new").ClickAsync();
 		await Expect(dialog).ToBeVisibleAsync();
 
@@ -120,6 +128,9 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await Expect(projectGroup).ToContainTextAsync("Untitled");
 
 		// Close the project (new projects have unsaved changes, so we need to handle the dialog)
+		// Need to open menu first
+		await page.GetByTestId("nav-project").ClickAsync();
+		await Task.Delay(100); // Wait for menu to open
 		await page.GetByTestId("nav-project-close").ClickAsync();
 
 		// Verify confirmation dialog appears (new project is considered unsaved)
@@ -133,7 +144,9 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		// Verify we're redirected to home
 		await page.WaitForURLAsync(_app.BaseUrl.ToString());
 
-		// Verify project-specific menu items are hidden
+		// Verify project-specific menu items are hidden (open menu to check)
+		await page.GetByTestId("nav-project").ClickAsync();
+		await Task.Delay(100); // Wait for menu to open
 		await Expect(page.GetByTestId("nav-project-save")).Not.ToBeVisibleAsync();
 		await Expect(page.GetByTestId("nav-project-close")).Not.ToBeVisibleAsync();
 	}
@@ -157,7 +170,9 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		var projectGroup = page.GetByTestId("nav-project");
 		await Expect(projectGroup).ToContainTextAsync("Untitled *");
 
-		// Try to close the project
+		// Try to close the project - need to open menu first
+		await page.GetByTestId("nav-project").ClickAsync();
+		await Task.Delay(100); // Wait for menu to open
 		await page.GetByTestId("nav-project-close").ClickAsync();
 
 		// Verify confirmation dialog appears with Continue/Cancel options
@@ -171,7 +186,9 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		// Verify project is still open
 		await Expect(projectGroup).ToContainTextAsync("Untitled *");
 
-		// Try again and click "Continue" to close without saving
+		// Try again and click "Continue" to close without saving - need to open menu again
+		await page.GetByTestId("nav-project").ClickAsync();
+		await Task.Delay(100); // Wait for menu to open
 		await page.GetByTestId("nav-project-close").ClickAsync();
 		await Expect(dialog).ToBeVisibleAsync();
 
@@ -202,7 +219,9 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		var editorLink = page.GetByTestId("nav-editor-disabled");
 		await Expect(editorLink).ToBeVisibleAsync();
 
-		// Create a project
+		// Create a project - need to open menu first
+		await page.GetByTestId("nav-project").ClickAsync();
+		await Task.Delay(100); // Wait for menu to open
 		await page.GetByTestId("nav-project-new").ClickAsync();
 
 		// Verify editor menu is now visible
@@ -245,6 +264,9 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await E2ETestHelpers.CreateNewProjectAsync(page, _app);
 
 		// --- Update connection string via Properties dialog ---
+		// Need to open menu first
+		await page.GetByTestId("nav-project").ClickAsync();
+		await Task.Delay(100); // Wait for menu to open
 		await page.GetByTestId("nav-project-properties").ClickAsync();
 
 		var dialog = page.GetByTestId("edit-project-dialog");
@@ -307,6 +329,9 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		// --- Save the project ---
 		_app.MockFileSystemService.SetNextSaveFileResult("TestProject.linq");
 
+		// Need to open menu first
+		await page.GetByTestId("nav-project").ClickAsync();
+		await Task.Delay(100); // Wait for menu to open
 		await page.GetByTestId("nav-project-save-as").ClickAsync();
 
 		// Verify snackbar shows success message
@@ -344,7 +369,9 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		// Verify unsaved indicator is cleared after save
 		await Expect(projectGroup).Not.ToContainTextAsync("*");
 
-		// Verify Save button is disabled
+		// Verify Save button is disabled - need to open menu to check
+		await page.GetByTestId("nav-project").ClickAsync();
+		await Task.Delay(100); // Wait for menu to open
 		saveBtn = page.GetByTestId("nav-project-save");
 		await Expect(saveBtn).ToHaveAttributeAsync("disabled", "");
 	}
