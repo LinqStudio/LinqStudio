@@ -41,7 +41,8 @@ public static class E2ETestHelpers
 		await Task.Delay(100);
 		// Changed from nav-query-create to nav-editor-new
 		await page.GetByTestId("nav-editor-new").ClickAsync();
-		await page.WaitForURLAsync($"{app.BaseUrl}editor/{index}");
+		// Queries now use GUIDs instead of numeric indices, so use a wildcard pattern
+		await page.WaitForURLAsync($"{app.BaseUrl}editor/*");
 		await Expect(page.GetByTestId("monaco-editor-container")).ToBeVisibleAsync();
 
 		// Wait for Monaco editor and focus it
