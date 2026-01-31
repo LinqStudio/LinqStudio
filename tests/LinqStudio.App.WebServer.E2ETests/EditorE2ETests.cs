@@ -176,7 +176,10 @@ public class EditorE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await Expect(queryName).ToContainTextAsync("My Test Query");
 
 		// --- Part 3: Create second query and test duplicate name validation ---
-		await page.GetByTestId("nav-query-create").ClickAsync();
+		// Open the Editor menu first
+		await page.GetByTestId("nav-editor").ClickAsync();
+		await Task.Delay(100); // Wait for menu to open
+		await page.GetByTestId("nav-editor-new").ClickAsync();
 		await page.WaitForURLAsync($"{_app.BaseUrl}editor/*");
 		await Expect(page.GetByTestId("monaco-editor-container")).ToBeVisibleAsync();
 

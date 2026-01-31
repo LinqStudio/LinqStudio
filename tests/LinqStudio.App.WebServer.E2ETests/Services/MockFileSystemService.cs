@@ -62,6 +62,14 @@ public class MockFileSystemService : IFileSystemService
 		return File.Exists(filePath);
 	}
 
+	/// <summary>
+	/// Gets the test files directory path.
+	/// </summary>
+	public string GetTestFilesDirectory()
+	{
+		return _testFilesDirectory;
+	}
+
 	public Task<string?> PromptOpenFileAsync(string fileExtension = ".linq", string? defaultPath = null)
 	{
 		// Return the pre-configured result (simulates user selecting a file)
