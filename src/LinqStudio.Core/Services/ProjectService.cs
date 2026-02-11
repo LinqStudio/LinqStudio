@@ -35,11 +35,8 @@ public class ProjectService
 	{
 		return new Project
 		{
-			Id = Guid.NewGuid(),
 			Name = name,
 			ConnectionString = connectionString,
-			CreatedDate = DateTimeOffset.UtcNow,
-			ModifiedDate = DateTimeOffset.UtcNow,
 			SchemaVersion = _versionConfig.CurrentSchemaVersion
 		};
 	}
@@ -161,12 +158,17 @@ public class ProjectService
 	{
 		if (project.Id == Guid.Empty)
 		{
-			throw new InvalidOperationException("Cannot save project with invalid project ID (Guid.Empty).");
+			// Lets just generate a new one
+			project.Id = Guid.NewGuid();
 		}
 
 		if (project.CreatedDate == default || project.ModifiedDate == default)
 		{
-			throw new InvalidOperationException("Project has invalid dates.");
+			// Lets just say it is now
+			project.CreatedDate = DateTimeOffset.UtcNow;
+			project.ModifiedDate = DateTimeOffset.UtcNow;
 		}
+
+		// Additional validations can be added here in the future as needed
 	}
 }

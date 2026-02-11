@@ -3,10 +3,10 @@
 public class Project
 {
 	public int SchemaVersion { get; set; } = ProjectConstants.CurrentSchemaVersion;
-	public Guid Id { get; init; } = Guid.NewGuid();
+	public Guid Id { get; set; } = Guid.NewGuid();
 	public string Name { get; set; } = string.Empty;
 	public string ConnectionString { get; set; } = string.Empty;
-	public DateTimeOffset CreatedDate { get; init; }
+	public DateTimeOffset CreatedDate { get; set; } = DateTimeOffset.UtcNow;
 	public DateTimeOffset ModifiedDate { get; set; }
 
 	// Future properties

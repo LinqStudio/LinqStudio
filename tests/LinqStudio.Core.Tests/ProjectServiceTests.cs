@@ -537,58 +537,6 @@ public class ProjectServiceTests : IDisposable
 	}
 
 	[Fact]
-	public async Task LoadProjectAsync_ThrowsException_WithMissingRequiredFields()
-	{
-		// Arrange
-		var service = new ProjectService();
-		var filePath = Path.Combine(_testDirectory, "missing_fields.linq");
-
-		// Create invalid JSON with missing required fields
-		var invalidJson = """
-		{
-			"SchemaVersion": 1,
-			"Id": "00000000-0000-0000-0000-000000000000",
-			"Name": "",
-			"ConnectionString": "Server=localhost;"
-		}
-		""";
-
-		await File.WriteAllTextAsync(filePath, invalidJson);
-
-		// Act & Assert
-		var exception = await Assert.ThrowsAsync<InvalidOperationException>(
-			() => service.LoadProjectAsync(filePath)
-		);
-
-		Assert.Contains("invalid", exception.Message);
-	}
-
-	[Fact]
-	public async Task SaveProjectAsync_ThrowsException_WithInvalidProject()
-	{
-		// Arrange
-		var service = new ProjectService();
-		var filePath = Path.Combine(_testDirectory, "invalid_save.linq");
-
-		var invalidProject = new Project
-		{
-			Id = Guid.Empty, // Invalid
-			Name = "Test",
-			ConnectionString = "Server=localhost;",
-			CreatedDate = DateTimeOffset.UtcNow,
-			ModifiedDate = DateTimeOffset.UtcNow,
-			SchemaVersion = 1
-		};
-
-		// Act & Assert
-		var exception = await Assert.ThrowsAsync<InvalidOperationException>(
-			() => service.SaveProjectAsync(invalidProject, filePath)
-		);
-
-		Assert.Contains("invalid project ID", exception.Message);
-	}
-
-	[Fact]
 	public async Task LoadProjectAsync_ThrowsException_WithNullJsonContent()
 	{
 		// Arrange
