@@ -2,7 +2,7 @@
 using BlazorMonaco.Editor;
 using BlazorMonaco.Languages;
 using LinqStudio.Blazor.Services;
-using LinqStudio.Core.Abstractions;
+using LinqStudio.Abstractions;
 using LinqStudio.Core.Extensions;
 using LinqStudio.Core.Resources;
 using Microsoft.AspNetCore.Components;
