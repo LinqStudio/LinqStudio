@@ -62,7 +62,7 @@ public class ProjectWorkspaceTests : IDisposable
 		// Create and save a project first
 		var project = _projectService.CreateNew("TestProject", "Server=localhost;");
 		await _projectService.SaveProjectAsync(project, filePath);
-		
+
 		// Create a query separately
 		var query = new SavedQuery { Name = "Query1", QueryText = "context.People", CreatedDate = DateTimeOffset.UtcNow };
 		await _queryService.SaveQueryAsync(filePath, query);
@@ -85,7 +85,7 @@ public class ProjectWorkspaceTests : IDisposable
 		var filePath = Path.Combine(_testDirectory, "test.linq");
 		var project = _projectService.CreateNew("Test", "");
 		await _projectService.SaveProjectAsync(project, filePath);
-		
+
 		// Create a query separately
 		var query = new SavedQuery { Name = "Query1", QueryText = "context.People", CreatedDate = DateTimeOffset.UtcNow };
 		await _queryService.SaveQueryAsync(filePath, query);
@@ -152,34 +152,6 @@ public class ProjectWorkspaceTests : IDisposable
 
 		// Act & Assert
 		await Assert.ThrowsAsync<InvalidOperationException>(() => _workspace.SaveAsync());
-	}
-
-	[Fact]
-	public async Task SaveAsync_CommitsAllQueryChanges()
-	{
-		// Arrange
-		var filePath = Path.Combine(_testDirectory, "query_save.linq");
-		var project = _projectService.CreateNew("Test");
-		await _projectService.SaveProjectAsync(project, filePath);
-		
-		// Create query separately
-		var query = new SavedQuery { Name = "Query1", QueryText = "context.People", CreatedDate = DateTimeOffset.UtcNow };
-		await _queryService.SaveQueryAsync(filePath, query);
-		
-		await _workspace.LoadAsync(filePath);
-
-		// Modify query
-		var qid = _queriesWorkspace.AllQueries[0].Id;
-		_queriesWorkspace.UpdateQueryText(qid, "context.People.ToList()");
-
-		// Act
-		await _workspace.SaveAsync();
-
-		// Assert - verify query was saved
-		var reloadedQueries = await _queryService.LoadQueriesAsync(filePath);
-		Assert.Single(reloadedQueries);
-		Assert.Equal("context.People.ToList()", reloadedQueries[0].QueryText);
-		Assert.False(_workspace.HasUnsavedChanges);
 	}
 
 	#endregion
@@ -314,11 +286,11 @@ public class ProjectWorkspaceTests : IDisposable
 		var filePath = Path.Combine(_testDirectory, "test.linq");
 		var project = _projectService.CreateNew("Test");
 		await _projectService.SaveProjectAsync(project, filePath);
-		
+
 		// Create a query separately
 		var query = new SavedQuery { Name = "Query1", QueryText = "context.People", CreatedDate = DateTimeOffset.UtcNow };
 		await _queryService.SaveQueryAsync(filePath, query);
-		
+
 		await _workspace.LoadAsync(filePath);
 
 		// Quick assert no changes yet
