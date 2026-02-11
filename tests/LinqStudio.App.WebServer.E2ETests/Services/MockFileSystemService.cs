@@ -70,7 +70,7 @@ public class MockFileSystemService : IFileSystemService
 		return _testFilesDirectory;
 	}
 
-	public Task<string?> PromptOpenFileAsync(string fileExtension = ".linq", string? defaultPath = null)
+	public Task<string?> PromptOpenFileAsync(string fileExtension = "linq", string? defaultPath = null)
 	{
 		// Return the pre-configured result (simulates user selecting a file)
 		var result = _nextOpenFileResult;
@@ -78,7 +78,7 @@ public class MockFileSystemService : IFileSystemService
 		return Task.FromResult(result);
 	}
 
-	public Task<string?> PromptSaveFileAsync(string defaultFileName, string? defaultPath = null)
+	public Task<string?> PromptSaveFileAsync(string defaultFileName, string fileExtension = "linq", string? defaultPath = null)
 	{
 		// If a specific result is set, use it
 		if (_nextSaveFileResult != null)
@@ -90,9 +90,9 @@ public class MockFileSystemService : IFileSystemService
 
 		// Otherwise, auto-generate a file path in the test directory
 		var filePath = Path.Combine(_testFilesDirectory, defaultFileName);
-		if (!filePath.EndsWith(".linq", StringComparison.OrdinalIgnoreCase))
+		if (!filePath.EndsWith(fileExtension, StringComparison.OrdinalIgnoreCase))
 		{
-			filePath += ".linq";
+			filePath += "." + fileExtension;
 		}
 		return Task.FromResult<string?>(filePath);
 	}

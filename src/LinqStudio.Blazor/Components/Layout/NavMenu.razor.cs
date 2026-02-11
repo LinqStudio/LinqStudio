@@ -1,5 +1,6 @@
 using LinqStudio.Blazor.Abstractions;
 using LinqStudio.Blazor.Components.Dialogs;
+using LinqStudio.Blazor.Constants;
 using LinqStudio.Blazor.Services;
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
@@ -102,7 +103,7 @@ public partial class NavMenu : ComponentBase, IDisposable
 		try
 		{
 			// Use native file dialog directly
-			var filePath = await FileSystemService.PromptOpenFileAsync("linq");
+			var filePath = await FileSystemService.PromptOpenFileAsync(FileExtensions.Project);
 
 			if (string.IsNullOrWhiteSpace(filePath))
 			{
@@ -183,7 +184,7 @@ public partial class NavMenu : ComponentBase, IDisposable
 		try
 		{
 			// Use native file dialog directly with current project name
-			var filePath = await FileSystemService.PromptSaveFileAsync($"{Workspace.CurrentProjectName}.linq");
+			var filePath = await FileSystemService.PromptSaveFileAsync(FileExtensions.EnsureHasExtension(Workspace.CurrentProjectName, FileExtensions.Project));
 
 			if (string.IsNullOrWhiteSpace(filePath))
 			{
@@ -237,15 +238,15 @@ public partial class NavMenu : ComponentBase, IDisposable
 
 		try
 		{
-			var filePath = await FileSystemService.PromptOpenFileAsync(".linq.query");
-			
+			var filePath = await FileSystemService.PromptOpenFileAsync(LinqStudio.Blazor.Constants.FileExtensions.Query);
+
 			if (string.IsNullOrEmpty(filePath))
 			{
 				return; // User cancelled
 			}
 
 			var queryId = await Workspace.Queries.OpenQueryFromFileAsync(filePath);
-			
+
 			if (queryId.HasValue)
 			{
 				NavigationManager.NavigateTo($"/editor/{queryId.Value}");

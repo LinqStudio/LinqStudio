@@ -16,7 +16,7 @@ public class ServerFileSystemService : IFileSystemService
 		_defaultProjectsPath = GetDefaultProjectsPath();
 	}
 
-	public async Task<string?> PromptOpenFileAsync(string fileExtension = ".linq", string? defaultPath = null)
+	public async Task<string?> PromptOpenFileAsync(string fileExtension = "linq", string? defaultPath = null)
 	{
 		// Run native dialog on background thread to avoid blocking UI
 		return await Task.Run(() =>
@@ -32,19 +32,19 @@ public class ServerFileSystemService : IFileSystemService
 		});
 	}
 
-	public async Task<string?> PromptSaveFileAsync(string defaultFileName, string? defaultPath = null)
+	public async Task<string?> PromptSaveFileAsync(string defaultFileName, string fileExtension = "linq", string? defaultPath = null)
 	{
 		return await Task.Run(() =>
 		{
-			var dialog = Dialog.FileSave("linq", defaultPath ?? _defaultProjectsPath);
+			var dialog = Dialog.FileSave(fileExtension, defaultPath ?? _defaultProjectsPath);
 
 			if (dialog.IsOk)
 			{
 				var path = dialog.Path;
 				// Ensure .linq extension
-				if (!path.EndsWith(".linq", StringComparison.OrdinalIgnoreCase))
+				if (!path.EndsWith(fileExtension, StringComparison.OrdinalIgnoreCase))
 				{
-					path += ".linq";
+					path += "." + fileExtension;
 				}
 				return path;
 			}

@@ -31,42 +31,9 @@
 			<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
 				<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
 					<MudIcon Icon="@Icons.Material.Filled.Description" Size="Size.Small" />
-
-					@if (_isEditingName)
-					{
-						<MudTextField @bind-Value="_editedQueryName"
-									  Variant="Variant.Outlined"
-									  Margin="Margin.Dense"
-									  Immediate="true"
-									  Validation="@(new Func<string, string?>(ValidateQueryName))"
-									  OnKeyDown="OnNameKeyDown"
-									  Class="query-name-editor"
-									  Style="max-width: 300px;"
-									  data-testid="query-name-input" />
-						<MudIconButton Icon="@Icons.Material.Filled.Check"
-								   Color="Color.Success"
-								   Size="Size.Small"
-								   OnClick="SaveRename"
-								   Disabled="@(ValidateQueryName(_editedQueryName) != null)"
-								   data-testid="query-rename-save-btn" />
-						<MudIconButton Icon="@Icons.Material.Filled.Close"
-								   Color="Color.Default"
-								   Size="Size.Small"
-								   OnClick="CancelRename"
-								   data-testid="query-rename-cancel-btn" />
-					}
-					else
-					{
-						<MudText Typo="Typo.body1" data-testid="query-name-display">
-							<strong>@(Workspace.Queries.GetCurrentQuery()?.Name ?? "New Query")</strong>
-						</MudText>
-						<MudTooltip Text="Rename query">
-							<MudIconButton Icon="@Icons.Material.Filled.Edit"
-										   Size="Size.Small"
-										   OnClick="StartRename"
-										   data-testid="query-rename-btn" />
-						</MudTooltip>
-					}
+					<MudText Typo="Typo.body1" data-testid="query-name-display">
+						<strong>@(Workspace.Queries.GetCurrentQuery()?.Name ?? "New Query")</strong>
+					</MudText>
 
 					@if (Workspace.Queries.CurrentQueryState?.HasUnsavedChanges == true)
 					{

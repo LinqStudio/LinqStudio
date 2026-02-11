@@ -9,10 +9,10 @@ public interface IFileSystemService
 	/// <summary>
 	/// Prompts user to select a file path for opening.
 	/// </summary>
-	Task<string?> PromptOpenFileAsync(string fileExtension = ".linq", string? defaultPath = null);
+	Task<string?> PromptOpenFileAsync(string fileExtension = "linq", string? defaultPath = null);
 
 	/// <summary>
 	/// Prompts user to select a file path for saving.
 	/// </summary>
-	Task<string?> PromptSaveFileAsync(string defaultFileName, string? defaultPath = null);
+	Task<string?> PromptSaveFileAsync(string defaultFileName, string fileExtension = "linq", string? defaultPath = null);
 }

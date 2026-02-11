@@ -3,15 +3,14 @@ using BlazorMonaco.Editor;
 using BlazorMonaco.Languages;
 using LinqStudio.Blazor.Abstractions;
 using LinqStudio.Blazor.Components.Dialogs;
+using LinqStudio.Blazor.Constants;
 using LinqStudio.Blazor.Services;
 using LinqStudio.Core.Services;
 using LinqStudio.Core.Settings;
 using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Web;
 using Microsoft.CodeAnalysis.Tags;
 using Microsoft.Extensions.Options;
 using MudBlazor;
-using System.Diagnostics;
 
 namespace LinqStudio.Blazor.Components.Pages.Editor;
 
@@ -33,9 +32,6 @@ public partial class Editor : ComponentBase, IDisposable
 	private IDisposable? _hoverProviderDisposable;
 	private CompilerService? _compiler;
 	private string _lastQueryText = string.Empty;
-
-	private bool _isEditingName;
-	private string _editedQueryName = string.Empty;
 
 	private CancellationTokenSource? _debounceTokenSource;
 	private const int DebounceDelayMs = 300;
@@ -165,7 +161,7 @@ public partial class Editor : ComponentBase, IDisposable
 				// Expected when user continues typing - just exit silently
 				return;
 			}
-			
+
 			if (!token.IsCancellationRequested && Workspace.Queries.CurrentQueryId is not null)
 			{
 				await InvokeAsync(() =>
@@ -177,74 +173,6 @@ public partial class Editor : ComponentBase, IDisposable
 				});
 			}
 		});
-	}
-
-	private void StartRename()
-	{
-		var currentQuery = Workspace.Queries.GetCurrentQuery();
-		if (currentQuery is null)
-		{
-			return;
-		}
-
-		_editedQueryName = currentQuery.Name;
-		_isEditingName = true;
-	}
-
-	private void CancelRename()
-	{
-		_isEditingName = false;
-		_editedQueryName = string.Empty;
-	}
-
-	private void SaveRename()
-	{
-		if (Workspace.Queries.CurrentQueryId is null)
-		{
-			return;
-		}
-
-		Workspace.Queries.RenameQuery(Workspace.Queries.CurrentQueryId.Value, _editedQueryName);
-
-		_isEditingName = false;
-		_editedQueryName = string.Empty;
-
-		Snackbar.Add("Query renamed successfully.", Severity.Success);
-	}
-
-	private string? ValidateQueryName(string name)
-	{
-		if (string.IsNullOrWhiteSpace(name))
-		{
-			return "Query name cannot be empty.";
-		}
-
-		var currentId = Workspace.Queries.CurrentQueryId;
-
-		if (Workspace.Queries.AllQueries
-				.Where(q => currentId is null || q.Id != currentId.Value)
-				.Select(q => q.Name)
-				.Contains(name, StringComparer.OrdinalIgnoreCase))
-		{
-			return "A query with this name already exists.";
-		}
-
-		return null;
-	}
-
-	private void OnNameKeyDown(KeyboardEventArgs e)
-	{
-		if (e.Key == "Enter")
-		{
-			if (ValidateQueryName(_editedQueryName) == null)
-			{
-				SaveRename();
-			}
-		}
-		else if (e.Key == "Escape")
-		{
-			CancelRename();
-		}
 	}
 
 	private async Task OnEditorInitialized()
@@ -409,7 +337,7 @@ public partial class Editor : ComponentBase, IDisposable
 		return (result is not null) && !result.Canceled && result.Data is bool confirm && confirm;
 	}
 
-	private IEnumerable<global::SavedQuery> GetOpenQueriesInOrder()
+	private IEnumerable<SavedQuery> GetOpenQueriesInOrder()
 	{
 		var openIds = new HashSet<Guid>(Workspace.Queries.OpenQueries.Keys);
 		return Workspace.Queries.AllQueries.Where(q => openIds.Contains(q.Id));
@@ -459,7 +387,7 @@ public partial class Editor : ComponentBase, IDisposable
 		{
 			var success = await Workspace.Queries.SaveQueryWithDialogAsync(qid, async (defaultFileName) =>
 			{
-				return await FileSystemService.PromptSaveFileAsync(defaultFileName);
+				return await FileSystemService.PromptSaveFileAsync(FileExtensions.EnsureHasExtension(defaultFileName, FileExtensions.Query), FileExtensions.Query);
 			});
 
 			if (success)

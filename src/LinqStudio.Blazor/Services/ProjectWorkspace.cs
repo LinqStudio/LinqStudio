@@ -143,9 +143,6 @@ public class ProjectWorkspace
 			throw new InvalidOperationException("Project file path is not set. Use SaveAsAsync instead.");
 		}
 
-		// Save all query changes to disk
-		await _queriesWorkspace.SaveAllQueriesAsync();
-
 		// Save project file
 		await _projectService.SaveProjectAsync(_currentProject, _currentFilePath);
 
@@ -177,7 +174,6 @@ public class ProjectWorkspace
 
 		// Save all query changes to disk (with new project path)
 		await _queriesWorkspace.InitializeAsync(filePath); // Reinitialize with new path
-		await _queriesWorkspace.SaveAllQueriesAsync();
 
 		// Reload to get updated modified date
 		_currentProject = await _projectService.LoadProjectAsync(_currentFilePath)

@@ -1,5 +1,5 @@
+using LinqStudio.Blazor.Constants;
 using LinqStudio.Blazor.Models;
-using LinqStudio.Core.Models;
 using LinqStudio.Core.Services;
 
 namespace LinqStudio.Blazor.Services;
@@ -268,29 +268,6 @@ public class QueriesWorkspace
 	}
 
 	/// <summary>
-	/// Commits all open query changes to disk.
-	/// </summary>
-	public async Task SaveAllQueriesAsync()
-	{
-		if (string.IsNullOrEmpty(_projectFilePath))
-		{
-			throw new InvalidOperationException("No project file path set.");
-		}
-
-		foreach (var (queryId, state) in _openQueries.Where(kvp => kvp.Value.HasUnsavedChanges))
-		{
-			if (_allQueries.TryGetValue(queryId, out var query))
-			{
-				query.QueryText = state.CurrentText;
-				await _queryService.SaveQueryAsync(_projectFilePath, query);
-				state.HasUnsavedChanges = false;
-			}
-		}
-
-		OnQueriesChanged();
-	}
-
-	/// <summary>
 	/// Saves a specific query to disk.
 	/// </summary>
 	public async Task SaveQueryAsync(Guid queryId)
@@ -331,22 +308,19 @@ public class QueriesWorkspace
 			query.QueryText = state.CurrentText;
 		}
 
-		// Prompt for file location if not already set
-		string? filePath = query.FilePath;
+		var defaultFileName = FileExtensions.EnsureHasExtension(query.Name, FileExtensions.Query);
+		var filePath = await promptSaveFile(defaultFileName);
 		if (string.IsNullOrEmpty(filePath))
 		{
-			var defaultFileName = $"{query.Name}.linq.query";
-			filePath = await promptSaveFile(defaultFileName);
-			
-			if (string.IsNullOrEmpty(filePath))
-			{
-				return false; // User cancelled
-			}
+			return false; // User cancelled
 		}
+
+		query.FilePath = filePath;
+		query.Name = GetQueryNameFromFilePath(filePath);
 
 		// Save to file
 		await _queryService.SaveQueryToFileAsync(filePath, query);
-		
+
 		// Mark as saved
 		if (_openQueries.TryGetValue(queryId, out var openState))
 		{
@@ -355,6 +329,28 @@ public class QueriesWorkspace
 
 		OnQueriesChanged();
 		return true;
+	}
+
+	private static string GetQueryNameFromFilePath(string filePath)
+	{
+		var fileName = Path.GetFileName(filePath);
+		if (string.IsNullOrWhiteSpace(fileName))
+		{
+			return "Query";
+		}
+
+		var name = fileName;
+		var queryExtWithDot = FileExtensions.WithDot(FileExtensions.Query);
+		if (name.EndsWith(queryExtWithDot, StringComparison.OrdinalIgnoreCase))
+		{
+			name = name[..^queryExtWithDot.Length];
+		}
+		else
+		{
+			name = Path.GetFileNameWithoutExtension(fileName);
+		}
+
+		return string.IsNullOrWhiteSpace(name) ? "Query" : name;
 	}
 
 	/// <summary>
@@ -368,6 +364,8 @@ public class QueriesWorkspace
 			return null;
 		}
 
+		query.Name = GetQueryNameFromFilePath(filePath);
+
 		// Add to all queries if not already present
 		if (!_allQueries.ContainsKey(query.Id))
 		{
@@ -376,17 +374,8 @@ public class QueriesWorkspace
 
 		// Open the query
 		OpenQuery(query.Id);
-		
+
 		return query.Id;
-	}
-	/// </summary>
-	public void ClearUnsavedFlags()
-	{
-		foreach (var state in _openQueries.Values)
-		{
-			state.HasUnsavedChanges = false;
-		}
-		OnQueriesChanged();
 	}
 
 	private string GetUniqueQueryName(string baseName)
