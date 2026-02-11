@@ -1,6 +1,7 @@
 using BlazorMonaco;
 using BlazorMonaco.Editor;
 using BlazorMonaco.Languages;
+using LinqStudio.Blazor.Abstractions;
 using LinqStudio.Blazor.Components.Dialogs;
 using LinqStudio.Blazor.Services;
 using LinqStudio.Core.Services;
@@ -23,6 +24,7 @@ public partial class Editor : ComponentBase, IDisposable
 	[Inject] private ProjectWorkspace Workspace { get; set; } = null!;
 	[Inject] private NavigationManager NavigationManager { get; set; } = null!;
 	[Inject] private IDialogService DialogService { get; set; } = null!;
+	[Inject] private IFileSystemService FileSystemService { get; set; } = null!;
 
 	[Parameter] public Guid? QueryIdParam { get; set; }
 
@@ -78,12 +80,9 @@ public partial class Editor : ComponentBase, IDisposable
 
 		if (QueryIdParam is not null)
 		{
-			Workspace.Queries.OpenQuery(Workspace.CurrentProject!, QueryIdParam.Value);
+			Workspace.Queries.OpenQuery(QueryIdParam.Value);
 		}
-		else if (Workspace.Queries.CurrentQueryId is null && Workspace.CurrentProject?.Queries?.Count > 0)
-		{
-			Workspace.Queries.OpenQuery(Workspace.CurrentProject!, Workspace.CurrentProject.Queries[0].Id);
-		}
+		// Don't auto-open queries - let the user explicitly open them
 
 		if (_editor is not null)
 		{
@@ -103,8 +102,7 @@ public partial class Editor : ComponentBase, IDisposable
 
 	private void CreateNewQuery()
 	{
-		var queryId = Workspace.Queries.CreateNewQuery(Workspace.CurrentProject!);
-		Workspace.Update(Workspace.CurrentProject!);
+		var queryId = Workspace.Queries.CreateNewQuery();
 		NavigationManager.NavigateTo($"/editor/{queryId}", replace: true);
 	}
 
@@ -115,7 +113,7 @@ public partial class Editor : ComponentBase, IDisposable
 			return Workspace.Queries.CurrentQueryState.CurrentText;
 		}
 
-		return Workspace.Queries.GetCurrentQuery(Workspace.CurrentProject)?.QueryText ?? "// Write your LINQ query here\ncontext.";
+		return Workspace.Queries.GetCurrentQuery()?.QueryText ?? "// Write your LINQ query here\ncontext.";
 	}
 
 	protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -141,33 +139,49 @@ public partial class Editor : ComponentBase, IDisposable
 		if (newText != _lastQueryText)
 		{
 			_lastQueryText = newText;
-			await DebounceUpdateAsync(newText);
+			DebounceUpdate(newText);
 		}
 	}
 
 	/// <summary>
 	/// Debounces query text updates to avoid excessive workspace updates while typing.
-	/// Expected to throw TaskCanceledException when user continues typing.
+	/// Uses a cancellation token without throwing exceptions.
 	/// </summary>
-	[DebuggerNonUserCode]
-	private async Task DebounceUpdateAsync(string newText)
+	private void DebounceUpdate(string newText)
 	{
 		_debounceTokenSource?.Cancel();
+		_debounceTokenSource?.Dispose();
 		_debounceTokenSource = new CancellationTokenSource();
+		var token = _debounceTokenSource.Token;
 
-		try
+		_ = Task.Run(async () =>
 		{
-			await Task.Delay(DebounceDelayMs, _debounceTokenSource.Token);
-			Workspace.Queries.UpdateQueryText(Workspace.CurrentProject!, Workspace.Queries.CurrentQueryId!.Value, newText);
-		}
-		catch (TaskCanceledException)
-		{
-		}
+			try
+			{
+				await Task.Delay(DebounceDelayMs, token);
+			}
+			catch (TaskCanceledException)
+			{
+				// Expected when user continues typing - just exit silently
+				return;
+			}
+			
+			if (!token.IsCancellationRequested && Workspace.Queries.CurrentQueryId is not null)
+			{
+				await InvokeAsync(() =>
+				{
+					if (!token.IsCancellationRequested)
+					{
+						Workspace.Queries.UpdateQueryText(Workspace.Queries.CurrentQueryId.Value, newText);
+					}
+				});
+			}
+		});
 	}
 
 	private void StartRename()
 	{
-		var currentQuery = Workspace.Queries.GetCurrentQuery(Workspace.CurrentProject);
+		var currentQuery = Workspace.Queries.GetCurrentQuery();
 		if (currentQuery is null)
 		{
 			return;
@@ -185,13 +199,12 @@ public partial class Editor : ComponentBase, IDisposable
 
 	private void SaveRename()
 	{
-		if (Workspace.Queries.CurrentQueryId is null || Workspace.CurrentProject is null)
+		if (Workspace.Queries.CurrentQueryId is null)
 		{
 			return;
 		}
 
-		Workspace.Queries.RenameQuery(Workspace.CurrentProject, Workspace.Queries.CurrentQueryId.Value, _editedQueryName);
-		Workspace.Update(Workspace.CurrentProject);
+		Workspace.Queries.RenameQuery(Workspace.Queries.CurrentQueryId.Value, _editedQueryName);
 
 		_isEditingName = false;
 		_editedQueryName = string.Empty;
@@ -208,8 +221,7 @@ public partial class Editor : ComponentBase, IDisposable
 
 		var currentId = Workspace.Queries.CurrentQueryId;
 
-		if (Workspace.CurrentProject?.Queries is not null &&
-			Workspace.CurrentProject.Queries
+		if (Workspace.Queries.AllQueries
 				.Where(q => currentId is null || q.Id != currentId.Value)
 				.Select(q => q.Name)
 				.Contains(name, StringComparer.OrdinalIgnoreCase))
@@ -399,18 +411,13 @@ public partial class Editor : ComponentBase, IDisposable
 
 	private IEnumerable<global::SavedQuery> GetOpenQueriesInOrder()
 	{
-		if (Workspace.CurrentProject?.Queries is null)
-		{
-			return Array.Empty<global::SavedQuery>();
-		}
-
 		var openIds = new HashSet<Guid>(Workspace.Queries.OpenQueries.Keys);
-		return Workspace.CurrentProject.Queries.Where(q => openIds.Contains(q.Id));
+		return Workspace.Queries.AllQueries.Where(q => openIds.Contains(q.Id));
 	}
 
 	private async Task CloseCurrentQuery()
 	{
-		if (!Workspace.IsProjectOpen || Workspace.CurrentProject is null || Workspace.Queries.CurrentQueryId is null)
+		if (!Workspace.IsProjectOpen || Workspace.Queries.CurrentQueryId is null)
 		{
 			return;
 		}
@@ -424,42 +431,46 @@ public partial class Editor : ComponentBase, IDisposable
 			}
 		}
 
-		Workspace.Queries.CloseQuery(Workspace.Queries.CurrentQueryId.Value);
+		var currentId = Workspace.Queries.CurrentQueryId.Value;
+		Workspace.Queries.CloseQuery(currentId);
 
+		// Navigate to the next open query, or to editor home if no queries are open
 		if (Workspace.Queries.CurrentQueryId is Guid newId)
 		{
 			NavigationManager.NavigateTo($"/editor/{newId}", replace: true);
 		}
 		else
 		{
+			// No queries left open - stay on editor page but with no query selected
 			NavigationManager.NavigateTo("/editor", replace: true);
 		}
 	}
 
-	private void SaveCurrentQuery()
+	private async Task SaveCurrentQuery()
 	{
-		if (!Workspace.IsProjectOpen || Workspace.CurrentProject is null || Workspace.Queries.CurrentQueryId is null)
+		if (!Workspace.IsProjectOpen || Workspace.Queries.CurrentQueryId is null)
 		{
 			return;
 		}
 
 		var qid = Workspace.Queries.CurrentQueryId.Value;
-		if (!Workspace.Queries.OpenQueries.TryGetValue(qid, out var state))
+
+		try
 		{
-			return;
-		}
+			var success = await Workspace.Queries.SaveQueryWithDialogAsync(qid, async (defaultFileName) =>
+			{
+				return await FileSystemService.PromptSaveFileAsync(defaultFileName);
+			});
 
-		var query = Workspace.CurrentProject.Queries.FirstOrDefault(q => q.Id == qid);
-		if (query is null)
+			if (success)
+			{
+				Snackbar.Add("Query saved successfully.", Severity.Success);
+			}
+		}
+		catch (Exception ex)
 		{
-			return;
+			Snackbar.Add($"Failed to save query: {ex.Message}", Severity.Error);
 		}
-
-		query.QueryText = state.CurrentText;
-		Workspace.Queries.ClearUnsavedFlags();
-		Workspace.Update(Workspace.CurrentProject);
-
-		Snackbar.Add("Query saved (in project). Don't forget to save the project file.", Severity.Success);
 	}
 
 	public void Dispose()

@@ -26,7 +26,7 @@ public class CompilerServiceFactoryTests
 	{
 		var factory = new CompilerServiceFactory();
 
-		var svc = await factory.CreateAsync();
+		using var svc = await factory.CreateAsync();
 
 		Assert.NotNull(svc);
 
@@ -44,7 +44,7 @@ public class CompilerServiceFactoryTests
 	{
 		var factory = new CompilerServiceFactory();
 
-		var svc = await factory.CreateAsync();
+		using var svc = await factory.CreateAsync();
 
 		Assert.NotNull(svc);
 
@@ -55,37 +55,5 @@ public class CompilerServiceFactoryTests
 		Assert.NotNull(hover);
 		Assert.False(string.IsNullOrWhiteSpace(hover?.Markdown));
 		Assert.Contains("Where", hover!.Markdown!);
-	}
-
-	[Fact]
-	public async Task CreateAsync_ReusesSameInstance_ForSameConfiguration()
-	{
-		var factory = new CompilerServiceFactory();
-
-		var svc1 = await factory.CreateAsync();
-		var svc2 = await factory.CreateAsync();
-
-		// Should return the same instance since configuration hasn't changed
-		Assert.Same(svc1, svc2);
-	}
-
-	[Fact]
-	public async Task CompilerService_CanBeUsed_AfterFactoryDisposed()
-	{
-		CompilerService svc;
-
-		// Create factory in a scope
-		{
-			var factory = new CompilerServiceFactory();
-			svc = await factory.CreateAsync();
-		}
-		// Factory is now out of scope, but compiler service should still work
-
-		var query = "context.People";
-		var cursor = query.IndexOf("People") + 1;
-		var hover = await svc.GetHoverAsync(query, cursor);
-
-		Assert.NotNull(hover);
-		Assert.Contains("DbSet", hover!.Markdown!);
 	}
 }

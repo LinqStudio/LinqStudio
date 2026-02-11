@@ -176,7 +176,10 @@ public class EditorE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await Expect(queryName).ToContainTextAsync("My Test Query");
 
 		// --- Part 3: Create second query and test duplicate name validation ---
-		await page.GetByTestId("nav-query-create").ClickAsync();
+		// Open the Editor menu first
+		await page.GetByTestId("nav-editor").ClickAsync();
+		await Task.Delay(100); // Wait for menu to open
+		await page.GetByTestId("nav-editor-new").ClickAsync();
 		await page.WaitForURLAsync($"{_app.BaseUrl}editor/*");
 		await Expect(page.GetByTestId("monaco-editor-container")).ToBeVisibleAsync();
 
@@ -212,15 +215,64 @@ public class EditorE2ETests(AppServerFixture app, PlaywrightFixture pw)
 
 		await E2ETestHelpers.SetupEditorAsync(page, _app);
 
-		// Verify unsaved indicator is NOT visible initially
+		// New queries are created with HasUnsavedChanges = true, so indicator should be visible
 		var unsavedIndicator = page.GetByTestId("query-unsaved-indicator");
-		await Expect(unsavedIndicator).Not.ToBeVisibleAsync();
-
-		// Type something in the editor to make it dirty
-		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "context.People.Where(x => x.Id > 0)");
-
-		// Verify unsaved indicator appears
 		await Expect(unsavedIndicator).ToBeVisibleAsync();
 		await Expect(unsavedIndicator).ToContainTextAsync("Unsaved");
+
+		// Type something in the editor to modify it further
+		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "context.People.Where(x => x.Id > 0)");
+
+		// Verify unsaved indicator is still visible
+		await Expect(unsavedIndicator).ToBeVisibleAsync();
+		await Expect(unsavedIndicator).ToContainTextAsync("Unsaved");
+	}
+
+	[Fact(Timeout = 60_000)]
+	public async Task Editor_ShowsNoQueryMessage_WhenAllQueriesClosed()
+	{
+		Assert.NotNull(_pw.Browser);
+
+		await using var context = await _pw.Browser.NewContextAsync();
+		var page = await context.NewPageAsync();
+
+		await E2ETestHelpers.SetupEditorAsync(page, _app);
+
+		// Verify editor is showing with a query
+		var monacoContainer = page.GetByTestId("monaco-editor-container");
+		await Expect(monacoContainer).ToBeVisibleAsync();
+
+		// Close the current query
+		var closeBtn = page.GetByTestId("query-close-btn");
+		await Expect(closeBtn).ToBeVisibleAsync();
+		await closeBtn.ClickAsync();
+
+		// Handle unsaved changes dialog if it appears (new queries have unsaved changes)
+		var dialog = page.GetByTestId("unsaved-changes-dialog");
+		try
+		{
+			await Expect(dialog).ToBeVisibleAsync(new() { Timeout = 1000 });
+			var confirmBtn = page.GetByTestId("unsaved-changes-confirm-btn");
+			await confirmBtn.ClickAsync();
+		}
+		catch
+		{
+			// Dialog might not appear if query was saved
+		}
+
+		// Verify we're redirected to /editor with no query
+		await page.WaitForURLAsync($"{_app.BaseUrl}editor");
+
+		// Verify the "no query" alert is visible
+		var noQueryAlert = page.GetByTestId("no-query-alert");
+		await Expect(noQueryAlert).ToBeVisibleAsync();
+		await Expect(noQueryAlert).ToContainTextAsync("No queries are currently open");
+
+		// Verify Monaco editor is NOT visible
+		await Expect(monacoContainer).Not.ToBeVisibleAsync();
+
+		// Verify query info bar is NOT visible
+		var queryInfoBar = page.GetByTestId("query-info-bar");
+		await Expect(queryInfoBar).Not.ToBeVisibleAsync();
 	}
 }

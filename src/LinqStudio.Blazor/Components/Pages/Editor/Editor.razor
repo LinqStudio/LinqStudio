@@ -10,22 +10,24 @@
 <div class="editor-page pa-2" style="height:100%; display:flex; flex-direction:column; gap:8px" data-testid="editor-page">
 	@if (Workspace.IsProjectOpen)
 	{
-		<!-- Query Tabs -->
-		<MudPaper Class="pa-1" Elevation="1">
-			<MudTabs Rounded="true" ApplyEffectsToContainer="true">
-				@foreach (var q in GetOpenQueriesInOrder())
-				{
-					var isOpen = Workspace.Queries.OpenQueries.TryGetValue(q.Id, out var state);
-					var tabName = (isOpen && state?.HasUnsavedChanges == true) ? $"{q.Name} *" : q.Name;
-					<MudTabPanel 
-						Text="@tabName" 
-						OnClick="@(() => NavigateToQuery(q.Id))" />
-				}
-			</MudTabs>
-		</MudPaper>
+		@if (Workspace.Queries.CurrentQueryId is not null)
+		{
+			<!-- Query Tabs -->
+			<MudPaper Class="pa-1" Elevation="1">
+				<MudTabs Rounded="true" ApplyEffectsToContainer="true">
+					@foreach (var q in GetOpenQueriesInOrder())
+					{
+						var isOpen = Workspace.Queries.OpenQueries.TryGetValue(q.Id, out var state);
+						var tabName = (isOpen && state?.HasUnsavedChanges == true) ? $"{q.Name} *" : q.Name;
+						<MudTabPanel 
+							Text="@tabName" 
+							OnClick="@(() => NavigateToQuery(q.Id))" />
+					}
+				</MudTabs>
+			</MudPaper>
 
-		<!-- Query Info Bar -->
-		<MudPaper Class="pa-2" Elevation="1" data-testid="query-info-bar">
+			<!-- Query Info Bar -->
+			<MudPaper Class="pa-2" Elevation="1" data-testid="query-info-bar">
 			<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
 				<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
 					<MudIcon Icon="@Icons.Material.Filled.Description" Size="Size.Small" />
@@ -56,7 +58,7 @@
 					else
 					{
 						<MudText Typo="Typo.body1" data-testid="query-name-display">
-							<strong>@(Workspace.Queries.GetCurrentQuery(Workspace.CurrentProject)?.Name ?? "New Query")</strong>
+							<strong>@(Workspace.Queries.GetCurrentQuery()?.Name ?? "New Query")</strong>
 						</MudText>
 						<MudTooltip Text="Rename query">
 							<MudIconButton Icon="@Icons.Material.Filled.Edit"
@@ -73,16 +75,16 @@
 				</MudStack>
 
 				<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-					<MudTooltip Text="Save query (in project)">
+					<MudTooltip Text="Save query">
 						<MudIconButton Icon="@Icons.Material.Filled.Save"
 									   Color="Color.Primary"
 									   Size="Size.Small"
 									   OnClick="SaveCurrentQuery"
-									   Disabled="@(Workspace.Queries.CurrentQueryId is null || Workspace.Queries.CurrentQueryState?.HasUnsavedChanges != true)"
+									   Disabled="@(Workspace.Queries.CurrentQueryId is null)"
 									   data-testid="query-save-btn" />
 					</MudTooltip>
 
-					<MudTooltip Text="Close query (in project)">
+					<MudTooltip Text="Close query">
 						<MudIconButton Icon="@Icons.Material.Filled.Close"
 									   Color="Color.Primary"
 									   Size="Size.Small"
@@ -113,6 +115,14 @@
 				Editor provides IntelliSense using Roslyn compiler with EF Core support
 			</MudText>
 		</MudPaper>
+		}
+		else
+		{
+			<!-- No queries open -->
+			<MudAlert Severity="Severity.Info" data-testid="no-query-alert">
+				No queries are currently open. Create a new query or open an existing one from the Editor menu.
+			</MudAlert>
+		}
 	}
 	else
 	{

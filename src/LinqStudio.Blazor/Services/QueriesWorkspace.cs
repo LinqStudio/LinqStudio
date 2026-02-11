@@ -1,16 +1,25 @@
 using LinqStudio.Blazor.Models;
 using LinqStudio.Core.Models;
+using LinqStudio.Core.Services;
 
 namespace LinqStudio.Blazor.Services;
 
 /// <summary>
 /// Manages query-related operations for the current project.
-/// Tracks open queries and their states (does NOT own the project).
+/// Tracks open queries, their states, and manages query file I/O.
 /// </summary>
 public class QueriesWorkspace
 {
+	private readonly QueryService _queryService;
 	private Guid? _currentQueryId;
 	private readonly Dictionary<Guid, OpenQueryState> _openQueries = new();
+	private readonly Dictionary<Guid, SavedQuery> _allQueries = new();
+	private string? _projectFilePath;
+
+	public QueriesWorkspace(QueryService queryService)
+	{
+		_queryService = queryService;
+	}
 
 	/// <summary>
 	/// Event raised when query state changes.
@@ -28,21 +37,26 @@ public class QueriesWorkspace
 	public IReadOnlyDictionary<Guid, OpenQueryState> OpenQueries => _openQueries;
 
 	/// <summary>
+	/// Gets all queries for the current project.
+	/// </summary>
+	public IReadOnlyList<SavedQuery> AllQueries => _allQueries.Values.ToList();
+
+	/// <summary>
 	/// Gets whether any queries have unsaved changes.
 	/// </summary>
 	public bool HasUnsavedChanges => _openQueries.Values.Any(q => q.HasUnsavedChanges);
 
 	/// <summary>
-	/// Gets the currently active query from the provided project.
+	/// Gets the currently active query.
 	/// </summary>
-	public SavedQuery? GetCurrentQuery(Project? project)
+	public SavedQuery? GetCurrentQuery()
 	{
-		if (project?.Queries is null || _currentQueryId is null)
+		if (_currentQueryId is null || !_allQueries.TryGetValue(_currentQueryId.Value, out var query))
 		{
 			return null;
 		}
 
-		return project.Queries.FirstOrDefault(q => q.Id == _currentQueryId.Value);
+		return query;
 	}
 
 	/// <summary>
@@ -55,15 +69,29 @@ public class QueriesWorkspace
 
 	/// <summary>
 	/// Initializes/resets the workspace for a new project.
+	/// Loads all queries from disk.
 	/// </summary>
-	public void Initialize(Project? project)
+	public async Task InitializeAsync(string? projectFilePath)
 	{
 		_currentQueryId = null;
 		_openQueries.Clear();
+		_allQueries.Clear();
+		_projectFilePath = projectFilePath;
 
-		if (project?.Queries?.Count > 0)
+		if (!string.IsNullOrEmpty(projectFilePath))
 		{
-			OpenQuery(project, project.Queries[0].Id);
+			var queries = await _queryService.LoadQueriesAsync(projectFilePath);
+			foreach (var query in queries)
+			{
+				_allQueries[query.Id] = query;
+			}
+
+			// Open first query if any exist
+			if (_allQueries.Count > 0)
+			{
+				var firstQuery = _allQueries.Values.First();
+				OpenQuery(firstQuery.Id);
+			}
 		}
 
 		OnQueriesChanged();
@@ -76,19 +104,17 @@ public class QueriesWorkspace
 	{
 		_currentQueryId = null;
 		_openQueries.Clear();
+		_allQueries.Clear();
+		_projectFilePath = null;
 		OnQueriesChanged();
 	}
 
 	/// <summary>
 	/// Opens a query by id.
 	/// </summary>
-	public void OpenQuery(Project project, Guid queryId)
+	public void OpenQuery(Guid queryId)
 	{
-		ArgumentNullException.ThrowIfNull(project);
-		ArgumentNullException.ThrowIfNull(project.Queries);
-
-		var query = project.Queries.FirstOrDefault(q => q.Id == queryId);
-		if (query is null)
+		if (!_allQueries.TryGetValue(queryId, out var query))
 		{
 			throw new InvalidOperationException($"Query '{queryId}' not found.");
 		}
@@ -136,12 +162,10 @@ public class QueriesWorkspace
 	/// Creates a new query and opens it.
 	/// Returns the new query id.
 	/// </summary>
-	public Guid CreateNewQuery(Project project, string? name = null)
+	public Guid CreateNewQuery(string? name = null)
 	{
-		ArgumentNullException.ThrowIfNull(project);
-
 		var baseName = !string.IsNullOrWhiteSpace(name) ? name : "Query";
-		var finalName = GetUniqueQueryName(project.Queries, baseName);
+		var finalName = GetUniqueQueryName(baseName);
 
 		var newQuery = new SavedQuery
 		{
@@ -150,9 +174,21 @@ public class QueriesWorkspace
 			CreatedDate = DateTimeOffset.UtcNow
 		};
 
-		project.Queries.Add(newQuery);
+		_allQueries[newQuery.Id] = newQuery;
 
-		OpenQuery(project, newQuery.Id);
+		// Open the query and mark it as having unsaved changes (new query)
+		if (!_openQueries.ContainsKey(newQuery.Id))
+		{
+			_openQueries[newQuery.Id] = new OpenQueryState
+			{
+				QueryId = newQuery.Id,
+				CurrentText = newQuery.QueryText,
+				HasUnsavedChanges = true, // Mark as unsaved since it's a new query
+				LastModified = DateTimeOffset.UtcNow
+			};
+		}
+
+		_currentQueryId = newQuery.Id;
 		OnQueriesChanged();
 
 		return newQuery.Id;
@@ -161,18 +197,17 @@ public class QueriesWorkspace
 	/// <summary>
 	/// Updates the text of a query.
 	/// </summary>
-	public void UpdateQueryText(Project project, Guid queryId, string newText)
+	public void UpdateQueryText(Guid queryId, string newText)
 	{
-		ArgumentNullException.ThrowIfNull(project);
-		ArgumentNullException.ThrowIfNull(project.Queries);
-
 		if (!_openQueries.TryGetValue(queryId, out var state))
 		{
 			throw new InvalidOperationException($"Query '{queryId}' is not open.");
 		}
 
-		var query = project.Queries.FirstOrDefault(q => q.Id == queryId)
-			?? throw new InvalidOperationException($"Query '{queryId}' not found.");
+		if (!_allQueries.TryGetValue(queryId, out var query))
+		{
+			throw new InvalidOperationException($"Query '{queryId}' not found.");
+		}
 
 		state.CurrentText = newText;
 		state.HasUnsavedChanges = !string.Equals(newText, query.QueryText, StringComparison.Ordinal);
@@ -183,15 +218,13 @@ public class QueriesWorkspace
 
 	/// <summary>
 	/// Renames a query.
-	/// Returns the updated project.
 	/// </summary>
-	public Project RenameQuery(Project project, Guid queryId, string newName)
+	public void RenameQuery(Guid queryId, string newName)
 	{
-		ArgumentNullException.ThrowIfNull(project);
-		ArgumentNullException.ThrowIfNull(project.Queries);
-
-		var query = project.Queries.FirstOrDefault(q => q.Id == queryId)
-			?? throw new InvalidOperationException($"Query '{queryId}' not found.");
+		if (!_allQueries.TryGetValue(queryId, out var query))
+		{
+			throw new InvalidOperationException($"Query '{queryId}' not found.");
+		}
 
 		query.Name = newName;
 
@@ -201,62 +234,151 @@ public class QueriesWorkspace
 		}
 
 		OnQueriesChanged();
-		return project;
 	}
 
 	/// <summary>
 	/// Deletes a query.
-	/// Returns the updated project.
 	/// </summary>
-	public Project DeleteQuery(Project project, Guid queryId)
+	public async Task DeleteQueryAsync(Guid queryId)
 	{
-		ArgumentNullException.ThrowIfNull(project);
-		ArgumentNullException.ThrowIfNull(project.Queries);
-
-		var removed = project.Queries.RemoveAll(q => q.Id == queryId);
-		if (removed == 0)
+		if (!_allQueries.ContainsKey(queryId))
 		{
 			throw new InvalidOperationException($"Query '{queryId}' not found.");
 		}
 
+		_allQueries.Remove(queryId);
 		_openQueries.Remove(queryId);
 
 		if (_currentQueryId == queryId)
 		{
-			_currentQueryId = project.Queries.FirstOrDefault()?.Id;
-			if (_currentQueryId is not null && _currentQueryId == Guid.Empty)
+			_currentQueryId = _allQueries.Keys.FirstOrDefault();
+			if (_currentQueryId == Guid.Empty)
 			{
 				_currentQueryId = null;
 			}
 		}
 
+		// Delete from disk if project file path is set
+		if (!string.IsNullOrEmpty(_projectFilePath))
+		{
+			_queryService.DeleteQuery(_projectFilePath, queryId);
+		}
+
 		OnQueriesChanged();
-		return project;
 	}
 
 	/// <summary>
-	/// Commits all open query changes to the project.
-	/// Returns the updated project.
+	/// Commits all open query changes to disk.
 	/// </summary>
-	public Project CommitChanges(Project project)
+	public async Task SaveAllQueriesAsync()
 	{
-		ArgumentNullException.ThrowIfNull(project);
-		ArgumentNullException.ThrowIfNull(project.Queries);
+		if (string.IsNullOrEmpty(_projectFilePath))
+		{
+			throw new InvalidOperationException("No project file path set.");
+		}
 
 		foreach (var (queryId, state) in _openQueries.Where(kvp => kvp.Value.HasUnsavedChanges))
 		{
-			var query = project.Queries.FirstOrDefault(q => q.Id == queryId);
-			if (query is not null)
+			if (_allQueries.TryGetValue(queryId, out var query))
 			{
 				query.QueryText = state.CurrentText;
+				await _queryService.SaveQueryAsync(_projectFilePath, query);
+				state.HasUnsavedChanges = false;
 			}
 		}
 
-		return project;
+		OnQueriesChanged();
 	}
 
 	/// <summary>
-	/// Clears the unsaved flags for all open queries.
+	/// Saves a specific query to disk.
+	/// </summary>
+	public async Task SaveQueryAsync(Guid queryId)
+	{
+		if (string.IsNullOrEmpty(_projectFilePath))
+		{
+			throw new InvalidOperationException("No project file path set.");
+		}
+
+		if (!_allQueries.TryGetValue(queryId, out var query))
+		{
+			throw new InvalidOperationException($"Query '{queryId}' not found.");
+		}
+
+		if (_openQueries.TryGetValue(queryId, out var state) && state.HasUnsavedChanges)
+		{
+			query.QueryText = state.CurrentText;
+			state.HasUnsavedChanges = false;
+		}
+
+		await _queryService.SaveQueryAsync(_projectFilePath, query);
+		OnQueriesChanged();
+	}
+
+	/// <summary>
+	/// Saves a specific query to disk using a file dialog to prompt for location.
+	/// </summary>
+	public async Task<bool> SaveQueryWithDialogAsync(Guid queryId, Func<string, Task<string?>> promptSaveFile)
+	{
+		if (!_allQueries.TryGetValue(queryId, out var query))
+		{
+			throw new InvalidOperationException($"Query '{queryId}' not found.");
+		}
+
+		// Update query text from open state if available
+		if (_openQueries.TryGetValue(queryId, out var state))
+		{
+			query.QueryText = state.CurrentText;
+		}
+
+		// Prompt for file location if not already set
+		string? filePath = query.FilePath;
+		if (string.IsNullOrEmpty(filePath))
+		{
+			var defaultFileName = $"{query.Name}.linq.query";
+			filePath = await promptSaveFile(defaultFileName);
+			
+			if (string.IsNullOrEmpty(filePath))
+			{
+				return false; // User cancelled
+			}
+		}
+
+		// Save to file
+		await _queryService.SaveQueryToFileAsync(filePath, query);
+		
+		// Mark as saved
+		if (_openQueries.TryGetValue(queryId, out var openState))
+		{
+			openState.HasUnsavedChanges = false;
+		}
+
+		OnQueriesChanged();
+		return true;
+	}
+
+	/// <summary>
+	/// Opens a query from a file selected via file dialog.
+	/// </summary>
+	public async Task<Guid?> OpenQueryFromFileAsync(string filePath)
+	{
+		var query = await _queryService.LoadQueryFromFileAsync(filePath);
+		if (query is null)
+		{
+			return null;
+		}
+
+		// Add to all queries if not already present
+		if (!_allQueries.ContainsKey(query.Id))
+		{
+			_allQueries[query.Id] = query;
+		}
+
+		// Open the query
+		OpenQuery(query.Id);
+		
+		return query.Id;
+	}
 	/// </summary>
 	public void ClearUnsavedFlags()
 	{
@@ -267,32 +389,10 @@ public class QueriesWorkspace
 		OnQueriesChanged();
 	}
 
-	/// <summary>
-	/// Syncs open query states with the saved project content.
-	/// </summary>
-	public void UpdateSavedProject(Project savedProject)
-	{
-		if (savedProject?.Queries is null)
-		{
-			return;
-		}
-
-		foreach (var (queryId, state) in _openQueries.ToList())
-		{
-			var savedQuery = savedProject.Queries.FirstOrDefault(q => q.Id == queryId);
-			if (savedQuery is not null)
-			{
-				state.CurrentText = savedQuery.QueryText;
-			}
-		}
-
-		OnQueriesChanged();
-	}
-
-	private static string GetUniqueQueryName(List<SavedQuery> existingQueries, string baseName)
+	private string GetUniqueQueryName(string baseName)
 	{
 		var existingNames = new HashSet<string>(
-			existingQueries.Select(q => q.Name),
+			_allQueries.Values.Select(q => q.Name),
 			StringComparer.OrdinalIgnoreCase);
 
 		if (!existingNames.Contains(baseName))

@@ -16,9 +16,15 @@ public static class E2ETestHelpers
 	public static async Task CreateNewProjectAsync(IPage page, AppServerFixture app)
 	{
 		await page.GotoAsync(app.BaseUrl.ToString());
+		// Open the Project menu first (MudMenu requires opening before items are visible)
+		await page.GetByTestId("nav-project").ClickAsync();
+		// Wait briefly for menu to open
+		await Task.Delay(100);
+		// Now click the "New" menu item
 		await page.GetByTestId("nav-project-new").ClickAsync();
 		await page.WaitForURLAsync(app.BaseUrl.ToString());
-		await Expect(page.GetByTestId("nav-project-group")).ToContainTextAsync("Untitled");
+		// Changed from nav-project-group to nav-project since we now use MudMenu instead of MudNavGroup
+		await Expect(page.GetByTestId("nav-project")).ToContainTextAsync("Untitled");
 	}
 
 	/// <summary>
@@ -29,8 +35,14 @@ public static class E2ETestHelpers
 	/// <param name="queryText">Optional text to type into the editor. Defaults to "context."</param>
 	public static async Task CreateQueryAsync(IPage page, AppServerFixture app, string queryText = "context.", int index = 0)
 	{
-		await page.GetByTestId("nav-query-create").ClickAsync();
-		await page.WaitForURLAsync($"{app.BaseUrl}editor/{index}");
+		// Open the Editor menu first (MudMenu requires opening before items are visible)
+		await page.GetByTestId("nav-editor").ClickAsync();
+		// Wait briefly for menu to open
+		await Task.Delay(100);
+		// Changed from nav-query-create to nav-editor-new
+		await page.GetByTestId("nav-editor-new").ClickAsync();
+		// Queries now use GUIDs instead of numeric indices, so use a wildcard pattern
+		await page.WaitForURLAsync($"{app.BaseUrl}editor/*");
 		await Expect(page.GetByTestId("monaco-editor-container")).ToBeVisibleAsync();
 
 		// Wait for Monaco editor and focus it
@@ -49,8 +61,12 @@ public static class E2ETestHelpers
 	{
 		await CreateNewProjectAsync(page, app);
 
-		// Create a new query
-		await page.GetByTestId("nav-query-create").ClickAsync();
+		// Open the Editor menu first (MudMenu requires opening before items are visible)
+		await page.GetByTestId("nav-editor").ClickAsync();
+		// Wait briefly for menu to open
+		await Task.Delay(100);
+		// Create a new query - changed from nav-query-create to nav-editor-new
+		await page.GetByTestId("nav-editor-new").ClickAsync();
 
 		// Wait for editor page to load
 		await page.WaitForURLAsync($"{app.BaseUrl}editor/*");

@@ -12,6 +12,5 @@ public class Project
 	// Future properties
 	public Dictionary<string, string>? Models { get; set; }
 	public string? DbContextCode { get; set; }
-	public List<SavedQuery> Queries { get; set; } = [];
 }
 

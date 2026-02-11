@@ -15,8 +15,6 @@ public partial class NavMenu : ComponentBase, IDisposable
 	[Inject] private IDialogService DialogService { get; set; } = null!;
 	[Inject] private ISnackbar Snackbar { get; set; } = null!;
 
-	private readonly bool _projectExpanded = true;
-
 	protected override void OnInitialized()
 	{
 		Workspace.WorkspaceChanged += OnWorkspaceChanged;
@@ -68,20 +66,20 @@ public partial class NavMenu : ComponentBase, IDisposable
 				var confirm = await task;
 				if (confirm)
 				{
-					CreateNewProject();
+					await CreateNewProjectAsync();
 				}
 			}, TaskScheduler.FromCurrentSynchronizationContext());
 
 			return;
 		}
 
-		CreateNewProject();
+		_ = CreateNewProjectAsync();
 	}
 
-	private void CreateNewProject()
+	private async Task CreateNewProjectAsync()
 	{
 		// Create a default project with empty connection string
-		Workspace.CreateNew("Untitled");
+		await Workspace.CreateNewAsync("Untitled");
 		Snackbar.Add("New project created. Use 'Save' or 'Save As' to save it.", Severity.Info);
 
 		// Navigate to home page since we a an empty project now
@@ -226,19 +224,52 @@ public partial class NavMenu : ComponentBase, IDisposable
 			return;
 		}
 
-		var queryId = Workspace.Queries.CreateNewQuery(Workspace.CurrentProject);
-		Workspace.Update(Workspace.CurrentProject);
+		var queryId = Workspace.Queries.CreateNewQuery();
 		NavigationManager.NavigateTo($"/editor/{queryId}");
 	}
 
-	private void OpenSavedQuery(Guid queryId)
+	private async Task OpenQueryFromFile()
 	{
-		if (!Workspace.IsProjectOpen || Workspace.CurrentProject is null)
+		if (!Workspace.IsProjectOpen)
 		{
 			return;
 		}
 
-		Workspace.Queries.OpenQuery(Workspace.CurrentProject, queryId);
+		try
+		{
+			var filePath = await FileSystemService.PromptOpenFileAsync(".linq.query");
+			
+			if (string.IsNullOrEmpty(filePath))
+			{
+				return; // User cancelled
+			}
+
+			var queryId = await Workspace.Queries.OpenQueryFromFileAsync(filePath);
+			
+			if (queryId.HasValue)
+			{
+				NavigationManager.NavigateTo($"/editor/{queryId.Value}");
+				Snackbar.Add("Query opened successfully.", Severity.Success);
+			}
+			else
+			{
+				Snackbar.Add("Failed to open query file.", Severity.Error);
+			}
+		}
+		catch (Exception ex)
+		{
+			await ErrorHandlingService.HandleErrorAsync(ex, "Failed to open query file.");
+		}
+	}
+
+	private void OpenSavedQuery(Guid queryId)
+	{
+		if (!Workspace.IsProjectOpen)
+		{
+			return;
+		}
+
+		Workspace.Queries.OpenQuery(queryId);
 		NavigationManager.NavigateTo($"/editor/{queryId}");
 	}
 

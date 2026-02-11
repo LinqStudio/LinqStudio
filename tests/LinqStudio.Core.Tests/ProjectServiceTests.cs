@@ -182,15 +182,6 @@ public class ProjectServiceTests : IDisposable
 		var project = service.CreateNew("Test", "Server=localhost;");
 		project.Models = new Dictionary<string, string> { ["Person.cs"] = "public class Person { }" };
 		project.DbContextCode = "public class TestContext : DbContext { }";
-		project.Queries = new List<SavedQuery>
-		{
-			new()
-			{
-				Name = "Test Query",
-				QueryText = "context.People.ToList()",
-				CreatedDate = DateTimeOffset.UtcNow
-			}
-		};
 		var projectWithOptionals = project;
 
 		// Act
@@ -203,9 +194,6 @@ public class ProjectServiceTests : IDisposable
 		Assert.Single(loaded.Models);
 		Assert.Equal("public class Person { }", loaded.Models["Person.cs"]);
 		Assert.Equal("public class TestContext : DbContext { }", loaded.DbContextCode);
-		Assert.NotNull(loaded.Queries);
-		Assert.Single(loaded.Queries);
-		Assert.Equal("Test Query", loaded.Queries[0].Name);
 	}
 
 	[Fact]
@@ -275,11 +263,6 @@ public class ProjectServiceTests : IDisposable
 			["Order.cs"] = "namespace Test; public class Order { public int Id { get; set; } }"
 		};
 		originalProject.DbContextCode = "using Microsoft.EntityFrameworkCore; public class MyContext : DbContext { }";
-		originalProject.Queries = new List<SavedQuery>
-		{
-			new() { Name = "Query 1", QueryText = "context.People.ToList()", CreatedDate = DateTimeOffset.UtcNow },
-			new() { Name = "Query 2", QueryText = "context.Orders.Where(o => o.Id > 5)", CreatedDate = DateTimeOffset.UtcNow }
-		};
 		var fullProject = originalProject;
 
 		await service.SaveProjectAsync(fullProject, filePath);
@@ -295,10 +278,6 @@ public class ProjectServiceTests : IDisposable
 		Assert.Equal(2, loaded.Models.Count);
 		Assert.Contains("Person.cs", loaded.Models.Keys);
 		Assert.Contains("Order.cs", loaded.Models.Keys);
-		Assert.NotNull(loaded.Queries);
-		Assert.Equal(2, loaded.Queries.Count);
-		Assert.Equal("Query 1", loaded.Queries[0].Name);
-		Assert.Equal("Query 2", loaded.Queries[1].Name);
 	}
 
 	#endregion

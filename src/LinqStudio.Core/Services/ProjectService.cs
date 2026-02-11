@@ -40,8 +40,7 @@ public class ProjectService
 			ConnectionString = connectionString,
 			CreatedDate = DateTimeOffset.UtcNow,
 			ModifiedDate = DateTimeOffset.UtcNow,
-			SchemaVersion = _versionConfig.CurrentSchemaVersion,
-			Queries = []
+			SchemaVersion = _versionConfig.CurrentSchemaVersion
 		};
 	}
 
@@ -104,7 +103,8 @@ public class ProjectService
 		project.SchemaVersion = _versionConfig.CurrentSchemaVersion;
 
 		// Write to temporary file first (atomic save pattern)
-		var tempFilePath = $"{filePath}.tmp";
+		// Use a unique name to avoid conflicts with concurrent saves
+		var tempFilePath = $"{filePath}.{Guid.NewGuid():N}.tmp";
 		try
 		{
 			await using (var stream = File.Create(tempFilePath))

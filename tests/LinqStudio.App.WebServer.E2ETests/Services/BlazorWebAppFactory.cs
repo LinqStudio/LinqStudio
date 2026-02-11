@@ -16,6 +16,9 @@ internal class BlazorWebAppFactory : WebApplicationFactory<Program>
 
 	protected override void ConfigureWebHost(IWebHostBuilder builder)
 	{
+		// Configure Kestrel to use a random port (0 = any available port)
+		builder.UseUrls("http://127.0.0.1:0");
+
 		builder.ConfigureServices(services =>
 		{
 			// Remove the real IFileSystemService registration
