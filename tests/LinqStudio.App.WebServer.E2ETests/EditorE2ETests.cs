@@ -94,7 +94,7 @@ public class EditorE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		Assert.True(combinedCount > 0, "Expected at least one LINQ method (Add or All) in completions");
 	}
 
-	[Fact(Skip = "Flaky test due to Monaco Editor behavior, will need to investigate", Timeout = 60_000)]
+	[Fact(Timeout = 60_000)]
 	public async Task Editor_AutoTriggers_CompletionOnOpenParen()
 	{
 		Assert.NotNull(_pw.Browser);

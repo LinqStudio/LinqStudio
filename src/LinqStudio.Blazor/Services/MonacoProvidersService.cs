@@ -12,97 +12,132 @@ namespace LinqStudio.Blazor.Services;
 /// </summary>
 internal class MonacoProvidersService(IJSRuntime jSRuntime)
 {
-    private readonly IJSRuntime _jSRuntime = jSRuntime;
+	private readonly IJSRuntime _jSRuntime = jSRuntime;
 
-    private readonly ConcurrentDictionary<string, HoverProvider.ProvideDelegate> _hoverProviders = [];
-    private readonly ConcurrentDictionary<string, CompletionItemProvider.ProvideDelegate> _completionProviders = [];
+	private readonly ConcurrentDictionary<string, HoverProvider.ProvideDelegate> _hoverProviders = [];
+	private readonly ConcurrentDictionary<string, CompletionItemProvider.ProvideDelegate> _completionProviders = [];
 
-    private bool _registered = false;
+	private bool _registered = false;
 
-    internal async Task<IDisposable> RegisterHoverProviderAsync(StandaloneCodeEditor editor, HoverProvider.ProvideDelegate provideDelegate)
-    {
-        await RegisterAll();
+	internal async Task<IDisposable> RegisterHoverProviderAsync(StandaloneCodeEditor editor, HoverProvider.ProvideDelegate provideDelegate)
+	{
+		await RegisterAll();
 
-        var model = await editor.GetModel();
-        _hoverProviders[model.Uri] = provideDelegate;
+		var model = await editor.GetModel();
+		_hoverProviders[model.Uri] = provideDelegate;
 
-        return new UnregisterProviderDisposable(this, model.Uri);
-    }
+		return new UnregisterProviderDisposable(this, model.Uri);
+	}
 
-    internal async Task<IDisposable> RegisterCompletionProviderAsync(StandaloneCodeEditor editor, CompletionItemProvider.ProvideDelegate provideDelegate)
-    {
-        await RegisterAll();
+	internal async Task<IDisposable> RegisterCompletionProviderAsync(StandaloneCodeEditor editor, CompletionItemProvider.ProvideDelegate provideDelegate)
+	{
+		await RegisterAll();
 
-        var model = await editor.GetModel();
-        _completionProviders[model.Uri] = provideDelegate;
+		var model = await editor.GetModel();
+		_completionProviders[model.Uri] = provideDelegate;
 
-        return new UnregisterProviderDisposable(this, model.Uri);
-    }
+		return new UnregisterProviderDisposable(this, model.Uri);
+	}
 
-    private async Task RegisterAll()
-    {
-        if (_registered)
-            return;
+	private async Task RegisterAll()
+	{
+		if (_registered)
+		{
+			return;
+		}
 
-        // Sometimes we initialize the library in the frontend after the backend is ready.
-        // I'm not exactly sure why but we can loop the first "Register" until it actually works, with a bit of delay between each attempts
-        for (int i = 0; ; ++i)
-        {
-            try
-            {
-                await BlazorMonaco.Languages.Global.RegisterHoverProviderAsync(_jSRuntime, "csharp", ProvideDelegate);
-                break;
-            }
-            catch (Exception ex) when (ex.Message.Contains("monaco is not defined"))
-            {
-                if (i == 5)
-                    throw;
+		await RetryUntilMonacoReady(async () =>
+		{
+			await BlazorMonaco.Languages.Global.RegisterHoverProviderAsync(_jSRuntime, "csharp", ProvideDelegate);
+			await BlazorMonaco.Languages.Global.RegisterHoverProviderAsync(_jSRuntime, "json", ProvideDelegate);
 
-                await Task.Delay(250);
-            }
-        }
+			// Register completion provider with C# trigger characters (., (, <, [, space)
+			var triggerCharacters = new List<string> { ".", "(", "<", "[", " " };
+			var completionProvider = new CompletionItemProvider(triggerCharacters, ProvideCompletionDelegate);
+			await BlazorMonaco.Languages.Global.RegisterCompletionItemProvider(_jSRuntime, "csharp", completionProvider);
+		});
 
+		_registered = true;
+	}
 
-        await BlazorMonaco.Languages.Global.RegisterHoverProviderAsync(_jSRuntime, "json", ProvideDelegate);
-        
-        // Register completion provider with C# trigger characters (., (, <, [, space)
-        var triggerCharacters = new List<string> { ".", "(", "<", "[", " " };
-        var completionProvider = new CompletionItemProvider(triggerCharacters, ProvideCompletionDelegate);
-        await BlazorMonaco.Languages.Global.RegisterCompletionItemProvider(_jSRuntime, "csharp", completionProvider);
-        
-        _registered = true;
-    }
+	private async Task RetryUntilMonacoReady(Func<Task> action)
+	{
+		// Sometimes we initialize the library in the frontend after the backend is ready.
+		// Retry all provider registration until Monaco is fully available.
+		for (var i = 0; ; ++i)
+		{
+			try
+			{
+				await action();
+				return;
+			}
+			catch (JSException ex) when (IsMonacoNotReady(ex.Message))
+			{
+				if (i == 20)
+				{
+					throw;
+				}
 
-    private Task<Hover?> ProvideDelegate(string modelUri, BlazorMonaco.Position position, HoverContext context)
-    {
-        if (!_hoverProviders.TryGetValue(modelUri, out var provideDelegate))
-            return Task.FromResult<Hover?>(null);
+				await Task.Delay(250);
+			}
+			catch (Exception ex) when (IsMonacoNotReady(ex.Message))
+			{
+				if (i == 20)
+				{
+					throw;
+				}
 
-        return provideDelegate(modelUri, position, context);
-    }
+				await Task.Delay(250);
+			}
+		}
+	}
 
-    private Task<CompletionList?> ProvideCompletionDelegate(string modelUri, BlazorMonaco.Position position, CompletionContext context)
-    {
-        if (!_completionProviders.TryGetValue(modelUri, out var provideDelegate))
-            return Task.FromResult<CompletionList?>(null);
+	private static bool IsMonacoNotReady(string? message)
+	{
+		if (string.IsNullOrEmpty(message))
+		{
+			return false;
+		}
 
-        return provideDelegate(modelUri, position, context);
-    }
+		return message.Contains("monaco is not defined", StringComparison.OrdinalIgnoreCase)
+			|| message.Contains("Cannot read properties of undefined", StringComparison.OrdinalIgnoreCase)
+			|| message.Contains("monaco.languages", StringComparison.OrdinalIgnoreCase);
+	}
 
-    private void UnregisterHoverProvider(string modelUri)
-    {
-        _hoverProviders.TryRemove(modelUri, out var _);
-        _completionProviders.TryRemove(modelUri, out var _);
-    }
+	private Task<Hover?> ProvideDelegate(string modelUri, BlazorMonaco.Position position, HoverContext context)
+	{
+		if (!_hoverProviders.TryGetValue(modelUri, out var provideDelegate))
+		{
+			return Task.FromResult<Hover?>(null);
+		}
 
-    private class UnregisterProviderDisposable(MonacoProvidersService monacoProvidersService, string uri) : IDisposable
-    {
-        private readonly MonacoProvidersService _monacoProvidersService = monacoProvidersService;
-        private readonly string _uri = uri;
+		return provideDelegate(modelUri, position, context);
+	}
 
-        public void Dispose()
-        {
-            _monacoProvidersService.UnregisterHoverProvider(_uri);
-        }
-    }
+	private Task<CompletionList?> ProvideCompletionDelegate(string modelUri, BlazorMonaco.Position position, CompletionContext context)
+	{
+		if (!_completionProviders.TryGetValue(modelUri, out var provideDelegate))
+		{
+			return Task.FromResult<CompletionList?>(null);
+		}
+
+		return provideDelegate(modelUri, position, context);
+	}
+
+	private void UnregisterHoverProvider(string modelUri)
+	{
+		_hoverProviders.TryRemove(modelUri, out var _);
+		_completionProviders.TryRemove(modelUri, out var _);
+	}
+
+	private class UnregisterProviderDisposable(MonacoProvidersService monacoProvidersService, string uri) : IDisposable
+	{
+		private readonly MonacoProvidersService _monacoProvidersService = monacoProvidersService;
+		private readonly string _uri = uri;
+
+		public void Dispose()
+		{
+			_monacoProvidersService.UnregisterHoverProvider(_uri);
+		}
+	}
 }
