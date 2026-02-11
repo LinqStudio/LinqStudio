@@ -308,7 +308,7 @@ public class QueriesWorkspace
 			query.QueryText = state.CurrentText;
 		}
 
-		var defaultFileName = FileExtensions.EnsureHasExtension(query.Name, FileExtensions.Query);
+		var defaultFileName = query.Name.EnsureHasExtension(FileExtensions.Query);
 		var filePath = await promptSaveFile(defaultFileName);
 		if (string.IsNullOrEmpty(filePath))
 		{
@@ -340,7 +340,7 @@ public class QueriesWorkspace
 		}
 
 		var name = fileName;
-		var queryExtWithDot = FileExtensions.WithDot(FileExtensions.Query);
+		var queryExtWithDot = FileExtensions.Query.WithDot();
 		if (name.EndsWith(queryExtWithDot, StringComparison.OrdinalIgnoreCase))
 		{
 			name = name[..^queryExtWithDot.Length];

@@ -1,7 +1,7 @@
 using LinqStudio.App.WebServer.E2ETests.Fixtures;
 using LinqStudio.App.WebServer.E2ETests.Helpers;
+using LinqStudio.Blazor.Constants;
 using LinqStudio.Core.Models;
-using LinqStudio.Core.Services;
 using System.Text.Json;
 using Xunit;
 using static Microsoft.Playwright.Assertions;
@@ -291,14 +291,13 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		var unsavedIndicator = page.GetByTestId("query-unsaved-indicator");
 		await Expect(unsavedIndicator).ToBeVisibleAsync();
 
-		// Rename the first query
-		await page.GetByTestId("query-rename-btn").ClickAsync();
-		var renameInput = page.GetByTestId("query-name-input");
-		await Expect(renameInput).ToBeVisibleAsync();
-		await renameInput.FillAsync("Get Filtered People");
-		await page.GetByTestId("query-rename-save-btn").ClickAsync();
+		_app.MockFileSystemService.SetNextSaveFileResult($"Get Filtered People{FileExtensions.Query.WithDot()}");
+		await page.GetByTestId("query-save-btn").ClickAsync();
+		var snackbar = page.Locator(".mud-snackbar").Last;
+		await Expect(snackbar).ToBeVisibleAsync();
+		await Expect(snackbar).ToContainTextAsync("Query saved successfully");
 
-		// Verify rename succeeded
+		// Verify name matches saved filename
 		var queryName = page.GetByTestId("query-name-display");
 		await Expect(queryName).ToContainTextAsync("Get Filtered People");
 
@@ -309,12 +308,11 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		unsavedIndicator = page.GetByTestId("query-unsaved-indicator");
 		await Expect(unsavedIndicator).ToBeVisibleAsync();
 
-		// Rename the second query
-		await page.GetByTestId("query-rename-btn").ClickAsync();
-		renameInput = page.GetByTestId("query-name-input");
-		await Expect(renameInput).ToBeVisibleAsync();
-		await renameInput.FillAsync("Get People Summary");
-		await page.GetByTestId("query-rename-save-btn").ClickAsync();
+		_app.MockFileSystemService.SetNextSaveFileResult($"Get People Summary{FileExtensions.Query.WithDot()}");
+		await page.GetByTestId("query-save-btn").ClickAsync();
+		snackbar = page.Locator(".mud-snackbar").Last;
+		await Expect(snackbar).ToBeVisibleAsync();
+		await Expect(snackbar).ToContainTextAsync("Query saved successfully");
 
 		// Verify rename succeeded
 		queryName = page.GetByTestId("query-name-display");
@@ -327,7 +325,7 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await Expect(projectGroup).ToContainTextAsync("Untitled *");
 
 		// --- Save the project ---
-		_app.MockFileSystemService.SetNextSaveFileResult("TestProject.linq");
+		_app.MockFileSystemService.SetNextSaveFileResult($"TestProject{FileExtensions.Project.WithDot()}");
 
 		// Need to open menu first
 		await page.GetByTestId("nav-project").ClickAsync();
@@ -335,25 +333,21 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await page.GetByTestId("nav-project-save-as").ClickAsync();
 
 		// Verify snackbar shows success message
-		var snackbar = page.Locator(".mud-snackbar").Last;
+		snackbar = page.Locator(".mud-snackbar").Last;
 		await Expect(snackbar).ToBeVisibleAsync();
 		await Expect(snackbar).ToContainTextAsync("Project saved successfully");
 
 		// Verify the file was created
-		Assert.True(_app.MockFileSystemService.TestFileExists("TestProject.linq"));
+		Assert.True(_app.MockFileSystemService.TestFileExists($"TestProject{FileExtensions.Project.WithDot()}"));
 
 		// --- Verify the saved file contains all expected content ---
-		var fileContent = _app.MockFileSystemService.ReadTestFile("TestProject.linq");
+		var fileContent = _app.MockFileSystemService.ReadTestFile($"TestProject{FileExtensions.Project.WithDot()}");
 		var project = JsonSerializer.Deserialize<Project>(fileContent);
 
 		Assert.NotNull(project);
 
 		// Verify connection string was saved
 		Assert.Equal("Server=localhost;Database=TestDb;Integrated Security=true;", project.ConnectionString);
-
-		// Note: Queries are now saved as individual files in a .linq.queries directory
-		// The E2E test verifies the UI behavior (saving completes successfully)
-		// Unit tests verify the actual file persistence logic
 
 		// Verify unsaved indicator is cleared after save
 		await Expect(projectGroup).Not.ToContainTextAsync("*");

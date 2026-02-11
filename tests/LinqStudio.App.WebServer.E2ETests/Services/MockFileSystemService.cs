@@ -1,4 +1,5 @@
 using LinqStudio.Blazor.Abstractions;
+using LinqStudio.Blazor.Constants;
 
 namespace LinqStudio.App.WebServer.E2ETests.Services;
 
@@ -70,7 +71,7 @@ public class MockFileSystemService : IFileSystemService
 		return _testFilesDirectory;
 	}
 
-	public Task<string?> PromptOpenFileAsync(string fileExtension = "linq", string? defaultPath = null)
+	public Task<string?> PromptOpenFileAsync(string fileExtension = FileExtensions.Project, string? defaultPath = null)
 	{
 		// Return the pre-configured result (simulates user selecting a file)
 		var result = _nextOpenFileResult;
@@ -78,7 +79,7 @@ public class MockFileSystemService : IFileSystemService
 		return Task.FromResult(result);
 	}
 
-	public Task<string?> PromptSaveFileAsync(string defaultFileName, string fileExtension = "linq", string? defaultPath = null)
+	public Task<string?> PromptSaveFileAsync(string defaultFileName, string fileExtension = FileExtensions.Project, string? defaultPath = null)
 	{
 		// If a specific result is set, use it
 		if (_nextSaveFileResult != null)

@@ -387,7 +387,7 @@ public partial class Editor : ComponentBase, IDisposable
 		{
 			var success = await Workspace.Queries.SaveQueryWithDialogAsync(qid, async (defaultFileName) =>
 			{
-				return await FileSystemService.PromptSaveFileAsync(FileExtensions.EnsureHasExtension(defaultFileName, FileExtensions.Query), FileExtensions.Query);
+				return await FileSystemService.PromptSaveFileAsync(defaultFileName.EnsureHasExtension(FileExtensions.Query), FileExtensions.Query);
 			});
 
 			if (success)

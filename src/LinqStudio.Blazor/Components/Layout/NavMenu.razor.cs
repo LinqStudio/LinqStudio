@@ -184,7 +184,7 @@ public partial class NavMenu : ComponentBase, IDisposable
 		try
 		{
 			// Use native file dialog directly with current project name
-			var filePath = await FileSystemService.PromptSaveFileAsync(FileExtensions.EnsureHasExtension(Workspace.CurrentProjectName, FileExtensions.Project));
+			var filePath = await FileSystemService.PromptSaveFileAsync(Workspace.CurrentProjectName.EnsureHasExtension(FileExtensions.Project));
 
 			if (string.IsNullOrWhiteSpace(filePath))
 			{
