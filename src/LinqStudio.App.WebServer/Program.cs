@@ -1,4 +1,6 @@
 using LinqStudio.App.WebServer;
+using LinqStudio.App.WebServer.Services;
+using LinqStudio.Blazor.Abstractions;
 using LinqStudio.Blazor.Extensions;
 using LinqStudio.Core.Extensions;
 using LinqStudio.Core.Services;
@@ -16,6 +18,9 @@ builder.Services.AddRazorComponents()
 builder.Services
 	.AddLinqStudio()
 	.AddLinqStudioBlazor();
+
+// Register server-specific file system service
+builder.Services.AddScoped<IFileSystemService, ServerFileSystemService>();
 
 var app = builder.Build();
 
