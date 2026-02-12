@@ -1,20 +1,71 @@
+@using LinqStudio.Abstractions.Models
 @using LinqStudio.Core.Models
+@inject ISnackbar Snackbar
+@inject ErrorHandlingService ErrorHandlingService
+@inject IDialogService DialogService
 
 <MudDialog data-testid="edit-project-dialog">
 	<DialogContent>
-		<MudTextField Value="@Project.Name" 
+		<MudStack Spacing="3">
+			<MudTextField Value="@Project.Name" 
 					  Label="Project Name" 
 					  ReadOnly="true"
 					  Disabled="true"
 					  data-testid="project-name-field" />
 		
-		<MudTextField @bind-Value="_connectionString" 
-					  Label="Connection String" 
-					  Class="mt-4"
-					  Lines="3"
-					  data-testid="project-connection-string-field" />
+			<MudSelect T="DatabaseType" 
+					   @bind-Value="_databaseType" 
+					   Label="@SharedResource.ConnectionSettings_DatabaseType"
+					   Variant="Variant.Outlined"
+					   Disabled="_isTesting"
+					   data-testid="database-type-select">
+				@foreach (DatabaseType dbType in Enum.GetValues(typeof(DatabaseType)))
+				{
+					<MudSelectItem T="DatabaseType" Value="@dbType">@dbType.ToString()</MudSelectItem>
+				}
+			</MudSelect>
+
+			<MudTextField T="string"
+						  @bind-Value="_connectionString"
+						  Label="@SharedResource.ConnectionSettings_ConnectionString"
+						  Variant="Variant.Outlined"
+						  Lines="5"
+						  Disabled="_isTesting"
+						  data-testid="connection-string-input" />
+
+			<MudSelect T="int" 
+					   @bind-Value="_timeoutSeconds" 
+					   Label="@SharedResource.ConnectionSettings_Timeout"
+					   Variant="Variant.Outlined"
+					   Disabled="_isTesting"
+					   data-testid="timeout-select">
+				<MudSelectItem T="int" Value="5">5s</MudSelectItem>
+				<MudSelectItem T="int" Value="10">10s</MudSelectItem>
+				<MudSelectItem T="int" Value="15">15s</MudSelectItem>
+				<MudSelectItem T="int" Value="30">30s</MudSelectItem>
+				<MudSelectItem T="int" Value="60">60s</MudSelectItem>
+			</MudSelect>
+		</MudStack>
+
 	</DialogContent>
 	<DialogActions>
+		<MudButton OnClick="ValidateConnection" 
+				   Variant="Variant.Outlined" 
+				   Color="Color.Info"
+				   Disabled="_isTesting"
+				   data-testid="validate-button">
+			@if (_isTesting)
+			{
+				<MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" />
+				<span>@SharedResource.ConnectionSettings_Message_Testing</span>
+			}
+			else
+			{
+				<span>@SharedResource.ConnectionSettings_Button_Validate</span>
+			}
+		</MudButton>
+
+
 		<MudButton OnClick="Cancel" data-testid="edit-project-cancel-btn">Cancel</MudButton>
 		<MudButton Color="Color.Primary" 
 				   Variant="Variant.Filled" 
