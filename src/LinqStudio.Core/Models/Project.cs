@@ -1,7 +1,7 @@
-﻿using Google.Protobuf.WellKnownTypes;
-using LinqStudio.Abstractions.Abstractions;
+﻿using LinqStudio.Abstractions.Abstractions;
 using LinqStudio.Abstractions.Models;
 using LinqStudio.Databases;
+using System.Text.Json.Serialization;
 
 namespace LinqStudio.Core.Models;
 
@@ -45,6 +45,7 @@ public class Project
 	/// <summary>
 	/// Query generator used to fetch information about the DB such as list of tables.
 	/// </summary>
+	[JsonIgnore]
 	public IDatabaseQueryGenerator? QueryGenerator
 	{
 		get
