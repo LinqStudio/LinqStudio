@@ -17,7 +17,9 @@ public class SqliteGenerator : AdoNetDatabaseGeneratorBase
 	{
 	}
 
-	/// <inheritdoc/>
+	public static SqliteGenerator Create(string connectionString) => new(new Microsoft.Data.Sqlite.SqliteConnection(connectionString));
+
+	/// <inheritdoc/>	
 	public override DbColumnType MapToGenericType(string dataType)
 	{
 		var type = dataType.ToLowerInvariant();

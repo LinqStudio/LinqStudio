@@ -1,6 +1,6 @@
 using LinqStudio.Abstractions.Models;
-using LinqStudio.Databases.MSSQL;
 using LinqStudio.Databases.Tests.Fixtures;
+using Microsoft.EntityFrameworkCore;
 
 namespace LinqStudio.Databases.Tests;
 
@@ -13,7 +13,7 @@ public class MssqlTypeMapperTests : IClassFixture<MssqlDatabaseFixture>
 
 	public MssqlTypeMapperTests(MssqlDatabaseFixture fixture)
 	{
-		_generator = new MssqlGenerator(fixture.DbContext.Database);
+		_generator = new MssqlGenerator(fixture.DbContext.Database.GetDbConnection());
 	}
 
 	[Theory]

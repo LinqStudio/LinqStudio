@@ -17,6 +17,8 @@ public class PostgreSqlGenerator : AdoNetDatabaseGeneratorBase
 	{
 	}
 
+	public static PostgreSqlGenerator Create(string connectionString) => new(new Npgsql.NpgsqlConnection(connectionString));
+
 	/// <inheritdoc/>
 	public override DbColumnType MapToGenericType(string dataType)
 	{

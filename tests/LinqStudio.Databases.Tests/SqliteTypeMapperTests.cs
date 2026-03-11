@@ -1,6 +1,7 @@
 using LinqStudio.Abstractions.Models;
 using LinqStudio.Databases.SQLite;
 using LinqStudio.Databases.Tests.Fixtures;
+using Microsoft.EntityFrameworkCore;
 
 namespace LinqStudio.Databases.Tests;
 
@@ -13,7 +14,7 @@ public class SqliteTypeMapperTests : IClassFixture<SqliteDatabaseFixture>
 
 	public SqliteTypeMapperTests(SqliteDatabaseFixture fixture)
 	{
-		_generator = new SqliteGenerator(fixture.DbContext.Database);
+		_generator = new SqliteGenerator(fixture.DbContext.Database.GetDbConnection());
 	}
 
 	[Theory]

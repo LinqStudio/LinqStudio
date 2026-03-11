@@ -1,6 +1,8 @@
 ﻿using LinqStudio.Abstractions.Abstractions;
 using LinqStudio.Abstractions.Models;
 using LinqStudio.Databases;
+using LinqStudio.Databases.PostgreSQL;
+using LinqStudio.Databases.SQLite;
 using System.Text.Json.Serialization;
 
 namespace LinqStudio.Core.Models;
@@ -99,6 +101,8 @@ public class Project
 		{
 			DatabaseType.Mssql => MssqlGenerator.Create(connectionString),
 			DatabaseType.MySql => MySqlGenerator.Create(connectionString),
+			DatabaseType.PostgreSql => PostgreSqlGenerator.Create(connectionString),
+			DatabaseType.Sqlite => SqliteGenerator.Create(connectionString),
 			_ => throw new NotSupportedException($"Database type {databaseType} is not supported.")
 		};
 
