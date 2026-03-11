@@ -497,3 +497,71 @@ Line 21: Demo seeding complete.
 - ✅ Aspire dashboard visual verification complete
 - ⚠️ App server manual start needed (blocked by seeder exit code)
 - ℹ️ LinqStudio UI testing deferred (app not running)
+
+## Live Test: Final Stack Sign-Off
+**Date:** 2026-03-11T21:52:00Z  
+**Tester:** Alice  
+**Context:** Simon fixed the seeder exit code issue (was 0xE0434352, now exits 0 on success)
+
+### Test Environment
+- Dashboard URL: https://localhost:17067/login?t=6d197fd65a5fee169742a0234ae524de
+- App URL: https://localhost:7169
+- Wait time: 90 seconds for full stack initialization
+
+### Test Results
+
+#### ✅ PASS - All Resources Healthy
+**Resources Status (6 total):**
+1. ✅ **demo-mssql** → Running (Container)
+2. ✅ **linqstudio-mssql-demo** → Running (Database resource)
+3. ✅ **demo-mysql** → Running (Container)
+4. ✅ **linqstudio-mysql-demo** → Running (Database resource)
+5. ✅ **demo-seeder** → **Finished with exit code 0** ⭐ KEY FIX
+6. ✅ **linqstudio-app-webserver** → **Running** ⭐ NOW UNBLOCKED
+
+**Screenshot:** spire-resources-final-signoff.png
+
+#### ✅ PASS - Seeder Console Logs Show Success
+**Console logs verified:**
+- Line 275: demo-seeder [MSSQL] Seeded successfully.
+- Line 276: demo-seeder [MySQL] Seeded successfully.
+- Line 277: demo-seeder Demo seeding complete.
+- **Exit code: 0** (clean exit, no exceptions)
+
+**Screenshot:** demo-seeder-success-logs.png
+
+#### ✅ PASS - LinqStudio App Homepage Loads
+**App Status:**
+- URL: https://localhost:7169/ accessible
+- Page title: "Welcome to LinqStudio"
+- Subtitle: "Your IDE for EF Core LINQ queries"
+- Navigation: Home, Project, Editor menus visible
+- Dark theme applied correctly
+- **Console errors:** Only 1 error - missing favicon.png (404) - cosmetic only
+
+**Screenshot:** linqstudio-app-homepage.png
+
+### Pass Criteria Met ✅
+1. ✅ demo-seeder exits with code 0
+2. ✅ linqstudio-app-webserver shows as Running (was blocked before)
+3. ✅ App home page loads without critical errors
+
+### Visual Quality Assessment
+- **Dashboard UI:** Clean, professional, easy to read resource states
+- **Console logs:** Well-formatted with line numbers, easy to track seeding progress
+- **App UI:** Blazor app renders correctly with MudBlazor components, dark theme working
+
+### Conclusion
+**VERDICT: PASS** ✅
+
+Simon's fix is complete and working perfectly. The seeder now exits cleanly with code 0, which unblocks the app server. All 6 resources in the Aspire stack are healthy, and the LinqStudio app is accessible and functional.
+
+The full end-to-end Aspire orchestration flow works as designed:
+1. Containers start (MySQL, MSSQL)
+2. Database resources initialize
+3. Seeder waits for databases, seeds both successfully, exits 0
+4. App server starts after seeder completes
+5. App is accessible on https://localhost:7169
+
+**No further issues detected.** The stack is production-ready for local development.
+
