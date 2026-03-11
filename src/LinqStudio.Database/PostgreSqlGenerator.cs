@@ -2,27 +2,20 @@ using LinqStudio.Abstractions.Models;
 using System.Data;
 using System.Data.Common;
 
-namespace LinqStudio.Databases;
+namespace LinqStudio.Databases.PostgreSQL;
 
 /// <summary>
-/// Database generator for MySQL using ADO.NET.
+/// Database generator for PostgreSQL using ADO.NET.
 /// </summary>
-public class MySqlGenerator : AdoNetDatabaseGeneratorBase
+public class PostgreSqlGenerator : AdoNetDatabaseGeneratorBase
 {
 	/// <summary>
-	/// Creates a new instance of the MySQL generator.
+	/// Creates a new instance of the PostgreSQL generator.
 	/// </summary>
 	/// <param name="connection">Database connection.</param>
-	public MySqlGenerator(DbConnection connection) : base(connection)
+	public PostgreSqlGenerator(DbConnection connection) : base(connection)
 	{
 	}
-
-	/// <summary>
-	/// Creates a new MySQL generator from a connection string.
-	/// </summary>
-	/// <param name="connectionString">MySQL connection string.</param>
-	/// <returns>A new MySQL generator instance.</returns>
-	public static MySqlGenerator Create(string connectionString) => new(new MySql.Data.MySqlClient.MySqlConnection(connectionString));
 
 	/// <inheritdoc/>
 	protected override DatabaseTableName? ParseTableFromSchemaRow(DataRow row)
@@ -46,7 +39,7 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 	public override async Task<DatabaseTableDetail> GetTableAsync(string tableName, CancellationToken cancellationToken = default)
 	{
 		var (schema, name) = ParseTableName(tableName);
-		schema ??= Connection.Database; // Default to current database
+		schema ??= "public"; // Default schema for PostgreSQL
 
 		var wasOpen = Connection.State == ConnectionState.Open;
 		if (!wasOpen)
@@ -79,21 +72,32 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 	{
 		var columns = new List<TableColumn>();
 
-		// MySQL doesn't always work well with GetSchema("Columns"), use query instead
+		// PostgreSQL: use INFORMATION_SCHEMA query for columns
 		const string query = """
 			SELECT 
-				c.COLUMN_NAME,
-				c.DATA_TYPE,
-				c.IS_NULLABLE,
-				c.COLUMN_KEY,
-				c.EXTRA,
-				c.CHARACTER_MAXIMUM_LENGTH,
-				c.NUMERIC_PRECISION,
-				c.NUMERIC_SCALE
-			FROM INFORMATION_SCHEMA.COLUMNS c
-			WHERE c.TABLE_SCHEMA = @Schema
-				AND c.TABLE_NAME = @TableName
-			ORDER BY c.ORDINAL_POSITION
+				c.column_name,
+				c.data_type,
+				c.is_nullable,
+				c.character_maximum_length,
+				c.numeric_precision,
+				c.numeric_scale,
+				CASE WHEN pk.column_name IS NOT NULL THEN 'YES' ELSE 'NO' END AS is_primary_key,
+				CASE WHEN c.column_default LIKE 'nextval%' THEN 'YES' ELSE 'NO' END AS is_identity
+			FROM information_schema.columns c
+			LEFT JOIN (
+				SELECT ku.column_name
+				FROM information_schema.table_constraints tc
+				JOIN information_schema.key_column_usage ku
+					ON tc.constraint_name = ku.constraint_name
+					AND tc.table_schema = ku.table_schema
+					AND tc.table_name = ku.table_name
+				WHERE tc.constraint_type = 'PRIMARY KEY'
+					AND tc.table_schema = @Schema
+					AND tc.table_name = @TableName
+			) pk ON c.column_name = pk.column_name
+			WHERE c.table_schema = @Schema
+				AND c.table_name = @TableName
+			ORDER BY c.ordinal_position
 			""";
 
 		await using var command = connection.CreateCommand();
@@ -112,38 +116,38 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 		await using var reader = await command.ExecuteReaderAsync(cancellationToken);
 		while (await reader.ReadAsync(cancellationToken))
 		{
-			var columnKey = reader.GetString(3);
-			var extra = reader.GetString(4);
+			var isPrimaryKey = reader.GetString(6) == "YES";
+			var isIdentity = reader.GetString(7) == "YES";
 
-			// Parse max length safely - can be very large for LONGTEXT
+			// Parse max length safely
 			int? maxLength = null;
-			if (!reader.IsDBNull(5))
+			if (!reader.IsDBNull(3))
 			{
-				var value = reader.GetValue(5);
-				if (long.TryParse(value.ToString(), out var longValue))
+				var value = reader.GetValue(3);
+				if (int.TryParse(value.ToString(), out var intValue))
 				{
-					maxLength = longValue > int.MaxValue ? int.MaxValue : (int)longValue;
+					maxLength = intValue;
 				}
 			}
 
 			// Parse precision and scale safely
 			int? precision = null;
-			if (!reader.IsDBNull(6))
+			if (!reader.IsDBNull(4))
 			{
-				var value = reader.GetValue(6);
-				if (long.TryParse(value.ToString(), out var longValue))
+				var value = reader.GetValue(4);
+				if (int.TryParse(value.ToString(), out var intValue))
 				{
-					precision = longValue > int.MaxValue ? int.MaxValue : (int)longValue;
+					precision = intValue;
 				}
 			}
 
 			int? scale = null;
-			if (!reader.IsDBNull(7))
+			if (!reader.IsDBNull(5))
 			{
-				var value = reader.GetValue(7);
-				if (long.TryParse(value.ToString(), out var longValue))
+				var value = reader.GetValue(5);
+				if (int.TryParse(value.ToString(), out var intValue))
 				{
-					scale = longValue > int.MaxValue ? int.MaxValue : (int)longValue;
+					scale = intValue;
 				}
 			}
 
@@ -152,14 +156,13 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 				Name = reader.GetString(0),
 				DataType = reader.GetString(1),
 				IsNullable = reader.GetString(2) == "YES",
-				IsPrimaryKey = columnKey == "PRI",
-				IsIdentity = extra.Contains("auto_increment", StringComparison.OrdinalIgnoreCase),
+				IsPrimaryKey = isPrimaryKey,
+				IsIdentity = isIdentity,
 				MaxLength = maxLength,
 				Precision = precision,
 				Scale = scale
 			});
 		}
-
 
 		return columns;
 	}
@@ -168,18 +171,24 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 	{
 		var foreignKeys = new List<ForeignKey>();
 
-		// MySQL: use INFORMATION_SCHEMA query for foreign keys
+		// PostgreSQL: use INFORMATION_SCHEMA query for foreign keys
 		const string query = """
 			SELECT 
-				kcu.CONSTRAINT_NAME,
-				kcu.COLUMN_NAME,
-				CONCAT(kcu.REFERENCED_TABLE_SCHEMA, '.', kcu.REFERENCED_TABLE_NAME) AS ReferencedTable,
-				kcu.REFERENCED_COLUMN_NAME
-			FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu
-			WHERE kcu.TABLE_SCHEMA = @Schema
-				AND kcu.TABLE_NAME = @TableName
-				AND kcu.REFERENCED_TABLE_NAME IS NOT NULL
-			ORDER BY kcu.CONSTRAINT_NAME, kcu.ORDINAL_POSITION
+				tc.constraint_name,
+				kcu.column_name,
+				CONCAT(ccu.table_schema, '.', ccu.table_name) AS referenced_table,
+				ccu.column_name AS referenced_column
+			FROM information_schema.table_constraints tc
+			JOIN information_schema.key_column_usage kcu
+				ON tc.constraint_name = kcu.constraint_name
+				AND tc.table_schema = kcu.table_schema
+			JOIN information_schema.constraint_column_usage ccu
+				ON tc.constraint_name = ccu.constraint_name
+				AND tc.table_schema = ccu.table_schema
+			WHERE tc.constraint_type = 'FOREIGN KEY'
+				AND tc.table_schema = @Schema
+				AND tc.table_name = @TableName
+			ORDER BY tc.constraint_name, kcu.ordinal_position
 			""";
 
 		await using var command = connection.CreateCommand();

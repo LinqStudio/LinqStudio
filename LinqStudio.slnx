@@ -8,6 +8,7 @@
     <File Path=".editorconfig" />
     <File Path=".github/agents/playwright-setup.md" />
     <File Path=".github/copilot-instructions.md" />
+    <File Path=".gitignore" />
   </Folder>
   <Project Path="build/_build.csproj" />
   <Project Path="src/LinqStudio.Abstractions/LinqStudio.Abstractions.csproj" Id="84cafbba-594d-4e5e-a783-b7735605bb29" />
