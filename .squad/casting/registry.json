@@ -1,0 +1,60 @@
+{
+  "agents": {
+    "samy": {
+      "persistent_name": "Samy",
+      "universe": "Custom",
+      "created_at": "2026-03-11T03:15:00Z",
+      "legacy_named": false,
+      "status": "active",
+      "role": "Analyst / Architect"
+    },
+    "eviljosh": {
+      "persistent_name": "EvilJosh",
+      "universe": "Custom",
+      "created_at": "2026-03-11T03:15:00Z",
+      "legacy_named": false,
+      "status": "active",
+      "role": "Frontend Dev"
+    },
+    "simon": {
+      "persistent_name": "Simon",
+      "universe": "Custom",
+      "created_at": "2026-03-11T03:15:00Z",
+      "legacy_named": false,
+      "status": "active",
+      "role": "Backend Core Dev"
+    },
+    "jordan": {
+      "persistent_name": "Jordan",
+      "universe": "Custom",
+      "created_at": "2026-03-11T03:15:00Z",
+      "legacy_named": false,
+      "status": "active",
+      "role": "Tests Dev"
+    },
+    "alice": {
+      "persistent_name": "Alice",
+      "universe": "Custom",
+      "created_at": "2026-03-11T03:15:00Z",
+      "legacy_named": false,
+      "status": "active",
+      "role": "Live Tester"
+    },
+    "scribe": {
+      "persistent_name": "Scribe",
+      "universe": "exempt",
+      "created_at": "2026-03-11T03:15:00Z",
+      "legacy_named": false,
+      "status": "active",
+      "role": "Session Logger"
+    },
+    "ralph": {
+      "persistent_name": "Ralph",
+      "universe": "exempt",
+      "created_at": "2026-03-11T03:15:00Z",
+      "legacy_named": false,
+      "status": "active",
+      "role": "Work Monitor"
+    }
+  }
+}

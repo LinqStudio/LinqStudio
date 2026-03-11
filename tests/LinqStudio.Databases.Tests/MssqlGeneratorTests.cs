@@ -1,6 +1,6 @@
 using LinqStudio.Abstractions.Abstractions;
-using LinqStudio.Databases.MSSQL;
 using LinqStudio.Databases.Tests.Fixtures;
+using Microsoft.EntityFrameworkCore;
 
 namespace LinqStudio.Databases.Tests;
 
@@ -16,6 +16,6 @@ public class MssqlGeneratorTests : BaseGeneratorTests, IClassFixture<MssqlDataba
 	public MssqlGeneratorTests(MssqlDatabaseFixture fixture)
 	{
 		_fixture = fixture;
-		Generator = new MssqlGenerator(_fixture.DbContext.Database);
+		Generator = new MssqlGenerator(_fixture.DbContext.Database.GetDbConnection());
 	}
 }

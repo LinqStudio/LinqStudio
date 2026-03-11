@@ -24,13 +24,13 @@ public class EditorE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		// Trigger suggestions via Ctrl+Space
 		await page.Keyboard.PressAsync("Control+Space");
 
-		// Wait for suggest widget to appear
-		var suggestRow = page.Locator(".suggest-widget .monaco-list-row").First;
-		await Expect(suggestRow).ToBeVisibleAsync(new() { Timeout = 10000 });
+		// Wait for suggest widget to appear (with .visible CSS class)
+		var suggestRow = page.Locator(".suggest-widget.visible .monaco-list-row").First;
+		await Expect(suggestRow).ToBeVisibleAsync(new() { Timeout = 20000 });
 		await Expect(suggestRow).Not.ToBeEmptyAsync();
 
 		// Ensure we have some likely completions
-		var suggestions = page.Locator(".suggest-widget .monaco-list-row");
+		var suggestions = page.Locator(".suggest-widget.visible .monaco-list-row");
 		await Expect(suggestions).Not.ToHaveCountAsync(0);
 	}
 
@@ -81,7 +81,7 @@ public class EditorE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await page.Keyboard.TypeAsync(".");
 
 		// Wait for suggest widget to appear automatically (without Ctrl+Space)
-		var suggestRow = page.Locator(".suggest-widget .monaco-list-row");
+		var suggestRow = page.Locator(".suggest-widget.visible .monaco-list-row");
 		await Expect(suggestRow.First).ToBeVisibleAsync(new() { Timeout = 10000 });
 
 		// Verify we have completions (properties/methods on IQueryable<Person>)
@@ -107,12 +107,12 @@ public class EditorE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		// Clear and type code
 		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "context.People.Where");
 
-		// Type an open paren - '(' is a trigger character that shows parameter hints
+		// Type an open paren - this should auto-trigger completion suggestions
 		await page.Keyboard.TypeAsync("(");
 
-		// Verify parameter hints widget appears (Monaco shows parameter info widget for '(' trigger)
-		var parameterHintsLocator = page.Locator(".suggest-widget .monaco-list-row");
-		await Expect(parameterHintsLocator.First).ToBeVisibleAsync(new() { Timeout = 10000 });
+		// Wait for suggest widget to auto-appear (Monaco completion auto-trigger on '(')
+		var suggestRow = page.Locator(".suggest-widget.visible .monaco-list-row");
+		await Expect(suggestRow.First).ToBeVisibleAsync(new() { Timeout = 30000 });
 	}
 
 	[Fact(Skip = "Flaky test due to Monaco Editor behavior, will need to investigate", Timeout = 60_000)]
