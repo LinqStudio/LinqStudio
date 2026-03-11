@@ -18,6 +18,98 @@ public class SqliteGenerator : AdoNetDatabaseGeneratorBase
 	}
 
 	/// <inheritdoc/>
+	public override DbColumnType MapToGenericType(string dataType)
+	{
+		var type = dataType.ToLowerInvariant();
+
+		// Remove size specifications like VARCHAR(100) or DECIMAL(10,2)
+		var parenIndex = type.IndexOf('(');
+		if (parenIndex > 0)
+		{
+			type = type[..parenIndex];
+		}
+
+		// SQLite type affinity rules - check contains rather than exact match
+		// INTEGER affinity
+		if (type.Contains("int") || type.Contains("integer"))
+		{
+			// Check for specific size hints
+			if (type.Contains("tiny"))
+				return DbColumnType.SByte;
+			if (type.Contains("small"))
+				return DbColumnType.Int16;
+			if (type.Contains("big"))
+				return DbColumnType.Int64;
+
+			return DbColumnType.Int32;
+		}
+
+		// TEXT affinity
+		if (type.Contains("char") || type.Contains("clob") || type.Contains("text") || type.Contains("string"))
+		{
+			return DbColumnType.String;
+		}
+
+		// BLOB affinity
+		if (type.Contains("blob"))
+		{
+			return DbColumnType.Binary;
+		}
+
+		// REAL affinity
+		if (type.Contains("real") || type.Contains("floa") || type.Contains("doub"))
+		{
+			if (type.Contains("float"))
+				return DbColumnType.Float;
+
+			return DbColumnType.Double;
+		}
+
+		// NUMERIC affinity (could be decimal or datetime)
+		if (type.Contains("numeric") || type.Contains("decimal") || type.Contains("money"))
+		{
+			return DbColumnType.Decimal;
+		}
+
+		// Date/Time types (stored as TEXT, REAL, or INTEGER)
+		if (type.Contains("date") || type.Contains("time"))
+		{
+			// TIMESTAMP should be DateTime, not TimeSpan
+			if (type.Contains("stamp"))
+				return DbColumnType.DateTime;
+			
+			// Pure time (not datetime) is TimeSpan
+			if (type.Contains("time") && !type.Contains("date"))
+				return DbColumnType.TimeSpan;
+
+			return DbColumnType.DateTime;
+		}
+
+		// Boolean (stored as INTEGER 0/1)
+		if (type.Contains("bool"))
+		{
+			return DbColumnType.Boolean;
+		}
+
+		// GUID (stored as TEXT or BLOB)
+		if (type.Contains("guid") || type.Contains("uuid"))
+		{
+			return DbColumnType.Guid;
+		}
+
+		// Exact matches for common SQLite types
+		return type switch
+		{
+			"integer" => DbColumnType.Int32,
+			"text" => DbColumnType.String,
+			"real" => DbColumnType.Double,
+			"blob" => DbColumnType.Binary,
+			"numeric" => DbColumnType.Decimal,
+			_ => DbColumnType.Unknown
+		};
+	}
+
+	/// <inheritdoc/>
 	protected override DatabaseTableName? ParseTableFromSchemaRow(DataRow row)
 	{
 		// This method is not used by SQLite since we override GetTablesAsync
@@ -158,6 +250,7 @@ public class SqliteGenerator : AdoNetDatabaseGeneratorBase
 			{
 				Name = columnName,
 				DataType = dataType,
+				GenericType = MapToGenericType(dataType),
 				IsNullable = !notNull,
 				IsPrimaryKey = isPrimaryKey,
 				IsIdentity = isIdentity,

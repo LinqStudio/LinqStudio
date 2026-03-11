@@ -27,6 +27,60 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 
 
 	/// <inheritdoc/>
+	public override DbColumnType MapToGenericType(string dataType)
+	{
+		var type = dataType.ToLowerInvariant();
+
+		return type switch
+		{
+			// Boolean
+			"bit" => DbColumnType.Boolean,
+
+			// Integer types
+			"tinyint" => DbColumnType.SByte,
+			"smallint" => DbColumnType.Int16,
+			"int" => DbColumnType.Int32,
+			"bigint" => DbColumnType.Int64,
+
+			// Floating point
+			"real" => DbColumnType.Float,
+			"float" => DbColumnType.Double,
+
+			// Decimal/Money
+			"decimal" or "numeric" or "money" or "smallmoney" => DbColumnType.Decimal,
+
+			// String types
+			"char" or "nchar" or "varchar" or "nvarchar" or "text" or "ntext" => DbColumnType.String,
+
+			// Date/Time types
+			"date" or "datetime" or "datetime2" or "smalldatetime" => DbColumnType.DateTime,
+			"time" => DbColumnType.TimeSpan,
+			"datetimeoffset" => DbColumnType.DateTimeOffset,
+
+			// GUID
+			"uniqueidentifier" => DbColumnType.Guid,
+
+			// Binary
+			"binary" or "varbinary" or "image" or "timestamp" or "rowversion" => DbColumnType.Binary,
+
+			// XML
+			"xml" => DbColumnType.Xml,
+
+			// Geographic/Geometry (treat as binary)
+			"geography" or "geometry" => DbColumnType.Binary,
+
+			// Hierarchyid (treat as binary)
+			"hierarchyid" => DbColumnType.Binary,
+
+			// sql_variant (unknown)
+			"sql_variant" => DbColumnType.Unknown,
+
+			// Default
+			_ => DbColumnType.Unknown
+		};
+	}
+
+	/// <inheritdoc/>
 	protected override DatabaseTableName? ParseTableFromSchemaRow(DataRow row)
 	{
 		var schema = row["TABLE_SCHEMA"]?.ToString();
@@ -139,6 +193,7 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 			{
 				Name = columnName,
 				DataType = dataType,
+				GenericType = MapToGenericType(dataType),
 				IsNullable = isNullable,
 				IsPrimaryKey = isPrimaryKey,
 				IsIdentity = isIdentity,

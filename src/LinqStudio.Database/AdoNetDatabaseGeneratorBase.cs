@@ -58,6 +58,9 @@ public abstract class AdoNetDatabaseGeneratorBase : IDatabaseQueryGenerator
 	public abstract Task<DatabaseTableDetail> GetTableAsync(string tableName, CancellationToken cancellationToken = default);
 
 	/// <inheritdoc/>
+	public abstract DbColumnType MapToGenericType(string dataType);
+
+	/// <inheritdoc/>
 	public async Task TestConnectionAsync(CancellationToken cancellationToken = default)
 	{
 		var wasOpen = Connection.State == ConnectionState.Open;

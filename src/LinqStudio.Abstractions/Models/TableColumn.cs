@@ -16,6 +16,11 @@ public record TableColumn
 	public required string DataType { get; init; }
 
 	/// <summary>
+	/// Generic column type that maps to C# types.
+	/// </summary>
+	public required DbColumnType GenericType { get; init; }
+
+	/// <summary>
 	/// Whether the column allows NULL values.
 	/// </summary>
 	public required bool IsNullable { get; init; }

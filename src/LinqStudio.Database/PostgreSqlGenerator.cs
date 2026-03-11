@@ -18,6 +18,74 @@ public class PostgreSqlGenerator : AdoNetDatabaseGeneratorBase
 	}
 
 	/// <inheritdoc/>
+	public override DbColumnType MapToGenericType(string dataType)
+	{
+		var type = dataType.ToLowerInvariant();
+
+		return type switch
+		{
+			// Boolean
+			"boolean" or "bool" => DbColumnType.Boolean,
+
+			// Integer types
+			"smallint" or "int2" or "smallserial" or "serial2" => DbColumnType.Int16,
+			"integer" or "int" or "int4" or "serial" or "serial4" => DbColumnType.Int32,
+			"bigint" or "int8" or "bigserial" or "serial8" => DbColumnType.Int64,
+
+			// Floating point
+			"real" or "float4" => DbColumnType.Float,
+			"double precision" or "float8" => DbColumnType.Double,
+
+			// Decimal/Money
+			"numeric" or "decimal" or "money" => DbColumnType.Decimal,
+
+			// String types
+			"character varying" or "varchar" or "character" or "char" or "text" or "name" => DbColumnType.String,
+
+			// Date/Time types
+			"timestamp" or "timestamp without time zone" or "date" => DbColumnType.DateTime,
+			"timestamp with time zone" or "timestamptz" => DbColumnType.DateTimeOffset,
+			"time" or "time without time zone" or "interval" => DbColumnType.TimeSpan,
+
+			// UUID
+			"uuid" => DbColumnType.Guid,
+
+			// Binary
+			"bytea" => DbColumnType.Binary,
+
+			// XML
+			"xml" => DbColumnType.Xml,
+
+			// JSON
+			"json" or "jsonb" => DbColumnType.Json,
+
+			// Network address types (treat as string)
+			"inet" or "cidr" or "macaddr" or "macaddr8" => DbColumnType.String,
+
+			// Bit strings (treat as binary)
+			"bit" or "bit varying" => DbColumnType.Binary,
+
+			// Text search types (treat as string)
+			"tsvector" or "tsquery" => DbColumnType.String,
+
+			// Geometric types (treat as binary)
+			"point" or "line" or "lseg" or "box" or "path" or "polygon" or "circle" => DbColumnType.Binary,
+
+			// Range types (treat as string)
+			"int4range" or "int8range" or "numrange" or "tsrange" or "tstzrange" or "daterange" => DbColumnType.String,
+
+			// Array types (detect by [])
+			_ when type.EndsWith("[]") => DbColumnType.Unknown,
+
+			// User-defined types
+			"user-defined" => DbColumnType.Unknown,
+
+			// Default
+			_ => DbColumnType.Unknown
+		};
+	}
+
+	/// <inheritdoc/>
 	protected override DatabaseTableName? ParseTableFromSchemaRow(DataRow row)
 	{
 		var schema = row["TABLE_SCHEMA"]?.ToString();
@@ -155,6 +223,7 @@ public class PostgreSqlGenerator : AdoNetDatabaseGeneratorBase
 			{
 				Name = reader.GetString(0),
 				DataType = reader.GetString(1),
+				GenericType = MapToGenericType(reader.GetString(1)),
 				IsNullable = reader.GetString(2) == "YES",
 				IsPrimaryKey = isPrimaryKey,
 				IsIdentity = isIdentity,
