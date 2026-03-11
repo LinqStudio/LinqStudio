@@ -1,10 +1,9 @@
 ﻿using LinqStudio.Abstractions.Models;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.Data.SqlClient;
 using System.Data;
 using System.Data.Common;
 
-namespace LinqStudio.Databases.MSSQL;
+namespace LinqStudio.Databases;
 
 /// <summary>
 /// Database generator for Microsoft SQL Server using ADO.NET.
@@ -15,9 +14,12 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 	/// Creates a new instance of the MSSQL generator.
 	/// </summary>
 	/// <param name="database">EF Core database facade.</param>
-	public MssqlGenerator(DatabaseFacade database) : base(database)
+	public MssqlGenerator(DbConnection connection) : base(connection)
 	{
 	}
+
+	public static MssqlGenerator Create(string connectionString) => new(new SqlConnection(connectionString));
+
 
 	/// <inheritdoc/>
 	protected override DatabaseTableName? ParseTableFromSchemaRow(DataRow row)
@@ -43,19 +45,17 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 		var (schema, name) = ParseTableName(tableName);
 		schema ??= "dbo"; // Default schema for SQL Server
 
-		var connection = Database.GetDbConnection();
-
-		var wasOpen = connection.State == ConnectionState.Open;
+		var wasOpen = DbConnection.State == ConnectionState.Open;
 		if (!wasOpen)
-			await connection.OpenAsync(cancellationToken);
+			await DbConnection.OpenAsync(cancellationToken);
 
 		try
 		{
 			// Get columns using database-specific query for better information
-			var columns = await GetColumnsAsync(connection, schema, name, cancellationToken);
+			var columns = await GetColumnsAsync(DbConnection, schema, name, cancellationToken);
 
 			// Get foreign keys using database-specific query
-			var foreignKeys = await GetForeignKeysAsync(connection, schema, name, cancellationToken);
+			var foreignKeys = await GetForeignKeysAsync(DbConnection, schema, name, cancellationToken);
 
 			return new DatabaseTableDetail
 			{
@@ -68,7 +68,7 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 		finally
 		{
 			if (!wasOpen)
-				await connection.CloseAsync();
+				await DbConnection.CloseAsync();
 		}
 	}
 

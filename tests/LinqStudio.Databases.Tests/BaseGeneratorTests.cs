@@ -135,4 +135,23 @@ public abstract class BaseGeneratorTests
 		var firstNameColumn = table.Columns.First(c => c.Name == "FirstName");
 		Assert.False(firstNameColumn.IsNullable);
 	}
+
+	[Fact]
+	public async Task TestConnectionAsync_WithValidConnection_Succeeds()
+	{
+		// Act & Assert - Should not throw
+		await Generator.TestConnectionAsync();
+	}
+
+	[Fact]
+	public async Task TestConnectionAsync_WithCancellation_ThrowsOperationCanceledException()
+	{
+		// Arrange
+		using var cts = new CancellationTokenSource();
+		cts.Cancel();
+
+		// Act & Assert - TaskCanceledException is a subclass of OperationCanceledException
+		await Assert.ThrowsAnyAsync<OperationCanceledException>(
+			async () => await Generator.TestConnectionAsync(cts.Token));
+	}
 }

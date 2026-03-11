@@ -4,9 +4,10 @@
     <Project Path="src/LinqStudio.ServiceDefaults/LinqStudio.ServiceDefaults.csproj" />
   </Folder>
   <Folder Name="/Solution Files/">
+    <File Path=".devcontainer/devcontainer.json" />
     <File Path=".editorconfig" />
+    <File Path=".github/agents/playwright-setup.md" />
     <File Path=".github/copilot-instructions.md" />
-    <File Path="Directory.Build.props" />
   </Folder>
   <Project Path="build/_build.csproj" />
   <Project Path="src/LinqStudio.Abstractions/LinqStudio.Abstractions.csproj" Id="84cafbba-594d-4e5e-a783-b7735605bb29" />
@@ -18,5 +19,7 @@
   <Project Path="tests/LinqStudio.App.WebServer.Tests/LinqStudio.App.WebServer.Tests.csproj" Id="2ac4de95-e33c-4118-ae94-0c657c203170" />
   <Project Path="tests/LinqStudio.Blazor.Tests/LinqStudio.Blazor.Tests.csproj" Id="ca332bbf-b7f3-410b-a277-7b55bc801e2d" />
   <Project Path="tests/LinqStudio.Core.Tests/LinqStudio.Core.Tests.csproj" Id="cca8ae44-d6d8-48a8-958f-6c49ab38efea" />
-  <Project Path="tests/LinqStudio.Databases.Tests/LinqStudio.Databases.Tests.csproj" />
+  <Project Path="tests/LinqStudio.Databases.Tests/LinqStudio.Databases.Tests.csproj">
+    <Build Solution="Debug|*" Project="false" />
+  </Project>
 </Solution>

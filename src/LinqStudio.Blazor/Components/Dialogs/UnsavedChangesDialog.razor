@@ -1,0 +1,17 @@
+@using MudBlazor
+
+<MudDialog data-testid="unsaved-changes-dialog">
+	<TitleContent>
+		<MudText Typo="Typo.h6">
+			<MudIcon Icon="@Icons.Material.Filled.Warning" Class="mr-3" Color="Color.Warning" />
+			Unsaved Changes
+		</MudText>
+	</TitleContent>
+	<DialogContent>
+		<MudText data-testid="unsaved-changes-message">@Message</MudText>
+	</DialogContent>
+	<DialogActions>
+		<MudButton OnClick="Cancel" Variant="Variant.Text" data-testid="unsaved-changes-cancel-btn">@CancelText</MudButton>
+		<MudButton OnClick="Confirm" Variant="Variant.Filled" Color="Color.Primary" data-testid="unsaved-changes-confirm-btn">@ConfirmText</MudButton>
+	</DialogActions>
+</MudDialog>

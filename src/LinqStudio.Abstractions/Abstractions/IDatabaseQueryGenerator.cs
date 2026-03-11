@@ -32,4 +32,11 @@ public interface IDatabaseQueryGenerator
 	{
 		return GetTableAsync(table.FullName, cancellationToken);
 	}
+
+	/// <summary>
+	/// Tests the database connection.
+	/// </summary>
+	/// <param name="cancellationToken">Cancellation token for timeout control.</param>
+	/// <returns>Task that completes successfully if connection is valid, throws exception otherwise.</returns>
+	Task TestConnectionAsync(CancellationToken cancellationToken = default);
 }
