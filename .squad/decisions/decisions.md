@@ -393,6 +393,60 @@ var app = builder.AddProject<Projects.LinqStudio_App_WebServer>()
 - `.squad/orchestration-log/2026-03-11_100538-jordan-openparen-fix.md`
 - `.squad/log/2026-03-11_100538-e2e-fix-complete.md`
 
+---
+
+## MySQL EF Core 10 Fix Verification (2026-03-11 6:37 PM)
+
+**Status:** ✅ Verified  
+**Tester:** Alice (Live Tester)  
+**Context:** Post-fix validation after Simon's MySql.EntityFrameworkCore upgrade
+
+### Verification Results
+
+**MySQL Seeding:**
+- ✅ No longer fails with "Method not found: IRelationalCommandBuilder.Append()"
+- ✅ Seeded successfully on first try (no retries)
+- ✅ Complete output: "[MySQL] Seeded successfully."
+
+**MSSQL Seeding:**
+- ✅ Still working (both DBs seeded simultaneously)
+
+**Containers:**
+- ✅ demo-mssql running healthy
+- ✅ demo-mysql running healthy
+- ✅ Both database resources (linqstudio-mssql-demo, linqstudio-mysql-demo) marked Running
+
+**Console Output Evidence:**
+```
+Line 19: [MySQL] Seeded successfully.
+Line 20: [MSSQL] Seeded successfully.
+Line 21: Demo seeding complete.
+```
+
+### Before vs After Fix
+
+| Aspect | Before (6:08 PM) | After (6:37 PM) |
+|--------|------------------|-----------------|
+| MySQL Seeding | ❌ Failed after 10 retries | ✅ First try success |
+| Error | "Method not found: IRelationalCommandBuilder.Append()" | None |
+| MSSQL | Running/Healthy | Running/Healthy |
+| MySQL Container | Running/Healthy | Running/Healthy |
+
+### Resolution Status
+
+**MySQL Provider Fix:** ✅ COMPLETE AND VERIFIED
+- Oracle's `MySql.EntityFrameworkCore` v10.0.1 resolves EF Core 10 compatibility
+- No regression in MSSQL seeding
+- Both databases initialize cleanly
+
+**Known Remaining Issue (separate):**
+- Seeder exits with code -532462766 after successful seeding
+- Does NOT affect database seeding success
+- Blocks app server startup due to `WaitForCompletion(seeder)` dependency
+- May require separate fix to seeder exit handling
+
+---
+
 **Database Integration:**
 - `.squad/orchestration-log/2026-03-11T21-34-07Z-simon-aspire-db-setup.md`
 - `.squad/orchestration-log/2026-03-11T21-34-07Z-simon-seeder-fix.md`
