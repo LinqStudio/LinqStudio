@@ -1,6 +1,7 @@
 using LinqStudio.Abstractions.Abstractions;
 using LinqStudio.Databases.PostgreSQL;
 using LinqStudio.Databases.Tests.Fixtures;
+using Microsoft.EntityFrameworkCore;
 
 namespace LinqStudio.Databases.Tests;
 
@@ -16,6 +17,6 @@ public class PostgreSqlGeneratorTests : BaseGeneratorTests, IClassFixture<Postgr
 	public PostgreSqlGeneratorTests(PostgreSqlDatabaseFixture fixture)
 	{
 		_fixture = fixture;
-		Generator = new PostgreSqlGenerator(_fixture.DbContext.Database);
+		Generator = new PostgreSqlGenerator(_fixture.DbContext.Database.GetDbConnection());
 	}
 }

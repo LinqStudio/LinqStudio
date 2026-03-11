@@ -1,6 +1,4 @@
 using LinqStudio.Abstractions.Models;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using System.Data;
 using System.Data.Common;
 
@@ -14,8 +12,8 @@ public class PostgreSqlGenerator : AdoNetDatabaseGeneratorBase
 	/// <summary>
 	/// Creates a new instance of the PostgreSQL generator.
 	/// </summary>
-	/// <param name="database">EF Core database facade.</param>
-	public PostgreSqlGenerator(DatabaseFacade database) : base(database)
+	/// <param name="connection">Database connection.</param>
+	public PostgreSqlGenerator(DbConnection connection) : base(connection)
 	{
 	}
 
@@ -43,19 +41,17 @@ public class PostgreSqlGenerator : AdoNetDatabaseGeneratorBase
 		var (schema, name) = ParseTableName(tableName);
 		schema ??= "public"; // Default schema for PostgreSQL
 
-		var connection = Database.GetDbConnection();
-
-		var wasOpen = connection.State == ConnectionState.Open;
+		var wasOpen = Connection.State == ConnectionState.Open;
 		if (!wasOpen)
-			await connection.OpenAsync(cancellationToken);
+			await Connection.OpenAsync(cancellationToken);
 
 		try
 		{
 			// Get columns using database-specific query
-			var columns = await GetColumnsAsync(connection, schema, name, cancellationToken);
+			var columns = await GetColumnsAsync(Connection, schema, name, cancellationToken);
 
 			// Get foreign keys using database-specific query
-			var foreignKeys = await GetForeignKeysAsync(connection, schema, name, cancellationToken);
+			var foreignKeys = await GetForeignKeysAsync(Connection, schema, name, cancellationToken);
 
 			return new DatabaseTableDetail
 			{
@@ -68,7 +64,7 @@ public class PostgreSqlGenerator : AdoNetDatabaseGeneratorBase
 		finally
 		{
 			if (!wasOpen)
-				await connection.CloseAsync();
+				await Connection.CloseAsync();
 		}
 	}
 

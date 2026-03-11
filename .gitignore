@@ -10,9 +10,3 @@
 .squad/sessions/
 # Squad: SubSquad activation file (local to this machine)
 .squad-workstream
-/.github/agents/squad.agent.md
-/.github/workflows/squad-heartbeat.yml
-/.github/workflows/squad-issue-assign.yml
-/.github/workflows/squad-triage.yml
-/.github/workflows/sync-squad-labels.yml
-/.squad

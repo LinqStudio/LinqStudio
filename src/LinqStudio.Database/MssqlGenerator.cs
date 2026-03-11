@@ -13,11 +13,16 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 	/// <summary>
 	/// Creates a new instance of the MSSQL generator.
 	/// </summary>
-	/// <param name="database">EF Core database facade.</param>
+	/// <param name="connection">Database connection.</param>
 	public MssqlGenerator(DbConnection connection) : base(connection)
 	{
 	}
 
+	/// <summary>
+	/// Creates a new MSSQL generator from a connection string.
+	/// </summary>
+	/// <param name="connectionString">SQL Server connection string.</param>
+	/// <returns>A new MSSQL generator instance.</returns>
 	public static MssqlGenerator Create(string connectionString) => new(new SqlConnection(connectionString));
 
 
@@ -45,17 +50,17 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 		var (schema, name) = ParseTableName(tableName);
 		schema ??= "dbo"; // Default schema for SQL Server
 
-		var wasOpen = DbConnection.State == ConnectionState.Open;
+		var wasOpen = Connection.State == ConnectionState.Open;
 		if (!wasOpen)
-			await DbConnection.OpenAsync(cancellationToken);
+			await Connection.OpenAsync(cancellationToken);
 
 		try
 		{
 			// Get columns using database-specific query for better information
-			var columns = await GetColumnsAsync(DbConnection, schema, name, cancellationToken);
+			var columns = await GetColumnsAsync(Connection, schema, name, cancellationToken);
 
 			// Get foreign keys using database-specific query
-			var foreignKeys = await GetForeignKeysAsync(DbConnection, schema, name, cancellationToken);
+			var foreignKeys = await GetForeignKeysAsync(Connection, schema, name, cancellationToken);
 
 			return new DatabaseTableDetail
 			{
@@ -68,7 +73,7 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 		finally
 		{
 			if (!wasOpen)
-				await DbConnection.CloseAsync();
+				await Connection.CloseAsync();
 		}
 	}
 

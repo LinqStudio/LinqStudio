@@ -1,6 +1,4 @@
 using LinqStudio.Abstractions.Models;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using System.Data;
 using System.Data.Common;
 
@@ -14,8 +12,8 @@ public class SqliteGenerator : AdoNetDatabaseGeneratorBase
 	/// <summary>
 	/// Creates a new instance of the SQLite generator.
 	/// </summary>
-	/// <param name="database">EF Core database facade.</param>
-	public SqliteGenerator(DatabaseFacade database) : base(database)
+	/// <param name="connection">Database connection.</param>
+	public SqliteGenerator(DbConnection connection) : base(connection)
 	{
 	}
 
@@ -30,18 +28,17 @@ public class SqliteGenerator : AdoNetDatabaseGeneratorBase
 	public override async Task<IReadOnlyList<DatabaseTableName>> GetTablesAsync(CancellationToken cancellationToken = default)
 	{
 		var tables = new List<DatabaseTableName>();
-		var connection = Database.GetDbConnection();
 
-		var wasOpen = connection.State == ConnectionState.Open;
+		var wasOpen = Connection.State == ConnectionState.Open;
 		if (!wasOpen)
-			await connection.OpenAsync(cancellationToken);
+			await Connection.OpenAsync(cancellationToken);
 
 		try
 		{
 			// SQLite: query sqlite_master for tables
 			const string query = "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name";
 
-			await using var command = connection.CreateCommand();
+			await using var command = Connection.CreateCommand();
 			command.CommandText = query;
 
 			await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -58,7 +55,7 @@ public class SqliteGenerator : AdoNetDatabaseGeneratorBase
 		finally
 		{
 			if (!wasOpen)
-				await connection.CloseAsync();
+				await Connection.CloseAsync();
 		}
 
 		return tables;
@@ -70,19 +67,17 @@ public class SqliteGenerator : AdoNetDatabaseGeneratorBase
 		var (schema, name) = ParseTableName(tableName);
 		schema ??= "main"; // Default schema for SQLite
 
-		var connection = Database.GetDbConnection();
-
-		var wasOpen = connection.State == ConnectionState.Open;
+		var wasOpen = Connection.State == ConnectionState.Open;
 		if (!wasOpen)
-			await connection.OpenAsync(cancellationToken);
+			await Connection.OpenAsync(cancellationToken);
 
 		try
 		{
 			// Get columns using database-specific query
-			var columns = await GetColumnsAsync(connection, name, cancellationToken);
+			var columns = await GetColumnsAsync(Connection, name, cancellationToken);
 
 			// Get foreign keys using database-specific query
-			var foreignKeys = await GetForeignKeysAsync(connection, name, cancellationToken);
+			var foreignKeys = await GetForeignKeysAsync(Connection, name, cancellationToken);
 
 			return new DatabaseTableDetail
 			{
@@ -95,7 +90,7 @@ public class SqliteGenerator : AdoNetDatabaseGeneratorBase
 		finally
 		{
 			if (!wasOpen)
-				await connection.CloseAsync();
+				await Connection.CloseAsync();
 		}
 	}
 

@@ -12,11 +12,16 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 	/// <summary>
 	/// Creates a new instance of the MySQL generator.
 	/// </summary>
-	/// <param name="database">EF Core database facade.</param>
+	/// <param name="connection">Database connection.</param>
 	public MySqlGenerator(DbConnection connection) : base(connection)
 	{
 	}
 
+	/// <summary>
+	/// Creates a new MySQL generator from a connection string.
+	/// </summary>
+	/// <param name="connectionString">MySQL connection string.</param>
+	/// <returns>A new MySQL generator instance.</returns>
 	public static MySqlGenerator Create(string connectionString) => new(new MySql.Data.MySqlClient.MySqlConnection(connectionString));
 
 	/// <inheritdoc/>
@@ -41,19 +46,19 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 	public override async Task<DatabaseTableDetail> GetTableAsync(string tableName, CancellationToken cancellationToken = default)
 	{
 		var (schema, name) = ParseTableName(tableName);
-		schema ??= DbConnection.Database; // Default to current database
+		schema ??= Connection.Database; // Default to current database
 
-		var wasOpen = DbConnection.State == ConnectionState.Open;
+		var wasOpen = Connection.State == ConnectionState.Open;
 		if (!wasOpen)
-			await DbConnection.OpenAsync(cancellationToken);
+			await Connection.OpenAsync(cancellationToken);
 
 		try
 		{
 			// Get columns using database-specific query
-			var columns = await GetColumnsAsync(DbConnection, schema, name, cancellationToken);
+			var columns = await GetColumnsAsync(Connection, schema, name, cancellationToken);
 
 			// Get foreign keys using database-specific query
-			var foreignKeys = await GetForeignKeysAsync(DbConnection, schema, name, cancellationToken);
+			var foreignKeys = await GetForeignKeysAsync(Connection, schema, name, cancellationToken);
 
 			return new DatabaseTableDetail
 			{
@@ -66,7 +71,7 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 		finally
 		{
 			if (!wasOpen)
-				await DbConnection.CloseAsync();
+				await Connection.CloseAsync();
 		}
 	}
 

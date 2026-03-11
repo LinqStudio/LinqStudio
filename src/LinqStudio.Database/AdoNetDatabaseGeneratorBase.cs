@@ -11,47 +11,47 @@ namespace LinqStudio.Databases;
 public abstract class AdoNetDatabaseGeneratorBase : IDatabaseQueryGenerator
 {
 	/// <summary>
-	/// Database facade for accessing the underlying database connection.
+	/// Database connection for accessing the underlying database.
 	/// </summary>
-	protected DbConnection DbConnection { get; }
+	protected DbConnection Connection { get; }
 
 	/// <summary>
 	/// Creates a new instance of the ADO.NET database generator.
 	/// </summary>
-	/// <param name="database">EF Core database facade.</param>
+	/// <param name="connection">Raw database connection.</param>
 	protected AdoNetDatabaseGeneratorBase(DbConnection connection)
 	{
-		DbConnection = connection;
+		Connection = connection;
 	}
 
 	/// <inheritdoc/>
 	public virtual async Task<IReadOnlyList<DatabaseTableName>> GetTablesAsync(CancellationToken cancellationToken = default)
 	{
-		var tables = new List<DatabaseTableName>();
-		
-		var wasOpen = DbConnection.State == ConnectionState.Open;
+		var wasOpen = Connection.State == ConnectionState.Open;
 		if (!wasOpen)
-			await DbConnection.OpenAsync(cancellationToken);
+			await Connection.OpenAsync(cancellationToken);
 
 		try
 		{
 			// Use ADO.NET GetSchema to retrieve tables
-			var tablesSchema = await DbConnection.GetSchemaAsync("Tables", cancellationToken);
+			var tablesSchema = await Connection.GetSchemaAsync("Tables", cancellationToken);
 
+			var tables = new List<DatabaseTableName>();
 			foreach (DataRow row in tablesSchema.Rows)
 			{
 				var table = ParseTableFromSchemaRow(row);
 				if (table != null)
 					tables.Add(table);
 			}
+
+			return tables;
 		}
 		finally
 		{
 			if (!wasOpen)
-				await DbConnection.CloseAsync();
+				await Connection.CloseAsync();
 		}
 
-		return tables;
 	}
 
 	/// <inheritdoc/>
@@ -60,21 +60,21 @@ public abstract class AdoNetDatabaseGeneratorBase : IDatabaseQueryGenerator
 	/// <inheritdoc/>
 	public async Task TestConnectionAsync(CancellationToken cancellationToken = default)
 	{
-		var wasOpen = DbConnection.State == ConnectionState.Open;
+		var wasOpen = Connection.State == ConnectionState.Open;
 		if (!wasOpen)
-			await DbConnection.OpenAsync(cancellationToken);
+			await Connection.OpenAsync(cancellationToken);
 
 		try
 		{
 			// Simple query to test connection
-			using var command = DbConnection.CreateCommand();
+			using var command = Connection.CreateCommand();
 			command.CommandText = "SELECT 1";
 			await command.ExecuteScalarAsync(cancellationToken);
 		}
 		finally
 		{
 			if (!wasOpen)
-				await DbConnection.CloseAsync();
+				await Connection.CloseAsync();
 		}
 	}
 
@@ -95,7 +95,7 @@ public abstract class AdoNetDatabaseGeneratorBase : IDatabaseQueryGenerator
 			return (parts[0], parts[1]);
 		if (parts.Length == 1)
 			return (null, parts[0]);
-		
+
 		throw new ArgumentException($"Invalid table name format: {tableName}. Expected 'schema.name' or 'name'.", nameof(tableName));
 	}
 }
