@@ -497,3 +497,40 @@ The DatabaseSeeder console app was failing with MySQL using MySql.EntityFramewor
 - For EF Core 10 with MySQL, use Oracle's `MySql.EntityFrameworkCore` v10.0.1 (not Pomelo)
 - Pomelo is more popular but lags behind on EF Core version support
 - Always use `.AddDatabase()` in Aspire for database-scoped connection strings, not just `.AddSqlServer()` or `.AddMySql()`
+
+### 2026-03-11 - Fixed Seeder Exit Code Issue (0xE0434352)
+
+**Problem:**
+The DatabaseSeeder console app was successfully seeding both MSSQL and MySQL databases (confirmed by logs showing "[MSSQL] Seeded successfully." and "[MySQL] Seeded successfully."), BUT the process was exiting with code **-532462766** (hex: 0xE0434352), which is the Windows SEH exception wrapper for unhandled .NET exceptions. This caused `WaitForCompletion(seeder)` in AppHost to never release, preventing `linqstudio-app-webserver` from starting.
+
+**Root Cause:**
+The `Program.cs` in DatabaseSeeder had no top-level exception handling. While the individual seeding tasks were succeeding, if one database failed all 10 retries while the other succeeded, the `throw new Exception()` on line 49 would propagate through `Task.WhenAll()`, causing an unhandled exception and the bad exit code.
+
+Additionally, there was no explicit `Environment.Exit(0)` call on successful completion, which could lead to inconsistent exit codes.
+
+**Solution:**
+Wrapped the entire `Program.cs` main logic in a try-catch block that:
+1. Catches any exceptions and logs them to `Console.Error` with full stack trace
+2. Explicitly calls `Environment.Exit(1)` on failure
+3. Explicitly calls `Environment.Exit(0)` on success after "Demo seeding complete." message
+
+**Implementation:**
+- Modified `src/LinqStudio.DatabaseSeeder/Program.cs` to add top-level try-catch
+- Success path: prints "Demo seeding complete." then exits with code 0
+- Failure path: prints "Fatal seeder error: {exception}" to stderr then exits with code 1
+
+**Verification:**
+1. Built seeder: `dotnet build src\LinqStudio.DatabaseSeeder\LinqStudio.DatabaseSeeder.csproj` — succeeded
+2. Ran Aspire AppHost: `dotnet run --project src\LinqStudio.AppHost\LinqStudio.AppHost.csproj`
+3. Confirmed seeder process completed and exited cleanly (no longer in process list)
+4. Confirmed `linqstudio-app-webserver` started 4 seconds AFTER AppHost, proving `WaitForCompletion()` was released
+5. Ran full test suite: `dotnet test` excluding E2E and DB tests — all 84 tests passed
+
+**Key Learning:**
+- Aspire's `WaitForCompletion()` requires the dependent process to exit with code 0
+- Exit code 0xE0434352 is a Windows-specific indicator of unhandled .NET exceptions
+- Always use explicit top-level exception handling in console apps used as Aspire dependencies
+- Always use `Environment.Exit(0)` explicitly on success for clarity and consistency
+
+**Files Modified:**
+- src/LinqStudio.DatabaseSeeder/Program.cs (added try-catch wrapper with explicit exit codes)

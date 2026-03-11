@@ -125,6 +125,40 @@
 
 ---
 
+### 8. Explicit Exit Code Handling for Aspire Console Dependencies
+**Date:** 2026-03-11  
+**Author:** Simon (Backend Core Dev)  
+**Decision**: All console applications used as Aspire dependencies MUST:
+1. Wrap the entire main logic in a top-level `try-catch` block
+2. Log exceptions to `Console.Error` with full stack traces on failure
+3. Call `Environment.Exit(1)` explicitly on any failure path
+4. Call `Environment.Exit(0)` explicitly on success path
+5. Use structured error messages that clearly distinguish success from failure
+
+**Rationale**:
+- Aspire's `WaitForCompletion()` relies on exit codes to detect success/failure
+- Top-level statements without explicit exit handling can trigger unhandled exception wrapper codes (e.g., `0xE0434352`)
+- Predictable exit codes enable reliable orchestration and dependency ordering
+- Explicit error logging improves debuggability
+
+**Application**: Fixed LinqStudio.DatabaseSeeder which was exiting with `0xE0434352` despite successful seeding, blocking web server startup
+
+**Pattern**:
+```csharp
+try {
+    // Main async logic here
+    Environment.Exit(0);  // explicit success
+}
+catch (Exception ex) {
+    Console.Error.WriteLine($"Fatal error: {ex}");
+    Environment.Exit(1);  // explicit failure
+}
+```
+
+**Status:** ✅ Implemented, tested, production-ready
+
+---
+
 ## Known Issues & Monitoring Items
 
 ### 1. FluentAssertions Contradiction
