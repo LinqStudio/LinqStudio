@@ -63,25 +63,6 @@ public class DatabaseTreeViewComponentTests : BunitContext
 	}
 
 	[Fact]
-	public async Task DatabaseTreeView_ShowsLoadingIndicator_WhenProjectOpenButNoConnectionString()
-	{
-		// Arrange
-		SetupServices();
-		var workspace = Services.GetRequiredService<ProjectWorkspace>();
-
-		// Create a project without connection string
-		await workspace.CreateNewAsync("TestProject");
-
-		// Act
-		var cut = Render<DatabaseTreeView>();
-
-		// Assert - With no connection string, placeholder should be shown
-		// (component should handle this gracefully)
-		var placeholder = cut.Find("[data-testid='db-tree-placeholder']");
-		Assert.NotNull(placeholder);
-	}
-
-	[Fact]
 	public async Task DatabaseTreeView_ShowsPlaceholder_WhenProjectOpenButNoConnection()
 	{
 		// Arrange
@@ -97,20 +78,6 @@ public class DatabaseTreeViewComponentTests : BunitContext
 		// Assert - Should show placeholder when no connection configured
 		var placeholder = cut.Find("[data-testid='db-tree-placeholder']");
 		Assert.NotNull(placeholder);
-	}
-
-	[Fact]
-	public void DatabaseTreeView_ComponentRenders_WithoutErrors()
-	{
-		// Arrange
-		SetupServices();
-
-		// Act
-		var cut = Render<DatabaseTreeView>();
-
-		// Assert - Component should render without throwing
-		Assert.NotNull(cut);
-		Assert.NotNull(cut.Instance);
 	}
 
 	// Note: The following tests require the actual DatabaseTreeView component to exist
@@ -140,23 +107,4 @@ public class DatabaseTreeViewComponentTests : BunitContext
 	//   Click: data-testid="db-tree-refresh"
 	//   Assert: GetTablesAsync called multiple times
 
-	[Fact]
-	public void DatabaseTreeView_InjectsRequiredServices()
-	{
-		// Arrange
-		SetupServices();
-
-		// Act
-		var cut = Render<DatabaseTreeView>();
-
-		// Assert - Component should successfully inject services
-		Assert.NotNull(cut.Instance);
-		
-		// Verify required services are registered
-		var workspace = Services.GetService<ProjectWorkspace>();
-		Assert.NotNull(workspace);
-		
-		var errorService = Services.GetService<ErrorHandlingService>();
-		Assert.NotNull(errorService);
-	}
 }

@@ -235,20 +235,4 @@ public class ErrorHandlingComponentTests : BunitContext
 		}, TimeSpan.FromSeconds(2));
 	}
 
-	[Fact]
-	public void ErrorTestComponent_Reset_ClearsErrorState()
-	{
-		// Arrange
-		SetupServices();
-		var cut = Render<ErrorTestComponent>();
-
-		// Verify error state is initially false
-		Assert.False(cut.Instance.ErrorTriggered);
-
-		// We can't easily test Reset without triggering an actual error
-		// since it involves StateHasChanged which requires the Blazor dispatcher
-		// This test verifies the component can be instantiated and the property works
-		Assert.NotNull(cut);
-		Assert.NotNull(cut.Instance);
-	}
 }

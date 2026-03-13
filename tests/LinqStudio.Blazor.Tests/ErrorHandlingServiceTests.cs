@@ -10,21 +10,6 @@ namespace LinqStudio.Blazor.Tests;
 public class ErrorHandlingServiceTests : BunitContext
 {
 	[Fact]
-	public void ErrorHandlingService_CanBeCreated()
-	{
-		// Arrange
-		Services.AddMudServices();
-		Services.AddScoped<ErrorHandlingService>();
-		Services.AddLogging();
-
-		// Act
-		var service = Services.GetRequiredService<ErrorHandlingService>();
-
-		// Assert
-		Assert.NotNull(service);
-	}
-
-	[Fact]
 	public async Task HandleErrorAsync_DoesNotThrow_WithExceptionMessage()
 	{
 		// Arrange
