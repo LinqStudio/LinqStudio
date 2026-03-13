@@ -1,9 +1,11 @@
+using Microsoft.Extensions.Logging;
+
 namespace LinqStudio.Core.Services;
 
 /// <summary>
 /// Scoped factory used by UI pages to create and initialize CompilerService instances.
 /// </summary>
-public class CompilerServiceFactory
+public class CompilerServiceFactory(ILogger<CompilerService>? logger = null)
 {
 	private readonly string _defaultContextTypeName = "TestDbContext";
 	private readonly string _defaultProjectNamespace = "LinqStudio.TestModels";
@@ -13,7 +15,7 @@ public class CompilerServiceFactory
 	/// </summary>
 	public async Task<CompilerService> CreateAsync()
 	{
-		var svc = new CompilerService(_defaultContextTypeName, _defaultProjectNamespace);
+		var svc = new CompilerService(_defaultContextTypeName, _defaultProjectNamespace, logger);
 
 		var models = new Dictionary<string, string>
 		{

@@ -1,12 +1,14 @@
 using LinqStudio.Abstractions.Models;
 using LinqStudio.Blazor.Services;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Logging;
 using MudBlazor;
 
 namespace LinqStudio.Blazor.Components.Layout;
 
 public partial class DatabaseTreeView : ComponentBase, IDisposable
 {
+	[Inject] private ILogger<DatabaseTreeView> Logger { get; set; } = null!;
 	[Inject] private ProjectWorkspace Workspace { get; set; } = null!;
 	[Inject] private ErrorHandlingService ErrorHandlingService { get; set; } = null!;
 
@@ -84,6 +86,7 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 		{
 			var tables = await Workspace.CurrentProject.QueryGenerator.GetTablesAsync();
 			_tables = [.. tables];
+			Logger.LogInformation("Loaded {TableCount} tables from database.", _tables.Count);
 
 			_expandedStates.Clear();
 			_tableDetailsCache.Clear();
@@ -95,6 +98,7 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 		}
 		catch (Exception ex)
 		{
+			Logger.LogError(ex, "Failed to load database tables.");
 			await ErrorHandlingService.HandleErrorAsync(ex, "Failed to load database tables.");
 		}
 		finally
@@ -128,9 +132,11 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 		{
 			var tableDetail = await Workspace.CurrentProject.QueryGenerator.GetTableAsync(table);
 			_tableDetailsCache[table.FullName] = tableDetail;
+			Logger.LogInformation("Loaded {ColumnCount} columns for table '{TableName}'.", tableDetail.Columns.Count, table.FullName);
 		}
 		catch (Exception ex)
 		{
+			Logger.LogError(ex, "Failed to load columns for table '{TableName}'.", table.FullName);
 			await ErrorHandlingService.HandleErrorAsync(ex, $"Failed to load columns for table '{table.FullName}'.");
 		}
 		finally

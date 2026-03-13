@@ -138,6 +138,7 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 
 			await using var command = Connection.CreateCommand();
 			command.CommandText = query;
+			command.CommandTimeout = 30;
 
 			await using var reader = await command.ExecuteReaderAsync(cancellationToken);
 			while (await reader.ReadAsync(cancellationToken))
@@ -182,6 +183,8 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 	/// <inheritdoc/>
 	public override async Task<DatabaseTableDetail> GetTableAsync(string tableName, CancellationToken cancellationToken = default)
 	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(tableName, nameof(tableName));
+
 		var (schema, name) = ParseTableName(tableName);
 		schema ??= "dbo"; // Default schema for SQL Server
 
@@ -307,6 +310,7 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 
 		await using var command = connection.CreateCommand();
 		command.CommandText = query;
+		command.CommandTimeout = 30;
 
 		var parameter = command.CreateParameter();
 		parameter.ParameterName = "@TableName";

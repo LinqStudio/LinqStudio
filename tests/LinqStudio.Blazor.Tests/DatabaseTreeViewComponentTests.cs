@@ -10,6 +10,7 @@ using LinqStudio.Abstractions.Abstractions;
 using LinqStudio.Abstractions.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using MudBlazor.Services;
 
@@ -30,8 +31,8 @@ public class DatabaseTreeViewComponentTests : BunitContext
 	{
 		var projectService = new ProjectService();
 		var queryService = new QueryService();
-		var queriesWorkspace = new QueriesWorkspace(queryService);
-		var workspace = new ProjectWorkspace(projectService, queriesWorkspace);
+		var queriesWorkspace = new QueriesWorkspace(queryService, NullLogger<QueriesWorkspace>.Instance);
+		var workspace = new ProjectWorkspace(projectService, queriesWorkspace, NullLogger<ProjectWorkspace>.Instance);
 
 		// Create a project with the mock generator
 		var project = projectService.CreateNew("TestProject");

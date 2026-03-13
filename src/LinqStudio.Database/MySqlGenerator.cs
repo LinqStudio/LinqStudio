@@ -96,6 +96,8 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 	/// <inheritdoc/>
 	public override async Task<DatabaseTableDetail> GetTableAsync(string tableName, CancellationToken cancellationToken = default)
 	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(tableName, nameof(tableName));
+
 		var (schema, name) = ParseTableName(tableName);
 		schema ??= Connection.Database; // Default to current database
 
@@ -149,6 +151,7 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 
 		await using var command = connection.CreateCommand();
 		command.CommandText = query;
+		command.CommandTimeout = 30;
 
 		var schemaParam = command.CreateParameter();
 		schemaParam.ParameterName = "@Schema";
@@ -236,6 +239,7 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 
 		await using var command = connection.CreateCommand();
 		command.CommandText = query;
+		command.CommandTimeout = 30;
 
 		var schemaParam = command.CreateParameter();
 		schemaParam.ParameterName = "@Schema";

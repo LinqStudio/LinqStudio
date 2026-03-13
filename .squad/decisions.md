@@ -329,3 +329,279 @@ AND ISNULL(OBJECTPROPERTY(OBJECT_ID(...), 'IsMSShipped'), 0) = 0
 - Keep history focused on work, decisions focused on direction
 - User directives are binding (e.g., no git commits)
 - Build system and test coverage must be maintained at all times
+
+## Team Review Findings - 2026-03-13
+
+Consolidated from decision inbox (30 files). Team review cycle captured detailed findings from architecture, frontend, backend, and code quality reviews.
+
+### [alex-full-codebase-review]
+**Source:** alex
+
+**Reviewer:** Alex (Code Reviewer)  
+**Date:** 2026-03-12  
+**Scope:** Comprehensive review of entire LinqStudio codebase (all source files)
+
+---
+
+### [alex-review-fixes]
+**Source:** alex
+
+**Review Date:** 2026-03-12  
+**Reviewer:** Alex (Code Reviewer)  
+**Scope:** All uncommitted changes following Simon's auto-discovery fix  
+
+---
+
+### [alice-dbtreeview-test-results]
+**Source:** alice
+
+**By:** Alice (Live Tester)
+**What:** End-to-end validation of DatabaseTreeView feature against running Aspire stack
+**Why:** Feature ship gate — results recorded for team awareness
+
+---
+
+### [alice-final-sign-off]
+**Source:** alice
+
+**Date:** 2026-03-11T21:52:00Z  
+**Tester:** Alice (Live Tester)  
+**Task:** Final visual sign-off on the fully fixed Aspire stack
+
+---
+
+### [alice-mssql-visual-confirmation]
+**Source:** alice
+
+**Date:** 2026-03-12  
+**Tester:** Alice (Live Tester)  
+**Developer:** Simon (Backend Core Dev)  
+
+---
+
+### [eviljosh-tree-view-implementation]
+**Source:** eviljosh
+
+**Agent:** EvilJosh (Frontend Dev)  
+**Date:** 2026-03-11  
+**Task:** Build Database Tree View for left panel
+
+---
+
+### [eviljosh-tree-view-ui-analysis]
+**Source:** eviljosh
+
+**Author:** EvilJosh (Frontend Dev)  
+**Date:** 2026-03-11  
+**Purpose:** Comprehensive UI analysis for implementing a Table Tree View in the left panel
+
+---
+
+### [eviljosh-ui-analysis]
+**Source:** eviljosh
+
+**Date:** 2026-03-11  
+**Analyzed by:** EvilJosh (Frontend Dev)  
+**Requested by:** snakex64
+
+---
+
+### [eviljosh-ui-review]
+**Source:** eviljosh
+
+**Date:** 2026-03-13  
+**Reviewer:** EvilJosh (Frontend Dev)  
+**Requested by:** snakex64  
+
+---
+
+### [jordan-auto-discovery-tests]
+**Source:** jordan
+
+**Date:** 2026-03-12  
+**Author:** Jordan (Tests Dev)  
+**Context:** Simon's fix to auto-discover user databases when connected to master
+
+---
+
+### [jordan-db-test-coverage]
+**Source:** jordan
+
+**Date:** 2026-03-12  
+**Author:** Jordan (Tests Dev)  
+**Status:** ✅ Completed
+
+---
+
+### [jordan-post-fix-test-results]
+**Source:** jordan
+
+**Author:** Jordan (Tests Dev)  
+**Date:** 2026-03-11  
+**Status:** ✅ VERIFIED CLEAN
+
+---
+
+### [jordan-test-audit]
+**Source:** jordan
+
+**Date:** 2026-03-11  
+**Author:** Jordan (Tests Dev)  
+**Requested by:** snakex64
+
+---
+
+### [jordan-test-gap-analysis]
+**Source:** jordan
+
+**Date:** 2026-03-12  
+**Author:** Jordan (Tests Dev)  
+**Status:** Comprehensive analysis complete  
+
+---
+
+### [jordan-test-infrastructure-analysis]
+**Source:** jordan
+
+**Author:** Jordan (Tests Dev)  
+**Date:** 2026-03-11  
+**Purpose:** Comprehensive analysis of existing test infrastructure to guide testing of the Table Tree View feature
+
+---
+
+### [jordan-test-results-final]
+**Source:** jordan
+
+**Date:** 2026-03-11  
+**Author:** Jordan (Tests Dev)  
+**Task:** Run complete test suite and report results
+
+---
+
+### [jordan-tree-view-tests]
+**Source:** jordan
+
+**Date:** 2026-03-11  
+**Author:** Jordan (Tests Dev)  
+**Status:** ✅ Tests Written, Awaiting Component Implementation
+
+---
+
+### [samy-architecture-review]
+**Source:** samy
+
+**Conducted by:** Samy (Architect)  
+**Date:** 2026-03-12  
+**Scope:** Full codebase analysis (src/, tests/, docs/, build/)
+
+---
+
+### [samy-full-analysis]
+**Source:** samy
+
+**Analyst:** Samy (Architect)  
+**Date:** 2026-03-11  
+**Requested By:** snakex64  
+
+---
+
+### [samy-mssql-system-table-filter]
+**Source:** samy
+
+**Date:** 2026-03-11T22:15:00Z  
+**Author:** Samy (Lead Architect)  
+**Status:** ✅ Implemented  
+
+---
+
+### [samy-tree-view-analysis]
+**Source:** samy
+
+**Analyst:** Samy  
+**Date:** 2026-03-11  
+**Feature:** Database Table Tree View in Left Panel  
+
+---
+
+### [samy-treeview-arch-analysis]
+**Source:** samy
+
+**Date:** 2026-03-11  
+**Author:** Samy (Analyst/Architect)  
+**Status:** Complete architectural review prior to Alice validation  
+
+---
+
+### [simon-aspire-fixed-ports]
+**Source:** simon
+
+**Date:** 2026-03-11  
+**Author:** Simon (Backend Core Dev)  
+**Status:** ✅ Implemented  
+
+---
+
+### [simon-aspire-hardcoded-password]
+**Source:** simon
+
+**Date:** 2026-03-11  
+**Author:** Simon (Backend Core Dev)  
+**Requested By:** snakex64 (via Alice's feedback)  
+
+---
+
+### [simon-backend-analysis]
+**Source:** simon
+
+**Analyst:** Simon (Backend Core Dev)  
+**Date:** 2026-03-11  
+**Requested by:** snakex64 via Alice  
+
+---
+
+### [simon-backend-review]
+**Source:** simon
+
+**Date:** 2026-03-13  
+**Reviewer:** Simon (Backend Core Dev)  
+**Scope:** CompilerService, Settings, Database Generators, Core Services, Abstractions, Tests
+
+---
+
+### [simon-db-introspection-analysis]
+**Source:** simon
+
+**Date:** 2025-01-XX  
+**Author:** Simon (Backend Core Dev)  
+**Context:** Table Tree View feature - backend API analysis and requirements
+
+---
+
+### [simon-dbconnection-fix]
+**Source:** simon
+
+**Date:** 2025-01-09  
+**Author:** Simon (Backend Core Dev)  
+**Status:** Implemented  
+
+---
+
+### [simon-mssql-auto-discover-fix]
+**Source:** simon
+
+**Date:** 2026-03-12  
+**Author:** Simon (Backend Core Dev)  
+**Status:** ✅ Implemented and Tested  
+
+---
+
+### [simon-querygenerator-fix]
+**Source:** simon
+
+**Date:** 2026-03-11  
+**Author:** Simon (Backend Core Dev)  
+**Requested By:** snakex64
+
+---
+
+

@@ -1,5 +1,6 @@
 using LinqStudio.Core.Extensions;
 using LinqStudio.Core.Models;
+using Microsoft.Extensions.Logging;
 using System.Text.Json;
 
 namespace LinqStudio.Core.Services;
@@ -11,6 +12,12 @@ namespace LinqStudio.Core.Services;
 public class QueryService
 {
 	private const string QueryFileExtension = ".linq.query";
+	private readonly ILogger<QueryService>? _logger;
+
+	public QueryService(ILogger<QueryService>? logger = null)
+	{
+		_logger = logger;
+	}
 
 	/// <summary>
 	/// Gets the directory path for queries associated with a project.
@@ -73,7 +80,7 @@ public class QueryService
 			catch (Exception ex)
 			{
 				// Log error but continue loading other queries
-				Console.WriteLine($"Warning: Failed to load query from {filePath}: {ex.Message}");
+				_logger?.LogWarning(ex, "Failed to load query from {FilePath}", filePath);
 			}
 		}
 
@@ -204,7 +211,7 @@ public class QueryService
 		}
 		catch (Exception ex)
 		{
-			Console.WriteLine($"Warning: Failed to load query from {filePath}: {ex.Message}");
+			_logger?.LogWarning(ex, "Failed to load query from {FilePath}", filePath);
 			return null;
 		}
 	}

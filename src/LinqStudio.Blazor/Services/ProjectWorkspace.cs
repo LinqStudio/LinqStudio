@@ -1,6 +1,7 @@
 using LinqStudio.Core.Extensions;
 using LinqStudio.Core.Models;
 using LinqStudio.Core.Services;
+using Microsoft.Extensions.Logging;
 using System.Text.Json;
 
 namespace LinqStudio.Blazor.Services;
@@ -13,14 +14,16 @@ public class ProjectWorkspace
 {
 	private readonly ProjectService _projectService;
 	private readonly QueriesWorkspace _queriesWorkspace;
+	private readonly ILogger<ProjectWorkspace> _logger;
 	private Project? _currentProject;
 	private Project? _savedProject;
 	private string? _currentFilePath;
 
-	public ProjectWorkspace(ProjectService projectService, QueriesWorkspace queriesWorkspace)
+	public ProjectWorkspace(ProjectService projectService, QueriesWorkspace queriesWorkspace, ILogger<ProjectWorkspace> logger)
 	{
 		_projectService = projectService;
 		_queriesWorkspace = queriesWorkspace;
+		_logger = logger;
 
 		// Subscribe to query changes to propagate workspace changes
 		_queriesWorkspace.QueriesChanged += (s, e) => OnWorkspaceChanged();
@@ -107,6 +110,7 @@ public class ProjectWorkspace
 		_currentFilePath = null;
 
 		await _queriesWorkspace.InitializeAsync(null);
+		_logger.LogInformation("New project '{ProjectName}' created.", name);
 
 		OnWorkspaceChanged();
 	}
@@ -124,6 +128,7 @@ public class ProjectWorkspace
 		_currentFilePath = filePath;
 
 		await _queriesWorkspace.InitializeAsync(filePath);
+		_logger.LogInformation("Project '{ProjectName}' loaded from '{FilePath}'.", project.Name, filePath);
 
 		OnWorkspaceChanged();
 	}
@@ -150,6 +155,7 @@ public class ProjectWorkspace
 		_currentProject = await _projectService.LoadProjectAsync(_currentFilePath)
 			?? throw new InvalidOperationException($"Project file not found: {_currentFilePath}");
 		_savedProject = CloneProject(_currentProject);
+		_logger.LogInformation("Project '{ProjectName}' saved to '{FilePath}'.", _currentProject.Name, _currentFilePath);
 
 		OnWorkspaceChanged();
 	}
@@ -179,6 +185,7 @@ public class ProjectWorkspace
 		_currentProject = await _projectService.LoadProjectAsync(_currentFilePath)
 			?? throw new InvalidOperationException($"Project file not found: {_currentFilePath}");
 		_savedProject = CloneProject(_currentProject);
+		_logger.LogInformation("Project saved as '{ProjectName}' to '{FilePath}'.", _currentProject.Name, filePath);
 
 		OnWorkspaceChanged();
 	}
@@ -207,6 +214,7 @@ public class ProjectWorkspace
 		_savedProject = null;
 		_currentFilePath = null;
 		_queriesWorkspace.Clear();
+		_logger.LogInformation("Project '{ProjectName}' closed.", CurrentProjectName);
 		OnWorkspaceChanged();
 	}
 

@@ -70,7 +70,7 @@ public abstract class AdoNetDatabaseGeneratorBase : IDatabaseQueryGenerator
 		try
 		{
 			// Simple query to test connection
-			using var command = Connection.CreateCommand();
+			await using var command = Connection.CreateCommand();
 			command.CommandText = "SELECT 1";
 			await command.ExecuteScalarAsync(cancellationToken);
 		}

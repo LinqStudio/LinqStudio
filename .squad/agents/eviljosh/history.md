@@ -9,6 +9,133 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-03-13 - Bug Fixes from Code Review (Critical + High Priority)
+
+**Task:** Fixed 5 bugs identified in code review (4 critical, 1 low priority).
+
+**Fixes Applied:**
+
+1. ✅ **NavMenu.razor.cs (Critical)** - Replaced dangerous `ContinueWith` anti-pattern with proper async/await on lines 59-78. The old pattern used `ContinueWith(async lambda, TaskScheduler.FromCurrentSynchronizationContext())` which doesn't properly await inner operations and can fail in Blazor Server. Now uses direct `async/await` pattern.
+
+2. ✅ **Editor.razor.cs (High)** - Added exception logging to completion provider (line 232) and hover provider (line 277) catch blocks. Changed from silent `catch { return null; }` to `catch (Exception ex) { Console.Error.WriteLine($"[Editor] ... error: {ex.Message}"); return null; }`. This will help diagnose IntelliSense issues without breaking the UI.
+
+3. ✅ **QueriesWorkspace.cs (High)** - Fixed Guid.Empty conflation bug in two locations (lines 151, 254). The bug: `FirstOrDefault()` on `Dictionary<Guid, T>.Keys` returns `Guid.Empty` (not null) when empty, which was conflated with "Guid.Empty key exists". Fixed with: `_currentQueryId = collection.Any() ? collection.Keys.First() : (Guid?)null;`
+
+4. ✅ **SettingsEditor.razor.cs (Low)** - Removed debug Console.WriteLine at line 191 that was logging JSON token positions.
+
+5. ℹ️ **EditProjectDialog.razor (Already Fixed)** - The code-behind uses `Snackbar` and `ErrorHandlingService`, and they ARE properly injected via `@inject` directives on lines 3-4 of the .razor file. No fix needed.
+
+**Test Results:** All 417 tests pass (310 database tests, 48 core tests, 44 Blazor tests, 15 E2E tests, 4 E2E skipped). Build succeeded in 1:46.
+
+**Key Pattern Learnings:**
+- **Blazor async**: Never use `ContinueWith()` with TaskScheduler - use direct `async/await` or `InvokeAsync()`
+- **Guid collections**: `FirstOrDefault()` on Guid collections returns `Guid.Empty` not null - always check with `.Any()` first
+- **Exception handling**: Always log exceptions even when returning null/default - silent failures hide bugs
+
+### 2026-03-13 - Team Review Cycle - Full UI/Blazor Assessment
+
+Completed full UI/Blazor review. 27 issues identified (7 critical). Critical findings: component lifecycle management, editor initialization workarounds, state synchronization gaps. Tree view implementation reviewed. Recommendations prioritized by impact for next sprint.
+
+### 2026-03-13 - Comprehensive UI/Blazor Code Review
+
+**Task:** Full codebase review of all Blazor/UI components, services, and configuration requested by snakex64.
+
+**Scope:** 23 files reviewed (~3,050 LOC) across LinqStudio.Blazor and LinqStudio.App.WebServer:
+- 15 Razor components (.razor + .razor.cs)
+- 5 services (ErrorHandlingService, MonacoProvidersService, ProjectWorkspace, QueriesWorkspace, ServerFileSystemService)
+- 3 app config files (Program.cs, Routes.razor, App.razor)
+- Test coverage analysis (LinqStudio.Blazor.Tests, E2ETests, WebServer.Tests)
+
+**Findings:**
+- **7 CRITICAL issues** — async/threading bugs, missing DI, null reference risks, hard-coded config
+- **6 HIGH issues** — error handling gaps, TOCTOU race conditions, validation missing
+- **14 MEDIUM/LOW issues** — code duplication, debug code, performance, accessibility
+
+**Critical Patterns Identified:**
+
+1. **ContinueWith Anti-Pattern (NavMenu.razor.cs:65-72)**
+   - Using `ContinueWith(async lambda, TaskScheduler.FromCurrentSynchronizationContext())` in Blazor Server
+   - WRONG: Async lambda in ContinueWith doesn't properly await inner operations
+   - WRONG: TaskScheduler.FromCurrentSynchronizationContext() can fail in Blazor Server (no guaranteed context)
+   - RIGHT: Use direct `async/await` pattern instead
+   ```csharp
+   // DON'T:
+   confirmTask.ContinueWith(async task => { await SomethingAsync(); }, scheduler);
+   
+   // DO:
+   var confirm = await confirmTask;
+   if (confirm) await SomethingAsync();
+   ```
+
+2. **Guid.Empty Conflation Bug (QueriesWorkspace.cs:151-155, 252-259)**
+   - `FirstOrDefault()` on `Dictionary<Guid, T>.KeyCollection` returns `Guid.Empty` (default), NOT null
+   - Checking `if (guid == Guid.Empty)` conflates "empty collection" with "Guid.Empty key exists"
+   - WRONG: `_currentQueryId = _openQueries.Keys.FirstOrDefault(); if (_currentQueryId == Guid.Empty) ...`
+   - RIGHT: `_currentQueryId = _openQueries.Keys.FirstOrDefault(g => g != Guid.Empty);`
+   - Alternative: `_currentQueryId = _openQueries.Keys.Any() ? _openQueries.Keys.First() : (Guid?)null;`
+
+3. **Swallowed Exceptions in Completion Provider (Editor.razor.cs:232-235, 277-280)**
+   - Broad `catch { return null; }` with no logging hides IntelliSense bugs
+   - User gets no feedback, developers can't diagnose issues
+   - ALWAYS log exceptions: `catch (Exception ex) { Logger.LogError(ex, "..."); return null; }`
+
+4. **InvokeAsync with Unobserved Async (DatabaseTreeView.razor.cs:62-70)**
+   - Calling `InvokeAsync(async () => { await ... })` without awaiting the lambda properly
+   - `StateHasChanged()` called BEFORE async work completes (wrong order)
+   - RIGHT: `_ = InvokeAsync(async () => { await LoadData(); StateHasChanged(); });`
+
+5. **Task.Run in Blazor Components (Editor.razor.cs:153-175)**
+   - Using `Task.Run()` to run debounce logic on thread pool
+   - Problem: Accesses component state (`Workspace.Queries`) outside Blazor sync context
+   - Risk: Component disposal during Task.Run callback causes race conditions
+   - RIGHT: Use `InvokeAsync(async () => { await Task.Delay(...); ... })` to stay in Blazor context
+
+6. **Missing Dependency Injection (EditProjectDialog.razor.cs)**
+   - Using `Snackbar` and `ErrorHandlingService` without `@inject` directives or `[Inject]` attributes
+   - Will throw `NullReferenceException` at runtime
+   - Must add: `@inject ISnackbar Snackbar` and `@inject ErrorHandlingService ErrorHandlingService`
+
+7. **Hard-Coded Theme Colors (MainLayout.razor.cs:92-129)**
+   - All palette colors hard-coded in C# (15+ hex values)
+   - Violates settings pattern used elsewhere (UISettings uses JSON)
+   - Should extract to `appsettings.json` or UISettings for consistency
+
+**Test Coverage:**
+- ✅ **Good:** 44 unit tests (workspace, error handling, component smoke tests)
+- ✅ **Excellent:** 19+ E2E tests with Playwright (editor, nav menu, database tree)
+- ❌ **Gap:** MonacoProvidersService has 0 tests (complex service, high risk)
+- ❌ **Gap:** SettingsEditor, EditProjectDialog, MainLayout have 0 unit tests
+- ❌ **Empty:** LinqStudio.App.WebServer.Tests has 0 tests (only generated files)
+
+**Blazor Lifecycle Best Practices:**
+1. Always wrap `StateHasChanged()` in `InvokeAsync()` when called from async operations or non-UI threads
+2. Avoid `Task.Run()` in components — use `InvokeAsync()` to stay in Blazor context
+3. Call `StateHasChanged()` AFTER async data loads, not before
+4. Never use `ContinueWith()` in Blazor — use `async/await` directly
+5. Always implement `IDisposable` with `_disposed` flag for components with event subscriptions
+
+**MudBlazor Patterns:**
+- ✅ Proper use of `<Content>` templates for complex icon layouts (avoids `Icon=` parameter limitations)
+- ✅ Correct `ExpandedChanged` event (not `@bind-Expanded`) in MudTreeView
+- ✅ Good loading state patterns with MudProgressCircular/MudProgressLinear
+
+**Code Quality Observations:**
+- Positive: Clean separation of concerns (workspace pattern works well)
+- Positive: Error boundary architecture (manual + global + dialog) is solid
+- Issue: Some code duplication (ShowUnsavedChangesDialog in 2 places)
+- Issue: Magic delays (500ms Monaco workarounds) should be replaced with event-based loading
+- Issue: Debug code left in (Console.WriteLine in SettingsEditor.razor.cs:191)
+
+**Recommendations:**
+- **P0 (Immediate):** Fix missing DI (#5), remove debug code (#13), fix ContinueWith (#1), add logging (#3)
+- **P1 (Next Sprint):** Fix Guid.Empty bugs (#2), InvokeAsync issues (#4, #6), error handling (#8), validation (#12)
+- **P2 (Next Month):** Remove Monaco delays (#14), extract theme config (#7), deduplicate dialog logic (#26), add tests
+- **P3 (Tech Debt):** Standardize disposal patterns, accessibility audit, performance profiling
+
+**Output:** Full findings written to `.squad/decisions/inbox/eviljosh-ui-review.md` (27 issues categorized and prioritized)
+
+**Overall Assessment:** Codebase quality is solid with good architectural patterns. Most issues are async/threading edge cases and error handling gaps rather than fundamental design flaws. No security vulnerabilities found. Risk level: LOW to MEDIUM.
+
 ### 2026-03-13 - Team Sprint: Validation & Cache Access Patterns
 
 **Squad Completion:**
@@ -551,3 +678,4 @@
 **BUILD:** ✅ 0 warnings, 0 errors  
 **TESTS:** ✅ All 44 Blazor tests pass, 45 Core tests pass  
 **NOTE:** 1 pre-existing MSSQL test failure (GetTableAsync_ShouldReturnColumns_AfterAutoDiscovery) in Simon's database domain — not caused by these changes
+

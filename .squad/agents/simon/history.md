@@ -9,6 +9,65 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-03-13 - Team Review Cycle - Full Backend Assessment
+
+Completed full backend review. Score: 9/10. Backend architecture fundamentally strong. Identified 9 issues: key duplication in query generation (3 instances), missing test coverage for edge cases, documentation gaps. MSSQL auto-discovery and connection handling validated.
+
+### 2026-03-13 - Comprehensive Backend/Core Code Review Completed
+
+**Scope:** Reviewed all backend/core components (~3,500 LOC):
+- CompilerService (Roslyn integration) + tests
+- SettingsService & Settings pattern
+- Database generators (MSSQL, MySQL, PostgreSQL, SQLite) + tests
+- ProjectService & QueryService + tests  
+- Core abstractions & models
+
+**Key Findings:**
+- **Zero critical bugs** — production-ready architecture
+- **310 tests passing** (4 skipped E2E requiring SQLite setup)
+- 2 medium bugs: SQLite identifier sanitization overly restrictive, base class should use `await using` for DbCommand
+- 5 code duplication opportunities across DB generators (connection open/close pattern repeated 12+ times)
+- Missing test coverage: SettingsService (0 tests), QueryService (only indirect), CompilerService concurrency
+
+**Architecture Quality Assessment:**
+1. **Thread Safety:** ✅ CompilerService correctly uses SemaphoreSlim for workspace mutations
+2. **Atomic File I/O:** ✅ Temp file + File.Move pattern prevents corruption in ProjectService/QueryService  
+3. **Connection Management:** ⚠️ Pattern is correct but duplicated across all generators — extracting to base class helper would reduce 40+ lines of boilerplate
+4. **Error Handling:** ✅ Appropriate exception types, defensive validation in ProjectService
+5. **Type Safety:** ✅ Proper nullable annotations, no unsafe casts
+6. **Performance:** ✅ No blocking calls, proper async/await throughout
+
+**Database Generator Patterns:**
+- Base class (AdoNetDatabaseGeneratorBase) provides GetTablesAsync foundation using `GetSchemaAsync("Tables")`
+- Subclasses override with DB-specific queries when needed (e.g., MSSQL dynamic cross-database SQL)
+- Connection state management: open if closed, restore state on exit — pattern works but is repetitive
+- All generators use parameterized queries ✅ (except SQLite PRAGMA which doesn't support params)
+
+**Critical Design Decisions Validated:**
+1. **No Git commits** — per team directive, files written but not committed ✅
+2. **Test infrastructure uses named databases** (not master) — decision #10 validated through MssqlDatabaseFixture ✅  
+3. **CompilerService assembly loading** — decision #3 monitoring point confirmed, intentional tradeoff for full IntelliSense ✅
+4. **DatabaseSeeder explicit exit codes** — decision #8 correctly implemented ✅
+
+**SQLite-Specific Learning:**
+SQLite's PRAGMA commands don't support parameterized table names. Current implementation uses `SanitizeIdentifier()` which strips non-alphanumeric characters. This is overly restrictive — SQLite allows spaces, dots, and special chars in identifiers when quoted. Recommended fix: use SQLite's double-quote identifier syntax: `PRAGMA table_info("table name")` with embedded quotes escaped as `""`.
+
+**Connection Disposal Ambiguity:**
+Database generators accept DbConnection via constructor but don't implement IDisposable. Factory methods (`Create(connectionString)`) create new connections but don't track ownership. Recommendation: Add `_ownsConnection` flag and implement IDisposable to dispose connections created by factory methods.
+
+**Test Quality Observations:**
+- ProjectServiceTests.cs is exemplary (576 lines, covers concurrency, corruption, version compatibility)
+- Database integration tests use Testcontainers (real databases, not mocks) — excellent practice
+- CompilerServiceTests cover basic scenarios but miss concurrency edge cases (multiple Monaco callbacks triggering simultaneous GetCompletionsAsync)
+- SettingsService has ZERO test coverage despite being critical for persistence
+
+**Action Items Written:** 9 prioritized items in review document:
+- P1: Fix SQLite identifier quoting, add SettingsService tests, document connection ownership
+- P2: Extract connection management helper, add QueryService tests, fix MSSQL identity detection  
+- P3: Refactor column/FK parsing, CompilerService edge case tests, replace Console.WriteLine with ILogger
+
+**Ship Confidence:** 9/10 — recommend addressing P1 items before v1.0, all others can be deferred to maintenance releases.
+
 ### 2026-03-13 - Team Sprint: MSSQL Auto-Discovery Removal & Validation Hardening
 
 **Squad Completion:**
@@ -61,6 +120,38 @@ AND ISNULL(OBJECTPROPERTY(OBJECT_ID(...), 'IsMSShipped'), 0) = 0
 ```
 
 **Key Learning:** SQL Server metadata functions (OBJECTPROPERTY, OBJECT_ID, COLUMN_PROPERTY, etc.) can return NULL in non-master databases. Always use ISNULL/COALESCE when comparing with values in WHERE clauses. NULL = 0 evaluates to UNKNOWN, not FALSE.
+
+### 2026-03-13 - Backend Bug Fixes from Code Review
+
+**Task:** Fixed 4 backend bugs identified in Alex's comprehensive code review.
+
+**Fix 1: CompilerService Empty Catch Blocks (High Priority)**
+- **Problem:** 6 empty catch blocks in CompilerService.cs silently swallowed exceptions with no diagnostics
+- **Solution:** Added `System.Diagnostics.Debug.WriteLine($"[CompilerService] Error: {ex}")` to all empty catch blocks
+- **Locations:** Lines 57, 75, 86, 365, 401, 484, 490
+- **Impact:** Behavior unchanged (still uses fallbacks), but now provides visibility into assembly loading failures, Roslyn API errors, and disposal issues during development/debugging
+
+**Fix 2: Database Generators CommandTimeout (Medium Priority)**
+- **Problem:** All DbCommand instances created without timeout, risking indefinite hangs on slow/unresponsive databases
+- **Solution:** Added `command.CommandTimeout = 30;` after every `CreateCommand()` call
+- **Files:** MssqlGenerator.cs (3 locations), MySqlGenerator.cs (2 locations), PostgreSqlGenerator.cs (2 locations), SqliteGenerator.cs (4 locations)
+- **Impact:** Database queries now timeout after 30 seconds instead of blocking indefinitely
+
+**Fix 3: Input Validation in GetTableAsync (Medium Priority)**
+- **Problem:** Missing null/whitespace validation on tableName parameter in all 4 database generators
+- **Solution:** Added `ArgumentException.ThrowIfNullOrWhiteSpace(tableName, nameof(tableName));` at start of each GetTableAsync method
+- **Files:** MssqlGenerator.cs, MySqlGenerator.cs, PostgreSqlGenerator.cs, SqliteGenerator.cs
+- **Impact:** Fail-fast with clear error message instead of cryptic SQL errors or null reference exceptions
+
+**Fix 4: Base Class await using for DbCommand (Low Priority)**
+- **Problem:** AdoNetDatabaseGeneratorBase.TestConnectionAsync() used `using var command` instead of `await using var command`
+- **Solution:** Changed to `await using var command` to properly dispose IAsyncDisposable
+- **File:** AdoNetDatabaseGeneratorBase.cs line 73
+- **Impact:** Ensures async disposal of DbCommand resources in base class test method
+
+**Test Results:** All 421 tests pass (417 passed, 4 skipped E2E tests requiring SQLite setup). Zero test failures. Changes are surgical and maintain existing behavior while adding diagnostics and safety.
+
+**Key Learning:** Empty catch blocks should always include Debug.WriteLine for development visibility. CommandTimeout should be set on all database commands to prevent production hangs. Input validation belongs at method entry, not deep in SQL execution. Prefer `await using` over `using` for types implementing IAsyncDisposable.
 
 ### 2026-03-11 - Backend/Core Architecture Deep Analysis
 
@@ -964,4 +1055,5 @@ if (string.Equals(Connection.Database, "master", StringComparison.OrdinalIgnoreC
 
 **Files Modified:**
 - `src/LinqStudio.Database/MssqlGenerator.cs` (surgical additions only, no breaking changes)
+
 
