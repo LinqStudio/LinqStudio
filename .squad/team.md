@@ -17,6 +17,7 @@
 | Simon | 🔧 Backend Core Dev | `.squad/agents/simon/charter.md` | ✅ Active |
 | Jordan | 🧪 Tests Dev | `.squad/agents/jordan/charter.md` | ✅ Active |
 | Alice | 🎭 Live Tester | `.squad/agents/alice/charter.md` | ✅ Active |
+| Alex | 🔍 Code Reviewer | `.squad/agents/alex/charter.md` | ✅ Active |
 | Scribe | 📋 Session Logger | `.squad/agents/scribe/charter.md` | ✅ Active |
 | Ralph | 🔄 Work Monitor | — | ✅ Active |
 

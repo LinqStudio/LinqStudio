@@ -9,6 +9,59 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-03-13 - Team Sprint: MSSQL Auto-Discovery Removal & Validation Hardening
+
+**Squad Completion:**
+- Simon: Removed auto-discovery from MssqlGenerator, added fail-fast validation in Create() and Project.UpdateConnection()
+- EvilJosh: Fixed EditProjectDialog Save() validation, resolved DatabaseTreeView cache access race conditions, fixed test cleanup
+- Alex: Comprehensive code review documenting patterns and edge cases
+- Status: ✅ 407 tests passing, orchestration logs written, decisions merged
+
+**Decision Documented:** Remove MSSQL Auto-Discovery from MssqlGenerator (2026-03-13)
+- Auto-discovery picked "first user database alphabetically" (non-deterministic, wrong for multi-DB servers)
+- Connection.ChangeDatabase() mutated pooled connections (connection pool poisoning)
+- Config errors masked (missing Database= silently ignored)
+- **Solution:** Fail-fast validation requiring explicit database in connection string
+
+**Cross-Agent Updates:**
+- Simon's history.md updated with auto-discovery removal and NULL handling learnings
+- EvilJosh's history.md updated with validation and caching patterns
+- Alex's history.md updated with code review findings and recommendations
+- Scribe's history.md updated with team context and sprint completion
+
+### 2026-03-13 - Removed MSSQL Auto-Discovery Logic
+
+**Problem (flagged by Alex - Code Reviewer):** `MssqlGenerator` had auto-discovery logic in `GetTableAsync` that:
+1. Checked if connected to `master` database
+2. Called `FindFirstUserDatabaseAsync` to pick the "first" user database arbitrarily
+3. Called `Connection.ChangeDatabase()` to switch — which mutates pooled connections
+
+**Why it was harmful:**
+- Silently masked missing `Database=` in connection string configs
+- `ChangeDatabase()` on a pooled connection poisons the connection pool
+- "First user database alphabetically" is non-deterministic and wrong for multi-database servers
+
+**Solution:** Fail fast in `Create()` using `SqlConnectionStringBuilder` to validate `InitialCatalog` is set. Connection string must explicitly name the target database. `GetTablesAsync` was already correct (uses server-level cross-database dynamic SQL via `sys.databases`) and needed no changes.
+
+**Key Learning:** Connection strings for MSSQL must always include `Database=` or `Initial Catalog=`. Never auto-discover or switch databases on pooled connections. Use `SqlConnectionStringBuilder` to parse and validate connection strings before constructing the connection.
+
+### 2026-03-12 - MSSQL NULL Handling in Named Databases
+
+**Problem:** MssqlGenerator.GetTablesAsync() returned 0 tables when connecting to production named databases, despite tests passing.
+
+**Root Cause:** OBJECT_ID() returns NULL for user tables in named databases under certain conditions. The query used:
+```sql
+AND OBJECTPROPERTY(OBJECT_ID(...), 'IsMSShipped') = 0
+```
+When OBJECT_ID returns NULL, OBJECTPROPERTY(NULL, ...) returns NULL, causing the WHERE clause to evaluate to UNKNOWN (treated as FALSE), silently excluding all user tables.
+
+**Solution:** Wrap OBJECTPROPERTY with ISNULL:
+```sql
+AND ISNULL(OBJECTPROPERTY(OBJECT_ID(...), 'IsMSShipped'), 0) = 0
+```
+
+**Key Learning:** SQL Server metadata functions (OBJECTPROPERTY, OBJECT_ID, COLUMN_PROPERTY, etc.) can return NULL in non-master databases. Always use ISNULL/COALESCE when comparing with values in WHERE clauses. NULL = 0 evaluates to UNKNOWN, not FALSE.
+
 ### 2026-03-11 - Backend/Core Architecture Deep Analysis
 
 #### CompilerService (`src/LinqStudio.Core/Services/CompilerService.cs`)
@@ -323,6 +376,117 @@ extension(JsonSerializerOptions options)
 **ProjectWorkspace (`Services/ProjectWorkspace.cs`):**
 - **Scoped service** managing current open project state
 - Properties: `Project? CurrentProject`, `string? CurrentFilePath`, `string CurrentProjectName`, `bool HasUnsavedChanges`, `bool IsProjectOpen`
+
+---
+
+### 2026-03-11 - MSSQL GetTablesAsync NULL Handling Fix
+**Location:** `src/LinqStudio.Database/MssqlGenerator.cs` line 96
+
+**Root Cause:**
+- SQL Server's `OBJECTPROPERTY(OBJECT_ID(...), 'IsMSShipped')` can return NULL when `OBJECT_ID()` returns NULL
+- This happens for some user tables in named databases under certain conditions
+- `NULL = 0` evaluates to UNKNOWN in SQL WHERE clauses, treated as FALSE → silently excludes valid user tables
+- Tests passed because they connected to `master` database where OBJECT_ID worked correctly
+- Production failed when connecting to named databases like `linqstudio-mssql-demo`
+
+**Fix Applied:**
+Changed line 96 from:
+```sql
+AND OBJECTPROPERTY(OBJECT_ID(QUOTENAME(TABLE_SCHEMA) + '.' + QUOTENAME(TABLE_NAME)), 'IsMSShipped') = 0
+```
+To:
+```sql
+AND ISNULL(OBJECTPROPERTY(OBJECT_ID(QUOTENAME(TABLE_SCHEMA) + '.' + QUOTENAME(TABLE_NAME)), 'IsMSShipped'), 0) = 0
+```
+
+**Why This Works:**
+- System tables (IsMSShipped = 1) still excluded ✓
+- User tables (IsMSShipped = 0) included ✓
+- Edge case where OBJECT_ID returns NULL → defaults to 0 → included ✓
+- Safe: doesn't change behavior for valid objects, only handles NULL gracefully
+
+**Learning:** When using SQL Server metadata functions that can return NULL, always wrap with ISNULL/COALESCE to avoid silent filtering of valid rows in WHERE clauses.
+
+---
+
+### 2026-03-11 - DatabaseTreeView Backend Analysis
+
+**Task:** Comprehensive backend stack analysis for DatabaseTreeView feature to identify any blockers before Alice's live testing.
+
+**Analyzed Components:**
+1. Aspire AppHost password configuration (`src/LinqStudio.AppHost/AppHost.cs`)
+2. DatabaseSeeder implementation (`src/LinqStudio.DatabaseSeeder/Program.cs`, `src/LinqStudio.Demo/`)
+3. Project.QueryGenerator property and cache invalidation (`src/LinqStudio.Core/Models/Project.cs`)
+4. IDatabaseQueryGenerator implementations (`src/LinqStudio.Database/`)
+5. Connection string format and Aspire WithReference behavior
+
+**Key Findings:**
+
+**✅ Aspire Password Hard-coding (CORRECT):**
+- `AddParameter("sql-password", value: "Password123!", secret: false)` creates a parameter with hard-coded default value
+- Aspire passes this to the SQL Server container as `MSSQL_SA_PASSWORD` environment variable
+- Container sets SA password to `Password123!` on initialization
+- `ContainerLifetime.Persistent` ensures password stays consistent across restarts
+- Connection string injected into WebServer: `ConnectionStrings__DemoMssql=Server=localhost,14330;Database=linqstudio-mssql-demo;User Id=sa;Password=Password123!;TrustServerCertificate=true`
+- MySQL similar: `ConnectionStrings__DemoMysql=Server=localhost;Port=13306;Database=linqstudio-mysql-demo;User=root;Password=root_password_123;`
+
+**✅ DatabaseSeeder (CORRECT):**
+- Seeds 4 tables: Customers, Products, Orders, OrderItems
+- All tables have `Id` int primary keys (configured via `entity.HasKey(e => e.Id)`)
+- Foreign keys configured with cascade/restrict behaviors
+- Proper constraints: max lengths, precision/scale, required fields
+- All columns compatible with DatabaseTreeView expectations (IsPrimaryKey, IsNullable, DataType)
+- Retry logic: 10 attempts with 3-second delays for each database
+- Proper exit codes: `Environment.Exit(0)` on success, `Environment.Exit(1)` on failure
+
+**✅ Project.QueryGenerator (CORRECT):**
+- Property setter for `DatabaseType` and `ConnectionString` both reset `QueryGenerator = null`
+- Lazy initialization on access: creates generator based on DatabaseType switch
+- All 4 database types supported: Mssql, MySql, PostgreSql, Sqlite
+- Cache invalidation working correctly — DatabaseTreeView tracks connection identity changes and reloads tables only when connection changes
+
+**✅ IDatabaseQueryGenerator Implementations (CORRECT with one minor issue):**
+- All generators inherit `AdoNetDatabaseGeneratorBase` with proper ADO.NET schema introspection
+- `GetTablesAsync()` returns `DatabaseTableName` with Schema and Name
+- `GetTableAsync()` returns `DatabaseTableDetail` with columns and foreign keys
+- Column metadata includes: Name, DataType, IsNullable, IsPrimaryKey, MaxLength, Precision, Scale
+- Foreign keys properly queried (MSSQL uses `sys.foreign_keys`, MySQL uses `INFORMATION_SCHEMA.KEY_COLUMN_USAGE`)
+
+**⚠️ Minor Issue: IsIdentity Always False for MSSQL:**
+- Location: `MssqlGenerator.cs`, line 190: `var isIdentity = false;`
+- Comment: "GetSchema doesn't provide identity info, so we'll default to false"
+- Impact: Lightning bolt icon (⚡) never displays in DatabaseTreeView for identity columns
+- Primary key icon (🔑) still displays correctly
+- **Not a blocker** — cosmetic only, does not affect query execution or data functionality
+- MySQL correctly detects identity via `EXTRA.Contains("auto_increment")`
+- Recommendation: P3 enhancement — implement custom query against `sys.identity_columns` for MSSQL
+
+**Connection String Format for Manual Connections:**
+- SQL Server: `Server=localhost,14330;Database=linqstudio-mssql-demo;User Id=sa;Password=Password123!;TrustServerCertificate=true`
+- MySQL: `Server=localhost;Port=13306;Database=linqstudio-mysql-demo;User=root;Password=root_password_123;`
+- Ports are fixed (14330 for MSSQL, 13306 for MySQL) via `port:` parameter in AppHost
+
+**DatabaseTreeView Integration:**
+- Component checks `Workspace.CurrentProject?.QueryGenerator != null` before loading
+- Tracks connection identity (`_trackedConnectionString`, `_trackedDatabaseType`) to avoid unnecessary DB round-trips on unrelated workspace changes
+- Lazy-loads table details when user expands a table node
+- Proper error handling via `ErrorHandlingService.HandleErrorAsync()`
+- Loading states displayed during DB operations
+- Column icon logic: 🔑 for PK (using `IsPrimaryKey`), ⚡ for identity (using `IsIdentity`), default icon for regular columns
+- Type formatting: `varchar(100)?`, `decimal(18,2)`, `int`
+
+**Conclusion:**
+- ✅ Backend is production-ready with no blockers
+- ✅ All 4 database types properly implemented
+- ✅ Aspire password mechanism working correctly
+- ✅ DatabaseSeeder creates proper demo data with all constraints
+- ✅ Connection string injection via Aspire working as expected
+- ⚠️ IsIdentity limitation is cosmetic only, not a blocker
+
+**Deliverables:**
+- Comprehensive analysis written to `.squad/decisions/inbox/simon-backend-analysis.md`
+- Documented connection strings for Alice's live testing
+- Identified one P3 enhancement (IsIdentity detection for MSSQL)
 - Tracks `_savedProject` (last persisted state) vs `_currentProject` (current state) to detect changes
 - `HasUnsavedChanges`: Checks both project property changes AND query changes (`_queriesWorkspace.HasUnsavedChanges`)
 - Methods: `CreateNewAsync(string name)`, `LoadAsync(string filePath)`, `SaveAsync()`, `SaveAsAsync(string filePath)`, `Update(Project updatedProject)`, `Close()`
@@ -467,6 +631,108 @@ extension(JsonSerializerOptions options)
 - src/LinqStudio.AppHost/AppHost.cs (orchestration logic)
 - LinqStudio.slnx (added two projects, enabled Databases.Tests build)
 
+**Status:** ✅ Fix implemented, tested, documented, deployed — ready for final sign-off
+
+---
+
+### 2025-01-XX - Database Introspection API Analysis for Table Tree View Feature
+
+#### Key Interfaces and Models
+
+**`IDatabaseQueryGenerator` Interface** — `src/LinqStudio.Abstractions/Abstractions/IDatabaseQueryGenerator.cs`
+- Primary abstraction for database schema introspection
+- Methods:
+  - `Task<IReadOnlyList<DatabaseTableName>> GetTablesAsync(CancellationToken)` — Flat list of all tables
+  - `Task<DatabaseTableDetail> GetTableAsync(string tableName, CancellationToken)` — Detailed table info with columns and FKs
+  - `Task TestConnectionAsync(CancellationToken)` — Connection validation
+  - `DbColumnType MapToGenericType(string dataType)` — Database-specific to generic type mapping
+
+**Data Models** — `src/LinqStudio.Abstractions/Models/`
+- `DatabaseTableName` — Lightweight (schema + name + FullName property)
+- `DatabaseTableDetail : DatabaseTableName` — Adds `Columns` (IReadOnlyList<TableColumn>) and `ForeignKeys` (IReadOnlyList<ForeignKey>)
+- `TableColumn` — Complete metadata (Name, DataType, GenericType, IsNullable, IsPrimaryKey, IsIdentity, MaxLength, Precision, Scale)
+- `DbColumnType` enum — 23 values mapping database types to C# types (Int32, String, DateTime, Decimal, etc.)
+- `ForeignKey` — Relationship metadata (Name, ColumnName, ReferencedTable, ReferencedColumn)
+- `DatabaseType` enum — Mssql, MySql, PostgreSql, Sqlite
+
+#### Database Generators Architecture
+
+**Base Class:** `AdoNetDatabaseGeneratorBase` — `src/LinqStudio.Database/AdoNetDatabaseGeneratorBase.cs`
+- Uses raw ADO.NET (`DbConnection`) for database introspection
+- Manages connection lifecycle (opens/closes as needed)
+- Template method for `GetTablesAsync()` using `DbConnection.GetSchemaAsync("Tables")`
+- Abstract methods: `ParseTableFromSchemaRow(DataRow)`, `GetTableAsync(string tableName)`, `MapToGenericType(string dataType)`
+- Static helper: `ParseTableName(string)` — Splits "schema.name" or "name" into (schema, name) tuple
+
+**Concrete Implementations:**
+- `MssqlGenerator` — SQL Server (uses `sys.foreign_keys`, `sys.columns`, defaults schema to "dbo")
+- `MySqlGenerator` — MySQL/MariaDB (uses `INFORMATION_SCHEMA`, defaults schema to `Connection.Database`)
+- `PostgreSqlGenerator` — PostgreSQL (uses `INFORMATION_SCHEMA` with custom queries, defaults schema to "public")
+- `SqliteGenerator` — SQLite (overrides `GetTablesAsync()` to query `sqlite_master`, uses `PRAGMA table_info` and `PRAGMA foreign_key_list`, defaults schema to "main")
+
+**Factory Pattern:** Each generator has `Create(string connectionString)` static method returning configured instance
+
+#### Integration with Core
+
+**`Project.QueryGenerator` Property** — `src/LinqStudio.Core/Models/Project.cs`
+- Lazy-initialized `IDatabaseQueryGenerator?` property (JsonIgnored)
+- Creates generator on first access based on `DatabaseType` and `ConnectionString`
+- Automatically reset when connection string or database type changes (via property setters)
+- Factory logic: switches on `DatabaseType` enum, calls appropriate `*.Create(connectionString)` method
+
+**Connection Testing:**
+- `Project.TestConnectionAsync(DatabaseType, string connectionString, int timeoutSeconds)` — Validates connection with timeout
+
+#### Test Coverage
+
+**Base Test Suite:** `tests/LinqStudio.Databases.Tests/BaseGeneratorTests.cs`
+- Abstract class with 8 unit tests (derived classes inherit):
+  - `GetTablesAsync_ShouldReturnAllTables` — Verifies table listing
+  - `GetTableAsync_ShouldReturnTableWithColumns` — Verifies column retrieval
+  - `GetTableAsync_ShouldReturnTableWithForeignKeys` — Verifies FK retrieval
+  - `GetTableAsync_ShouldReturnTableWithMultipleForeignKeys` — Multi-FK tables
+  - `GetTableAsync_ShouldReturnColumnDataTypes` — Type mapping accuracy
+  - `GetTableAsync_ShouldReturnNullableInformation` — Nullability detection
+  - `TestConnectionAsync_ShouldSucceed` — Connection validation
+  - `TestConnectionAsync_ShouldFail_WithInvalidConnection` — Error handling
+
+**Concrete Test Classes:** `MssqlGeneratorTests`, `MySqlGeneratorTests`, `PostgreSqlGeneratorTests`, `SqliteGeneratorTests`
+- Total: 32 tests (8 tests × 4 database types)
+- Uses Aspire test containers: `demo-mssql`, `demo-mysql` (defined in `src/LinqStudio.AppHost/AppHost.cs`)
+- Test data seeded by `LinqStudio.DatabaseSeeder` project
+
+#### Lazy Loading Pattern for Tree View
+
+**Recommended Data Flow:**
+1. Initial render: Call `GetTablesAsync()` → fast, returns `IReadOnlyList<DatabaseTableName>` (schema + name only)
+2. User expands table node: Call `GetTableAsync(tableName)` → returns `DatabaseTableDetail` with columns and FKs
+3. Cache `DatabaseTableDetail` in component state (`Dictionary<string, DatabaseTableDetail>`)
+4. Subsequent expansions: Check cache first, fetch on miss
+
+**Column Type Display:**
+- Use `TableColumn.DataType` for database-specific type (e.g., "varchar", "int")
+- Use `TableColumn.GenericType` for C# type mapping (e.g., `DbColumnType.String`, `DbColumnType.Int32`)
+- Format with size info: `MaxLength` → "varchar(100)", `Precision + Scale` → "decimal(10,2)"
+- Add nullability: `IsNullable ? $"{type}?" : type`
+
+#### Key Findings for Tree View Feature
+
+**✅ Backend API Complete:** No new interfaces or services needed
+- `GetTablesAsync()` provides initial table list
+- `GetTableAsync(tableName)` provides lazy-loaded column details
+- `TableColumn` model has all needed metadata (name, type, nullability, PK, identity)
+- All 4 database types supported and tested
+
+**⚠️ Optional Enhancements (Not Blockers):**
+- Batch column fetching: `GetTablesWithDetailsAsync(IEnumerable<string> tableNames)` — workaround: use `Task.WhenAll()` with `GetTableAsync()`
+- Column-only fetching: `GetColumnsAsync(string tableName)` — workaround: call `GetTableAsync()` and use `Columns` property
+- Schema grouping: `GetTablesBySchemaAsync()` — workaround: call `GetTablesAsync()` and group in memory with LINQ
+
+**Recommendation:** UI can consume existing API directly. No backend work required for MVP.
+
+**Documentation:** Complete analysis written to `.squad/decisions/inbox/simon-db-introspection-analysis.md`
+
+
 **Testing:**
 - All unit tests pass (Core: 45, Blazor: 39, Databases: 16)
 - E2E tests pass (8 passed, 1 skipped - the Aspire dashboard test that requires manual run)
@@ -569,3 +835,133 @@ When implementing database generators:
 - Always check if connection is already open before opening it
 - Close connection in finally block only if we opened it
 - All methods follow the pattern: check state → open if needed → execute → close if we opened
+
+## Learnings
+
+### QueryGenerator Property Fix (2026-03-11)
+Fixed missing PostgreSQL and SQLite cases in src/LinqStudio.Core/Models/Project.cs QueryGenerator property. The switch expression only handled Mssql and MySql, throwing NotSupportedException for the other database types. Referenced TestConnectionAsync method which had the correct implementation with all four cases.
+
+### 2026-03-11 - Hardcoded Aspire Database Passwords for Local Dev
+
+**Problem:**
+Alice (live tester) had difficulty finding database connection strings because Aspire generates random passwords by default for SQL Server and MySQL containers. This made it hard to test and connect manually with external tools.
+
+**Solution:**
+Modified `src/LinqStudio.AppHost/AppHost.cs` to use hardcoded passwords for local dev/testing:
+- SQL Server SA password: `Password123!` (meets complexity requirements: uppercase, lowercase, digit, special char, 8+ chars)
+- MySQL root password: `root_password_123`
+
+**Implementation:**
+```csharp
+var sqlPassword = builder.AddParameter("sql-password", value: "Password123!", secret: false);
+var mysqlPassword = builder.AddParameter("mysql-password", value: "root_password_123", secret: false);
+
+var mssql = builder.AddSqlServer("demo-mssql", password: sqlPassword)
+    .WithLifetime(ContainerLifetime.Persistent);
+
+var mysql = builder.AddMySql("demo-mysql", password: mysqlPassword)
+    .WithLifetime(ContainerLifetime.Persistent);
+```
+
+**Aspire Password API:**
+- `AddSqlServer(string name, IResourceBuilder<ParameterResource>? password = default)` - accepts password parameter for SA account
+- `AddMySql(string name, IResourceBuilder<ParameterResource>? password = default)` - accepts password parameter for root account
+- Use `builder.AddParameter(name, value, secret: false)` to create a non-secret parameter (for local dev only)
+- Aspire automatically injects connection strings with passwords into dependent services via environment variables (e.g., `ConnectionStrings__DemoMssql`)
+
+**Connection Strings:**
+- SQL Server: `Server=localhost,{port};Database=linqstudio-mssql-demo;User Id=sa;Password=Password123!;TrustServerCertificate=true`
+- MySQL: `Server=localhost;Port={port};Database=linqstudio-mysql-demo;User=root;Password=root_password_123;`
+
+**No Changes Needed:**
+- `LinqStudio.DatabaseSeeder` - reads connection strings from environment variables injected by Aspire, passwords flow through automatically
+- WebServer - uses `.WithReference()` to get connection strings, no hardcoded strings
+
+**Verification:**
+Built successfully with 0 errors and 0 warnings.
+
+**Security Note:**
+Hardcoded passwords marked with `secret: false` are intentional for local dev/testing only. Never use this pattern in production — Aspire's default random password generation should be used for production environments.
+
+### 2026-03-11T21:04:48Z - Fixed Aspire Port Discovery for Live Testing
+
+**Requested by:** snakex64 via Alice  
+**Problem:** Dynamic port mapping prevented reliable external database connections during live testing  
+
+**Root Cause:**
+- Aspire's `AddSqlServer()` and `AddMySql()` were mapping container ports to random host ports
+- Alice could not build stable connection strings without runtime port discovery
+- SQL Server 1433 → random port (e.g., 50123)
+- MySQL 3306 → random port (e.g., 50124)
+
+**Solution Implemented:**
+Used Aspire 9.5+ `port` parameter to assign fixed host ports:
+- SQL Server: Port **14330** (`AddSqlServer("demo-mssql", password, port: 14330)`)
+- MySQL: Port **13306** (`AddMySql("demo-mysql", password, port: 13306)`)
+
+**Connection Strings for Alice:**
+- **SQL Server:** `Server=localhost,14330;Database=linqstudio-mssql-demo;User Id=sa;Password=Password123!;TrustServerCertificate=true`
+- **MySQL:** `Server=localhost;Port=13306;Database=linqstudio-mysql-demo;User=root;Password=root_password_123;`
+
+**Technical Details:**
+- Modified `src/LinqStudio.AppHost/AppHost.cs` with port parameters
+- Added inline comments with full connection strings for developer reference
+- No breaking changes — Aspire environment variable injection still works for WebServer
+- Ports chosen to avoid conflicts: 14330 (1433 + prefix "1"), 13306 (3306 + prefix "1")
+- Verified build succeeds with no errors
+
+**Files Modified:**
+- `src/LinqStudio.AppHost/AppHost.cs` — added port: 14330 and port: 13306 parameters
+
+**Documentation:**
+- Created `.squad/decisions/inbox/simon-aspire-fixed-ports.md` with full decision record
+
+**Status:** ✅ Complete, ready for Alice to use
+
+### 2026-03-12 - MSSQL Auto-Discovery for Connections Without Explicit Database
+
+**Problem:** When users connect to MSSQL without specifying a `Database=` in the connection string (e.g., `Server=127.0.0.1,14330;User ID=sa;Password=Password123!;TrustServerCertificate=true`), the connection defaults to the `master` database. Since `master` contains only system tables (all `IsMSShipped=1`), `GetTablesAsync()` correctly returned an empty list. However, user tables existed in other databases like `linqstudio-mssql-demo` but were inaccessible.
+
+**Root Cause:** ADO.NET connections without explicit database specification default to `master`. The connection is opened and closed for each call (`GetTablesAsync`, `GetTableAsync`), and when reopened, it reverts to `master` from the connection string.
+
+**Solution:** Implemented auto-discovery pattern in `MssqlGenerator`:
+
+1. **Added `_resolvedDatabase` private field** to persist the discovered database across connection open/close cycles
+2. **Added `FindFirstUserDatabaseAsync()` method** to query `sys.databases` for the first non-system database (`database_id > 4`, online, not read-only)
+3. **Added `SwitchToResolvedDatabaseIfNeeded()` helper** to restore the correct database on each connection reopen using `Connection.ChangeDatabase()`
+4. **Updated `GetTablesAsync()`** to detect when connected to `master` and auto-discover + switch to first user database
+5. **Updated `GetTableAsync()`** to handle both scenarios:
+   - First call without prior `GetTablesAsync()` → perform discovery
+   - Subsequent calls → switch to resolved database if connection was closed/reopened
+
+**Key Pattern:**
+```csharp
+// Auto-discover on first connection to master
+if (string.Equals(Connection.Database, "master", StringComparison.OrdinalIgnoreCase))
+{
+    var userDb = await FindFirstUserDatabaseAsync(cancellationToken);
+    if (userDb != null)
+    {
+        _resolvedDatabase = userDb;
+        Connection.ChangeDatabase(userDb);
+    }
+}
+```
+
+**Technical Details:**
+- `FindFirstUserDatabaseAsync()` queries: `SELECT TOP 1 name FROM sys.databases WHERE database_id > 4 AND state = 0 AND is_read_only = 0 ORDER BY name`
+- `database_id > 4` excludes system databases (master=1, tempdb=2, model=3, msdb=4)
+- `state = 0` ensures database is online
+- `is_read_only = 0` ensures database is writable
+- Discovery happens lazily on first API call, not in constructor
+- `_resolvedDatabase` persists across the generator instance lifetime
+
+**Why This Matters:** 
+- Users can now provide simplified connection strings without specifying database names
+- Matches common developer workflows where they connect to a server and expect to see available databases
+- Maintains backward compatibility: explicit `Database=` in connection string bypasses auto-discovery
+- Each generator instance remembers the resolved database, avoiding repeated discovery queries
+
+**Files Modified:**
+- `src/LinqStudio.Database/MssqlGenerator.cs` (surgical additions only, no breaking changes)
+

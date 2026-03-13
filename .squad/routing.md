@@ -11,7 +11,8 @@ How to decide who handles what.
 | CompilerService, Roslyn, EF Core, databases | Simon | Compiler pipeline, intellisense internals, DB introspection, model generation |
 | Unit tests, E2E test code, test data | Jordan | XUnit tests, embedded resources, coverage gaps |
 | Live Playwright testing, browser verification | Alice | Real browser tests, end-to-end flows, visual state |
-| Code review | Samy | Review PRs, check quality, architectural alignment |
+| Code review (post-change, automatic) | Alex | Runs after ANY agent makes code changes — reviews uncommitted diff, reports findings |
+| Code review (architectural) | Samy | Review PRs, check quality, architectural alignment |
 | Testing | Jordan + Alice | Jordan writes; Alice verifies live |
 | Scope & priorities | Samy | What to build next, trade-offs, decisions |
 | Session logging | Scribe | Automatic — never needs routing |
@@ -52,4 +53,4 @@ When triaging, the Lead should ask:
 5. **"Team, ..." → fan-out.** Spawn all relevant agents in parallel as `mode: "background"`.
 6. **Anticipate downstream work.** If a feature is being built, spawn the tester to write test cases from requirements simultaneously.
 7. **Issue-labeled work** — when a `squad:{member}` label is applied to an issue, route to that member. The Lead handles all `squad` (base label) triage.
-8. **@copilot routing** — when evaluating issues, check @copilot's capability profile in `team.md`. Route 🟢 good-fit tasks to `squad:copilot`. Flag 🟡 needs-review tasks for PR review. Keep 🔴 not-suitable tasks with squad members.
+9. **Alex always runs after changes.** After any agent (Simon, EvilJosh, Jordan, Alice, Samy) makes code changes, spawn Alex (background) to review the uncommitted diff. The Coordinator collects Alex's findings and routes fixes to the appropriate agents.

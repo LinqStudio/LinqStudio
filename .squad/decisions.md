@@ -273,6 +273,55 @@ catch (Exception ex) {
 
 ---
 
+### 9. MSSQL OBJECTPROPERTY NULL Handling in Named Databases
+**Date:** 2026-03-12  
+**Author:** Simon (Backend Core Dev)  
+**Decision**: Wrap `OBJECTPROPERTY()` with `ISNULL()` when filtering system tables in MSSQL  
+**Rationale**:
+- `OBJECT_ID()` returns NULL for user tables in named databases under certain conditions
+- `OBJECTPROPERTY(NULL, 'IsMSShipped')` returns NULL, causing WHERE clause evaluation to UNKNOWN (false)
+- `ISNULL(OBJECTPROPERTY(...), 0)` handles NULL gracefully by defaulting to 0 (user table)
+
+**Pattern**:
+```sql
+-- Before (bugs in named databases)
+AND OBJECTPROPERTY(OBJECT_ID(...), 'IsMSShipped') = 0
+
+-- After (handles NULL safely)
+AND ISNULL(OBJECTPROPERTY(OBJECT_ID(...), 'IsMSShipped'), 0) = 0
+```
+
+**Application**: Fixed MssqlGenerator.GetTablesAsync (line 96) which was silently excluding all user tables in production named databases.
+
+**Status:** ✅ Implemented and tested
+
+---
+
+### 10. Test Infrastructure Must Match Production Database Patterns
+**Date:** 2026-03-12  
+**Author:** Jordan (Tests Dev)  
+**Decision**: All database test fixtures must use named databases, not master database  
+**Rationale**:
+- Production Aspire setup uses named databases (e.g., `linqstudio-mssql-demo`)
+- Test fixtures using `master` miss edge cases that only occur in named database context
+- Example: OBJECTPROPERTY NULL handling only manifests with named databases
+- Tests that pass but miss production bugs undermine quality assurance
+
+**Pattern for MSSQL Test Fixtures**:
+1. Start Testcontainers MSSQL container (connects to master initially)
+2. Create named database using `CREATE DATABASE [TestLinqStudio]`
+3. Use `SqlConnectionStringBuilder` to properly set `InitialCatalog` property
+4. Connect DbContext and tests to named database
+5. Add explicit regression test for production-relevant scenarios
+
+**Application**: Fixed MssqlDatabaseFixture to create and use `TestLinqStudio` database. Added regression test `GetTablesAsync_ShouldReturnTables_WhenConnectedToNamedDatabase()`.
+
+**Future Audit**: Similar review recommended for MySQL and PostgreSQL fixtures.
+
+**Status:** ✅ Implemented and tested (All 295 tests pass)
+
+---
+
 ## Governance
 
 - All meaningful changes require team consensus

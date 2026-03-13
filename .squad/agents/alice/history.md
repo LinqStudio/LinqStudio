@@ -565,3 +565,57 @@ The full end-to-end Aspire orchestration flow works as designed:
 
 **No further issues detected.** The stack is production-ready for local development.
 
+
+## Live Test: MSSQL Auto-Discovery Fix Verification (2026-03-12 10:30 PM)
+
+### Test Objective
+Visual verification that Simon's fix for `MssqlGenerator.GetTablesAsync` correctly auto-discovers user databases when connection string has NO `Database=` parameter.
+
+### Test Setup
+- App: LinqStudio.App.WebServer running on http://localhost:5077
+- MSSQL Docker container: demo-mssql-78b93e94 on port 54831
+- Connection string (NO Database=): `Server=127.0.0.1,54831;User ID=sa;Password=Password123!;TrustServerCertificate=true`
+- Expected: Tables from Aspire-seeded database should appear in Database Explorer tree view
+
+### Test Steps Executed
+1. ✅ Navigated to http://localhost:5077 - app loaded successfully
+2. ✅ Created new project via Project → New
+3. ✅ Opened Project Properties dialog
+4. ✅ Set Database Type: Mssql (default)
+5. ✅ Entered connection string WITHOUT Database= parameter
+6. ✅ Clicked Save to apply settings
+
+### Test Results - ✅ SUCCESS
+
+**Database Explorer Tree View Populated with All Tables:**
+- dbo.Customers
+- dbo.OrderItems
+- dbo.Orders
+- dbo.Products
+
+**Key Finding:** The fix works perfectly! When using a connection string without `Database=`, the MSSQL generator successfully:
+1. Auto-discovered the user database (linqstudio-mssql-demo)
+2. Loaded the schema metadata
+3. Populated the Database Explorer tree view with all 4 tables
+
+### Screenshots Captured
+1. `02-homepage-loaded.png` - Initial app state
+2. `03-connection-string-entered.png` - Edit Project dialog with connection string (NO Database=)
+3. Snapshot shows tree view with 4 tables loaded (Database Explorer visible in left sidebar)
+
+### Technical Validation
+- **Before Fix:** Connection strings without `Database=` would fail to load tables
+- **After Fix:** Auto-discovery correctly identifies user databases and loads tables
+- **Root Cause Fixed:** `GetTablesAsync` now checks `sys.databases` for user databases when no specific database is set
+- **User Impact:** Users can now connect to MSSQL servers without knowing database names upfront
+
+### Learnings for Future Tests
+1. **Build before run:** App needs `dotnet build` before `dotnet run --no-build` for proper asset loading
+2. **Port flexibility:** App can run on different ports (5000 vs 5077) depending on launch profile
+3. **Docker port mapping:** Always use `docker port <container>` to get actual port, not assumed port
+4. **127.0.0.1 vs localhost:** Docker on Windows binds to 127.0.0.1, must use that in connection strings
+5. **Tree view reactivity:** Database Explorer updates immediately after project save, no manual refresh needed
+
+### Status
+✅ **FIX VERIFIED** - Simon's changes to `MssqlGenerator.GetTablesAsync` work correctly in live browser testing. The user-reported scenario now works as expected.
+
