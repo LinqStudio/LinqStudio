@@ -37,3 +37,40 @@ MudBlazor components (MudSelect, MudMenu) require specific interaction strategie
 - Popovers: Wait for popover list items to appear before clicking
 - Use `data-testid` attributes where available
 - Increase timeouts for complex component rendering (500ms delays common)
+
+## DatabaseTreeView Tests (NEW)
+
+Added comprehensive tests for the DatabaseTreeView component:
+
+### Active Tests (Run Now):
+- `DatabaseTreeView_ShowsPlaceholder_WhenNoProjectOpen`
+- `DatabaseTreeView_StillShowsPlaceholder_WhenProjectOpenWithoutConnection`
+
+### Skipped Tests (Require DB Setup):
+- `DatabaseTreeView_ShowsTables_WhenProjectWithSQLiteConnectionOpen`
+- `DatabaseTreeView_ShowsColumns_WhenTableExpanded`
+- `DatabaseTreeView_RefreshButton_ReloadsTableList`
+
+Each skipped test includes detailed implementation notes for setting up SQLite database testing.
+
+### Helper Methods Added to E2ETestHelpers:
+```csharp
+// Wait for tree view to be visible
+await E2ETestHelpers.WaitForDatabaseTreeViewAsync(page);
+
+// Expand a table node
+await E2ETestHelpers.ExpandDatabaseTableAsync(page, "dbo.Customers");
+
+// Click refresh button
+await E2ETestHelpers.RefreshDatabaseTreeViewAsync(page);
+```
+
+### Required data-testid Attributes:
+- `db-tree-view` - Root MudTreeView
+- `db-tree-placeholder` - No project/connection message
+- `db-tree-loading` - Loading indicator
+- `db-tree-refresh` - Refresh button
+- `table-{FullName}` - Table items (e.g., "table-dbo.Customers")
+- `column-{tableName}-{columnName}` - Column items
+
+See full documentation in `.squad/decisions/inbox/jordan-tree-view-tests.md`

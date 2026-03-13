@@ -20,10 +20,24 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 
 	/// <summary>
 	/// Creates a new MSSQL generator from a connection string.
+	/// The connection string must explicitly specify a target database.
 	/// </summary>
 	/// <param name="connectionString">SQL Server connection string.</param>
 	/// <returns>A new MSSQL generator instance.</returns>
-	public static MssqlGenerator Create(string connectionString) => new(new SqlConnection(connectionString));
+	public static MssqlGenerator Create(string connectionString)
+	{
+		if (string.IsNullOrWhiteSpace(connectionString))
+			throw new ArgumentException("Connection string cannot be empty.", nameof(connectionString));
+
+		var builder = new SqlConnectionStringBuilder(connectionString);
+		if (string.IsNullOrWhiteSpace(builder.InitialCatalog))
+			throw new ArgumentException(
+				"Connection string must specify a target database (e.g., 'Database=MyDb;' or 'Initial Catalog=MyDb;'). " +
+				"Omitting the database causes unpredictable behavior when the server hosts multiple databases.",
+				nameof(connectionString));
+
+		return new(new SqlConnection(connectionString));
+	}
 
 
 	/// <inheritdoc/>
@@ -81,6 +95,73 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 	}
 
 	/// <inheritdoc/>
+	public override async Task<IReadOnlyList<DatabaseTableName>> GetTablesAsync(CancellationToken cancellationToken = default)
+	{
+		var wasOpen = Connection.State == ConnectionState.Open;
+		if (!wasOpen)
+			await Connection.OpenAsync(cancellationToken);
+
+		try
+		{
+			// This dynamic SQL iterates through all online databases the user has access to,
+			// excluding system databases (master, tempdb, model, msdb).
+			// It builds a single massive UNION ALL query to fetch all tables.
+			const string query = """
+            DECLARE @sql NVARCHAR(MAX) = N'';
+
+            SELECT @sql += N'SELECT ' +
+                           N'''' + REPLACE(name, '''', '''''') + N''' AS DatabaseName, ' +
+                           N's.name COLLATE DATABASE_DEFAULT AS SchemaName, ' +
+                           N't.name COLLATE DATABASE_DEFAULT AS TableName ' +
+                           N'FROM ' + QUOTENAME(name) + N'.sys.tables t ' +
+                           N'INNER JOIN ' + QUOTENAME(name) + N'.sys.schemas s ON t.schema_id = s.schema_id ' +
+                           N'WHERE t.is_ms_shipped = 0 ' +
+                           N'UNION ALL '
+            FROM sys.databases
+            WHERE state = 0 AND HAS_DBACCESS(name) = 1
+              AND name NOT IN ('master', 'tempdb', 'model', 'msdb');
+
+            IF LEN(@sql) > 0
+            BEGIN
+                -- Strip off the trailing 'UNION ALL ' (10 characters) and execute
+                SET @sql = LEFT(@sql, LEN(@sql) - 10);
+                EXEC sp_executesql @sql;
+            END
+            ELSE
+            BEGIN
+                -- Return an empty result set if no databases matched to prevent reader errors
+                SELECT '' AS DatabaseName, '' AS SchemaName, '' AS TableName WHERE 1 = 0;
+            END
+            """;
+
+			var tables = new List<DatabaseTableName>();
+
+			await using var command = Connection.CreateCommand();
+			command.CommandText = query;
+
+			await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+			while (await reader.ReadAsync(cancellationToken))
+			{
+				// Column 0 is DatabaseName, Column 1 is SchemaName, Column 2 is TableName
+				tables.Add(new DatabaseTableName
+				{
+					// If your DatabaseTableName class has a property for Database, you can map it here:
+					// Database = reader.GetString(0),
+					Schema = reader.GetString(1),
+					Name = reader.GetString(2)
+				});
+			}
+
+			return tables;
+		}
+		finally
+		{
+			if (!wasOpen)
+				await Connection.CloseAsync();
+		}
+	}
+
+	/// <inheritdoc/>
 	protected override DatabaseTableName? ParseTableFromSchemaRow(DataRow row)
 	{
 		var schema = row["TABLE_SCHEMA"]?.ToString();
@@ -110,10 +191,7 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 
 		try
 		{
-			// Get columns using database-specific query for better information
 			var columns = await GetColumnsAsync(Connection, schema, name, cancellationToken);
-
-			// Get foreign keys using database-specific query
 			var foreignKeys = await GetForeignKeysAsync(Connection, schema, name, cancellationToken);
 
 			return new DatabaseTableDetail
@@ -249,4 +327,5 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 
 		return foreignKeys;
 	}
+
 }

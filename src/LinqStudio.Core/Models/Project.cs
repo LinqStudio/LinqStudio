@@ -63,6 +63,8 @@ public class Project
 				{
 					DatabaseType.Mssql => MssqlGenerator.Create(ConnectionString),
 					DatabaseType.MySql => MySqlGenerator.Create(ConnectionString),
+					DatabaseType.PostgreSql => PostgreSqlGenerator.Create(ConnectionString),
+					DatabaseType.Sqlite => SqliteGenerator.Create(ConnectionString),
 					_ => throw new NotSupportedException($"Database type {DatabaseType} is not supported.")
 				};
 
@@ -76,9 +78,11 @@ public class Project
 
 	public void UpdateConnection(DatabaseType databaseType, string connectionString)
 	{
+		if (string.IsNullOrWhiteSpace(connectionString))
+			throw new ArgumentException("Connection string cannot be empty.", nameof(connectionString));
+
+		DatabaseType = databaseType;
 		ConnectionString = connectionString;
-
-
 	}
 
 	/// <summary>

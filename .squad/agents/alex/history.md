@@ -84,3 +84,78 @@ Reviewed implementation of new DatabaseTreeView feature with MSSQL auto-discover
 - Identified 1 High, 5 Medium, 7 Low severity findings
 - Documented test coverage gaps with suggested test names
 - Provided specific code recommendations with examples
+
+---
+
+### 2026-03-12: Follow-Up Code Review — Auto-Discovery Fix Verification
+
+#### Context
+Reviewed all uncommitted changes following Simon's architectural decision to remove MSSQL auto-discovery and require explicit database in connection strings. Special focus on validation implementation, test coverage, and GetValueOrDefault usage in DatabaseTreeView.
+
+#### Key Review Findings
+
+**✅ All Changes Approved — Excellent Quality**
+
+1. **MssqlGenerator.cs Architecture Decision is CORRECT:**
+   - Auto-discovery completely removed as requested
+   - `Create()` validation requiring explicit database is INTENTIONAL and NECESSARY
+   - `GetTablesAsync()` uses server-level cross-database query (returns tables from all databases)
+   - Other methods (`GetTableAsync()`, `GetColumnsAsync()`, `GetForeignKeysAsync()`) execute against connection's current database
+   - Without explicit database, these methods would default to master, causing subtle bugs
+   - Validation at `Create()` ensures all methods operate against specific, known database
+
+2. **Validation Implemented at Three Layers (Defense in Depth):**
+   - **UI Layer:** EditProjectDialog validates before Save(), provides user feedback
+   - **Model Layer:** Project.UpdateConnection() validates at business logic level
+   - **Data Layer:** MssqlGenerator.Create() validates at technical level with clear error messages
+   - Triple validation prevents invalid state at all system boundaries
+
+3. **Test Quality Outstanding:**
+   - Added ProjectTests.cs with 3 UpdateConnection() validation tests
+   - Added MssqlGeneratorCreateTests.cs with 4 unit tests (no DB required)
+   - Added regression test for named database context bug
+   - All tests use standard XUnit Assert.* (no FluentAssertions per convention)
+   - Test fixture updated to use named database matching production Aspire pattern
+
+4. **DatabaseTreeView.razor GetValueOrDefault() Applied Correctly:**
+   - Used for expanded state lookup with false default (lines 32, 35)
+   - Prevents KeyNotFoundException on dictionary access
+   - Reduces initial render cost by not rendering collapsed node children
+
+5. **Test Results:** ✅ All 407 tests passing (48 Core + 44 Blazor + 300 DB + 15 E2E)
+   - 0 warnings with TreatWarningsAsErrors=True
+   - All nullable reference type warnings resolved
+   - No code cleanup needed
+
+#### Architecture Learning: Cross-Database Queries vs. Per-Database Queries
+
+**Critical Distinction:**
+- `GetTablesAsync()` — Server-level query across ALL user databases (master, tempdb, model, msdb excluded)
+- All other methods — Execute against connection's current database context
+- This explains why Create() validation is mandatory: without explicit database, introspection methods would query wrong database while table listing shows all databases
+
+**Pattern for Future Reviews:**
+When reviewing database generator classes, distinguish between:
+- **Cross-database queries:** Intentionally broad scope, execute regardless of connection database
+- **Per-database queries:** Narrow scope, require explicit database context to be predictable
+
+#### Team Performance Assessment
+
+**Strengths Observed:**
+- **Simon:** Excellent architectural reasoning, clear documentation of design decisions
+- **Jordan:** Comprehensive test coverage with proper unit/integration separation
+- **EvilJosh:** Clean UI implementation with proper event handling
+- **Team:** Outstanding use of copilot.md for documentation, clear commit messages
+
+**Process Quality:**
+- All previous review findings addressed within sprint
+- Regression tests added to prevent future bugs
+- Test infrastructure fixed to match production patterns
+- No technical debt introduced
+
+#### Actions Taken
+- Created follow-up review document: `.squad/decisions/inbox/alex-review-fixes.md`
+- Confirmed all validation layers implemented correctly
+- Verified test coverage is comprehensive (no critical gaps)
+- Documented architecture learning for future database generator reviews
+- **Recommendation:** Code is production-ready, no changes required

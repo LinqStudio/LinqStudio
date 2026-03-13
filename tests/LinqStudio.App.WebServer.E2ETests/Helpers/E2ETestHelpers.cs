@@ -108,4 +108,37 @@ public static class E2ETestHelpers
 	{
 		await Task.Delay(500); // 300ms debounce + 200ms buffer
 	}
+
+	/// <summary>
+	/// Waits for the database tree view to load and become visible.
+	/// </summary>
+	public static async Task WaitForDatabaseTreeViewAsync(IPage page)
+	{
+		var treeView = page.GetByTestId("db-tree-view");
+		await Expect(treeView).ToBeVisibleAsync();
+	}
+
+	/// <summary>
+	/// Expands a table node in the database tree view by its full name.
+	/// </summary>
+	/// <param name="page">The Playwright page.</param>
+	/// <param name="tableName">Full table name (e.g., "dbo.Customers" or "Customers").</param>
+	public static async Task ExpandDatabaseTableAsync(IPage page, string tableName)
+	{
+		var tableItem = page.GetByTestId($"table-{tableName}");
+		await Expect(tableItem).ToBeVisibleAsync();
+		await tableItem.ClickAsync();
+		// Wait for expansion animation
+		await Task.Delay(300);
+	}
+
+	/// <summary>
+	/// Clicks the refresh button on the database tree view.
+	/// </summary>
+	public static async Task RefreshDatabaseTreeViewAsync(IPage page)
+	{
+		var refreshBtn = page.GetByTestId("db-tree-refresh");
+		await Expect(refreshBtn).ToBeVisibleAsync();
+		await refreshBtn.ClickAsync();
+	}
 }

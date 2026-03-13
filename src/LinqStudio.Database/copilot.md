@@ -57,6 +57,19 @@ This ensures generators can work with both new connections and existing open con
 - **Column metadata:** Database-specific queries against INFORMATION_SCHEMA or system catalogs
 - **Foreign keys:** Database-specific queries (SQL Server uses sys.foreign_keys, others use INFORMATION_SCHEMA)
 
+## MSSQL: System Table Filtering
+
+`MssqlGenerator` overrides `GetTablesAsync()` with a direct SQL query using `OBJECTPROPERTY(..., 'IsMSShipped') = 0` to filter out all Microsoft-shipped system objects. This prevents system tables (`spt_*`, `MS*`, replication/CDC objects) from appearing in the database explorer — even when accidentally connecting to the `master` database.
+
+The query used:
+```sql
+SELECT TABLE_SCHEMA, TABLE_NAME
+FROM INFORMATION_SCHEMA.TABLES
+WHERE TABLE_TYPE = 'BASE TABLE'
+  AND OBJECTPROPERTY(OBJECT_ID(QUOTENAME(TABLE_SCHEMA) + '.' + QUOTENAME(TABLE_NAME)), 'IsMSShipped') = 0
+ORDER BY TABLE_SCHEMA, TABLE_NAME
+```
+
 ## Recent Changes (2025-01-09)
 
 Refactored from using `DatabaseFacade` to `DbConnection` throughout to fix compilation errors and simplify the architecture. See `.squad/decisions/inbox/simon-dbconnection-fix.md` for details.

@@ -1,0 +1,89 @@
+@using LinqStudio.Abstractions.Models
+@using LinqStudio.Blazor.Services
+
+<div class="mt-4">
+	@if (Workspace.IsProjectOpen && Workspace.CurrentProject?.QueryGenerator != null)
+	{
+		<div class="d-flex align-center mb-2">
+			<MudIcon Icon="@Icons.Material.Filled.Storage" Class="mr-2" Size="Size.Small" />
+			<MudText Typo="Typo.subtitle2" Class="flex-grow-1">Database Explorer</MudText>
+			<MudTooltip Text="Refresh tables">
+				<MudIconButton Icon="@Icons.Material.Filled.Refresh" 
+							   Size="Size.Small" 
+							   OnClick="RefreshTables" 
+							   data-testid="db-tree-refresh" />
+			</MudTooltip>
+		</div>
+
+		@if (_isLoading && _tables.Count == 0)
+		{
+			<MudProgressLinear Indeterminate="true" data-testid="db-tree-loading" />
+		}
+		else if (_tables.Count > 0)
+		{
+			<div data-testid="db-tree-view">
+				<MudTreeView T="string" Dense="true" Hover="true">
+					@foreach (var table in _tables)
+					{
+						<MudTreeViewItem T="string" 
+										 Value="@table.FullName"
+										 Text="@table.FullName"
+										 Icon="@Icons.Material.Filled.TableChart"
+										 Expanded="@_expandedStates.GetValueOrDefault(table.FullName, false)"
+									 ExpandedChanged="@(v => OnTableExpandedChanged(table, v))"
+										 data-testid="@($"table-{table.FullName}")">
+							@if (_expandedStates.GetValueOrDefault(table.FullName, false))
+							{
+								@if (_loadingTables.Contains(table.FullName))
+								{
+									<MudTreeViewItem T="string" Value="@($"{table.FullName}-loading")" Icon="@Icons.Material.Filled.HourglassEmpty">
+										<Content>
+											<div class="d-flex align-center">
+												<MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+												<MudText Typo="Typo.caption">Loading columns...</MudText>
+											</div>
+										</Content>
+									</MudTreeViewItem>
+								}
+								else if (_tableDetailsCache.TryGetValue(table.FullName, out var tableDetail))
+								{
+									@foreach (var column in tableDetail.Columns)
+									{
+										<MudTreeViewItem T="string"
+														 Value="@($"{table.FullName}-{column.Name}")"
+														 CanExpand="false"
+														 data-testid="@($"column-{table.FullName}-{column.Name}")">
+											<Content>
+												<div class="d-flex align-center">
+													<MudIcon Icon="@GetColumnIcon(column)"
+															 Color="@GetColumnIconColor(column)"
+															 Size="Size.Small" Class="mr-1" />
+													<MudText Typo="Typo.body2">@column.Name</MudText>
+													<MudText Typo="Typo.caption" Class="mud-text-secondary ml-2">@FormatColumnType(column)</MudText>
+												</div>
+											</Content>
+										</MudTreeViewItem>
+									}
+								}
+							}
+						</MudTreeViewItem>
+					}
+				</MudTreeView>
+			</div>
+		}
+		else
+		{
+			<MudText Typo="Typo.caption" Class="mud-text-secondary ml-2">No tables found</MudText>
+		}
+	}
+	else
+	{
+		<div class="d-flex align-center mb-2">
+			<MudIcon Icon="@Icons.Material.Outlined.Storage" Class="mr-2" Size="Size.Small" Color="Color.Default" />
+			<MudText Typo="Typo.subtitle2">Database Explorer</MudText>
+		</div>
+		<MudText Typo="Typo.caption" Class="mud-text-secondary ml-2" data-testid="db-tree-placeholder">
+			Open a project to explore database tables
+		</MudText>
+	}
+</div>

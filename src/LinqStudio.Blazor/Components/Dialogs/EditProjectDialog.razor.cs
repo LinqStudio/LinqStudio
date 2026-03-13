@@ -23,14 +23,20 @@ public partial class EditProjectDialog : ComponentBase
 	protected override void OnInitialized()
 	{
 		_connectionString = Project.ConnectionString;
+		_databaseType = Project.DatabaseType;
 	}
 
 	private void Cancel() => MudDialog.Cancel();
 
 	private async Task Save()
 	{
-		Project.ConnectionString = _connectionString;
+		if (string.IsNullOrWhiteSpace(_connectionString))
+		{
+			Snackbar.Add(SharedResource.ConnectionSettings_Message_ValidationFailed, Severity.Error);
+			return;
+		}
 
+		Project.UpdateConnection(_databaseType, _connectionString);
 		MudDialog.Close(DialogResult.Ok(Project));
 	}
 
