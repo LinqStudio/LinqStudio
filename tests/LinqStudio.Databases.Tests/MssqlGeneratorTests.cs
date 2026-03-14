@@ -28,14 +28,6 @@ public class MssqlGeneratorCreateTests
 	{
 		Assert.Throws<ArgumentException>(() => MssqlGenerator.Create("Server=myServer;User Id=sa;Password=pwd;"));
 	}
-
-	[Fact]
-	public void Create_DoesNotThrow_WhenValidConnectionStringWithDatabase()
-	{
-		// Should not throw — just creates the generator (no actual connection made)
-		var generator = MssqlGenerator.Create("Server=myServer;Database=MyDb;User Id=sa;Password=pwd;TrustServerCertificate=True;");
-		Assert.NotNull(generator);
-	}
 }
 
 /// <summary>

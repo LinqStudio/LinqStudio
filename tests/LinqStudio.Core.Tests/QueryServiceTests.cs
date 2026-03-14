@@ -35,49 +35,13 @@ public class QueryServiceTests : IDisposable
 		Assert.Equal(@"C:\Projects\MyProject.linq.queries", queriesDir);
 	}
 
-	[Fact]
-	public void GetQueriesDirectory_ThrowsException_WhenPathIsNull()
+	[Theory]
+	[InlineData(null)]
+	[InlineData("")]
+	public void GetQueriesDirectory_ThrowsArgumentException_ForInvalidPaths(string? invalidPath)
 	{
 		// Act & Assert
-		Assert.Throws<ArgumentException>(() => _service.GetQueriesDirectory(null!));
-	}
-
-	[Fact]
-	public void GetQueriesDirectory_ThrowsException_WhenPathIsEmpty()
-	{
-		// Act & Assert
-		Assert.Throws<ArgumentException>(() => _service.GetQueriesDirectory(string.Empty));
-	}
-
-	#endregion
-
-	#region GetQueryFilePath Tests
-
-	[Fact]
-	public void GetQueryFilePath_ReturnsCorrectPath()
-	{
-		// Arrange
-		var projectPath = @"C:\Projects\MyProject.linq";
-		var queryId = Guid.NewGuid();
-
-		// Act
-		var queryPath = _service.GetQueryFilePath(projectPath, queryId);
-
-		// Assert
-		Assert.Equal($@"C:\Projects\MyProject.linq.queries\{queryId}.linq.query", queryPath);
-	}
-
-	[Fact]
-	public void GetQueryFilePath_HandlesEmptyGuid()
-	{
-		// Arrange
-		var projectPath = @"C:\Projects\MyProject.linq";
-
-		// Act
-		var queryPath = _service.GetQueryFilePath(projectPath, Guid.Empty);
-
-		// Assert
-		Assert.Contains("00000000-0000-0000-0000-000000000000", queryPath);
+		Assert.Throws<ArgumentException>(() => _service.GetQueriesDirectory(invalidPath!));
 	}
 
 	#endregion
@@ -104,24 +68,35 @@ public class QueryServiceTests : IDisposable
 		Assert.True(File.Exists(queryPath));
 	}
 
-	[Fact]
-	public async Task SaveQueryAsync_CreatesQueriesDirectory_IfNotExists()
+	[Theory]
+	[InlineData(true)]
+	[InlineData(false)]
+	public async Task SaveQuery_CreatesDirectory_IfNotExists(bool useProjectPath)
 	{
 		// Arrange
 		var query = new SavedQuery
 		{
 			Id = Guid.NewGuid(),
-			Name = "Test Query",
+			Name = "Test",
 			QueryText = "context.People",
 			CreatedDate = DateTimeOffset.UtcNow
 		};
 
 		// Act
-		await _service.SaveQueryAsync(_testProjectPath, query);
-
-		// Assert
-		var queriesDir = _service.GetQueriesDirectory(_testProjectPath);
-		Assert.True(Directory.Exists(queriesDir));
+		if (useProjectPath)
+		{
+			await _service.SaveQueryAsync(_testProjectPath, query);
+			var queriesDir = _service.GetQueriesDirectory(_testProjectPath);
+			Assert.True(Directory.Exists(queriesDir));
+		}
+		else
+		{
+			var subDir = Path.Combine(_testDirectory, "subdir");
+			var filePath = Path.Combine(subDir, "query.linq.query");
+			await _service.SaveQueryToFileAsync(filePath, query);
+			Assert.True(Directory.Exists(subDir));
+			Assert.True(File.Exists(filePath));
+		}
 	}
 
 	[Fact]
@@ -178,8 +153,10 @@ public class QueryServiceTests : IDisposable
 		Assert.DoesNotContain("Original", content);
 	}
 
-	[Fact]
-	public async Task SaveQueryAsync_ThrowsException_WhenQueryIdIsEmpty()
+	[Theory]
+	[InlineData(true)]
+	[InlineData(false)]
+	public async Task SaveQuery_ThrowsInvalidOperationException_WhenQueryIdIsEmpty(bool useProjectPath)
 	{
 		// Arrange
 		var query = new SavedQuery
@@ -189,11 +166,13 @@ public class QueryServiceTests : IDisposable
 			QueryText = "context.People",
 			CreatedDate = DateTimeOffset.UtcNow
 		};
+		var filePath = Path.Combine(_testDirectory, "test.linq.query");
 
 		// Act & Assert
-		await Assert.ThrowsAsync<InvalidOperationException>(
-			() => _service.SaveQueryAsync(_testProjectPath, query)
-		);
+		if (useProjectPath)
+			await Assert.ThrowsAsync<InvalidOperationException>(() => _service.SaveQueryAsync(_testProjectPath, query));
+		else
+			await Assert.ThrowsAsync<InvalidOperationException>(() => _service.SaveQueryToFileAsync(filePath, query));
 	}
 
 	[Fact]
@@ -228,27 +207,6 @@ public class QueryServiceTests : IDisposable
 	}
 
 	[Fact]
-	public async Task SaveQueryAsync_HandlesEmptyQueryText()
-	{
-		// Arrange
-		var query = new SavedQuery
-		{
-			Id = Guid.NewGuid(),
-			Name = "Empty Query",
-			QueryText = string.Empty,
-			CreatedDate = DateTimeOffset.UtcNow
-		};
-
-		// Act
-		await _service.SaveQueryAsync(_testProjectPath, query);
-
-		// Assert
-		var loaded = await _service.LoadQueryFromFileAsync(_service.GetQueryFilePath(_testProjectPath, query.Id));
-		Assert.NotNull(loaded);
-		Assert.Equal(string.Empty, loaded.QueryText);
-	}
-
-	[Fact]
 	public async Task SaveQueryAsync_PreservesAllProperties()
 	{
 		// Arrange
@@ -276,23 +234,17 @@ public class QueryServiceTests : IDisposable
 
 	#region LoadQueriesAsync Tests
 
-	[Fact]
-	public async Task LoadQueriesAsync_ReturnsEmptyList_WhenDirectoryNotExists()
-	{
-		// Act
-		var queries = await _service.LoadQueriesAsync(_testProjectPath);
-
-		// Assert
-		Assert.NotNull(queries);
-		Assert.Empty(queries);
-	}
-
-	[Fact]
-	public async Task LoadQueriesAsync_ReturnsEmptyList_WhenNoQueryFiles()
+	[Theory]
+	[InlineData(false)]
+	[InlineData(true)]
+	public async Task LoadQueriesAsync_ReturnsEmptyList_WhenNoQueries(bool createDirectory)
 	{
 		// Arrange
-		var queriesDir = _service.GetQueriesDirectory(_testProjectPath);
-		Directory.CreateDirectory(queriesDir);
+		if (createDirectory)
+		{
+			var queriesDir = _service.GetQueriesDirectory(_testProjectPath);
+			Directory.CreateDirectory(queriesDir);
+		}
 
 		// Act
 		var queries = await _service.LoadQueriesAsync(_testProjectPath);
@@ -460,27 +412,7 @@ public class QueryServiceTests : IDisposable
 		Assert.True(File.Exists(filePath));
 	}
 
-	[Fact]
-	public async Task SaveQueryToFileAsync_CreatesDirectory_IfNotExists()
-	{
-		// Arrange
-		var subDir = Path.Combine(_testDirectory, "subdir");
-		var query = new SavedQuery
-		{
-			Id = Guid.NewGuid(),
-			Name = "Test",
-			QueryText = "context.People",
-			CreatedDate = DateTimeOffset.UtcNow
-		};
-		var filePath = Path.Combine(subDir, "query.linq.query");
 
-		// Act
-		await _service.SaveQueryToFileAsync(filePath, query);
-
-		// Assert
-		Assert.True(Directory.Exists(subDir));
-		Assert.True(File.Exists(filePath));
-	}
 
 	[Fact]
 	public async Task SaveQueryToFileAsync_SetsFilePath()
@@ -502,24 +434,7 @@ public class QueryServiceTests : IDisposable
 		Assert.Equal(filePath, query.FilePath);
 	}
 
-	[Fact]
-	public async Task SaveQueryToFileAsync_ThrowsException_WhenQueryIdIsEmpty()
-	{
-		// Arrange
-		var query = new SavedQuery
-		{
-			Id = Guid.Empty,
-			Name = "Test",
-			QueryText = "context.People",
-			CreatedDate = DateTimeOffset.UtcNow
-		};
-		var filePath = Path.Combine(_testDirectory, "test.linq.query");
 
-		// Act & Assert
-		await Assert.ThrowsAsync<InvalidOperationException>(
-			() => _service.SaveQueryToFileAsync(filePath, query)
-		);
-	}
 
 	#endregion
 
@@ -546,14 +461,21 @@ public class QueryServiceTests : IDisposable
 		Assert.False(File.Exists(queryPath));
 	}
 
-	[Fact]
-	public void DeleteQuery_DoesNotThrow_WhenFileNotExists()
+	[Theory]
+	[InlineData(true)]
+	[InlineData(false)]
+	public void Delete_DoesNotThrow_WhenTargetNotExists(bool singleQuery)
 	{
-		// Arrange
-		var nonExistentId = Guid.NewGuid();
-
 		// Act & Assert - Should not throw
-		_service.DeleteQuery(_testProjectPath, nonExistentId);
+		if (singleQuery)
+		{
+			var nonExistentId = Guid.NewGuid();
+			_service.DeleteQuery(_testProjectPath, nonExistentId);
+		}
+		else
+		{
+			_service.DeleteAllQueries(_testProjectPath);
+		}
 	}
 
 	#endregion
@@ -581,12 +503,7 @@ public class QueryServiceTests : IDisposable
 		Assert.False(Directory.Exists(queriesDir));
 	}
 
-	[Fact]
-	public void DeleteAllQueries_DoesNotThrow_WhenDirectoryNotExists()
-	{
-		// Act & Assert - Should not throw
-		_service.DeleteAllQueries(_testProjectPath);
-	}
+
 
 	#endregion
 

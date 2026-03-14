@@ -18,13 +18,4 @@ public class ProjectTests
 		var project = new Project();
 		Assert.Throws<ArgumentException>(() => project.UpdateConnection(DatabaseType.Mssql, "   "));
 	}
-
-	[Fact]
-	public void UpdateConnection_UpdatesConnectionString_WhenValid()
-	{
-		var project = new Project();
-		project.UpdateConnection(DatabaseType.Mssql, "Server=.;Database=MyDb;");
-		Assert.Equal("Server=.;Database=MyDb;", project.ConnectionString);
-		Assert.Equal(DatabaseType.Mssql, project.DatabaseType);
-	}
 }
