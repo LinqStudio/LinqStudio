@@ -9,6 +9,53 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-03-13 - QueryResultGrid Component Implementation
+
+**Task:** Created QueryResultGrid.razor component for displaying LINQ query execution results.
+
+**Files Created:**
+- `src/LinqStudio.Blazor/Components/QueryResultGrid.razor` - Display component with 5 states
+- `src/LinqStudio.Blazor/Components/QueryResultGrid.razor.cs` - Code-behind with elapsed time formatting
+
+**Component Design:**
+- Pure display component (receives data via parameters, doesn't fetch)
+- Two parameters: `QueryExecutionResult? Result`, `bool IsExecuting`
+- Five states handled:
+  1. **Not yet executed** - Empty (no visual output)
+  2. **Loading** - MudProgressCircular + "Executing query..." text
+  3. **Error** - MudAlert (Severity.Error) with error message, prefixes "Compilation error: " if IsCompileError, shows elapsed time
+  4. **Empty result** - MudAlert (Severity.Info) "Query returned no results." + elapsed time
+  5. **Success with data** - MudTable with dynamic columns + footer showing "{N} rows · {elapsed}"
+
+**MudBlazor Component Choice:**
+- Used **MudTable** (Option B) instead of MudDataGrid
+- Reason: Dynamic columns with `IReadOnlyDictionary<string, object?>` work reliably in MudTable
+- MudDataGrid with TemplateColumn in foreach loops can have column ordering issues in some Blazor Server scenarios
+- MudTable's HeaderContent + RowTemplate pattern handles dynamic schemas predictably
+
+**Dynamic Column Rendering:**
+```razor
+<HeaderContent>
+    @foreach (var col in Result.ColumnNames) { <MudTh>@col</MudTh> }
+</HeaderContent>
+<RowTemplate>
+    @foreach (var col in Result.ColumnNames) { <MudTd>@context.GetValueOrDefault(col)?.ToString()</MudTd> }
+</RowTemplate>
+```
+
+**Key Patterns Followed:**
+- Code-behind pattern (separate .razor.cs file)
+- MudBlazor components only (no custom HTML tables)
+- Localization ready (messages can be extracted to SharedResource.resx later)
+- Elapsed time formatting: < 1s shows ms, >= 1s shows seconds with 2 decimals
+- Follows established component patterns from DatabaseTreeView.razor
+
+**Build Status:** ✅ Clean build (0 warnings, 0 errors) in 1.51s
+
+**Next Steps:**
+- Execute button integration in Editor.razor (separate task)
+- Optional: Extract display strings to SharedResource.resx for full localization
+
 ### 2026-03-13 - Bug Fixes from Code Review (Critical + High Priority)
 
 **Task:** Fixed 5 bugs identified in code review (4 critical, 1 low priority).
@@ -50,6 +97,88 @@ Completed full UI/Blazor review. 27 issues identified (7 critical). Critical fin
 - **7 CRITICAL issues** — async/threading bugs, missing DI, null reference risks, hard-coded config
 - **6 HIGH issues** — error handling gaps, TOCTOU race conditions, validation missing
 - **14 MEDIUM/LOW issues** — code duplication, debug code, performance, accessibility
+
+### 2026-03-13 - Query Execution Integration in Editor
+
+**Task:** Integrate Execute/Stop button, timeout selector, and QueryResultGrid into Editor.razor.
+
+**Files Modified:**
+- `src/LinqStudio.Blazor/Components/Pages/Editor/Editor.razor` - Added execution UI and result grid
+- `src/LinqStudio.Blazor/Components/Pages/Editor/Editor.razor.cs` - Implemented execution logic
+
+**Per-Tab State Management:**
+- Created `QueryExecutionState` class to hold per-tab execution state:
+  - `QueryExecutionResult? Result` - Stores query results
+  - `bool IsExecuting` - Tracks execution status
+  - `CancellationTokenSource?` - Manages cancellation
+- State stored in `Dictionary<Guid, QueryExecutionState>` keyed by query ID
+- Tab switching preserves results - each tab maintains its own execution state independently
+
+**UI Components Added:**
+1. **Execute/Stop Button:**
+   - Shows "▶ Execute" when idle, switches to "■ Stop" during execution
+   - Primary color (Execute) vs Error color (Stop)
+   - Stop button cancels via CancellationTokenSource
+   - Disabled when no query is open
+
+2. **Timeout Dropdown:**
+   - MudSelect with 6 options: 10s, 30s, 1min, 2min, 5min, No timeout
+   - Maps to seconds: 10, 30, 60, 120, 300, 0
+   - Default from `QueryExecutionSettings.TimeoutSeconds` (30s)
+   - Disabled during execution
+   - Inline placement next to Execute button
+
+3. **QueryResultGrid:**
+   - Placed in new flex:1 container below execution bar
+   - Receives current tab's Result + IsExecuting state
+   - Auto-updates via `GetCurrentExecutionState()` helper
+
+**Layout Changes:**
+- Moved "Refresh Schema" button from bottom bar to execution bar (right side)
+- Execution bar between Monaco editor and result grid
+- Editor info bar at bottom (IntelliSense info text)
+- Result container takes remaining vertical space with overflow:auto
+
+**Execution Logic:**
+```csharp
+ExecuteCurrentQueryAsync():
+1. Get query text from Monaco editor via await _editor.GetValue()
+2. Create CancellationTokenSource with timeout (or no timeout if 0)
+3. Set IsExecuting = true, clear previous result
+4. Call QueryExecutionService.ExecuteQueryAsync(queryText, cts.Token)
+5. Store result in per-tab state
+6. Show success snackbar (N rows returned) or handle cancellation/errors
+7. Set IsExecuting = false, dispose CTS
+
+StopCurrentQuery():
+- Cancel the current tab's CancellationTokenSource
+- IsExecuting flag cleared when ExecuteQueryAsync completes
+```
+
+**DI Injections Added:**
+- `IQueryExecutionService QueryExecutionService` - Executes queries
+- `IOptionsMonitor<QueryExecutionSettings>` - Reads initial timeout default
+
+**Error Handling:**
+- OperationCanceledException → "Query execution was cancelled" (warning snackbar)
+- All exceptions → Logged + error result with "Unexpected error: {message}"
+- Success → "{N} row(s) returned" (success snackbar)
+
+**Disposal:**
+- All execution state CancellationTokenSources cancelled and disposed on component disposal
+- Dictionary cleared to avoid memory leaks
+
+**Build Status:** ✅ Clean build (0 warnings, 0 errors)
+**Test Status:** ✅ All 485 tests pass (4 skipped) - no regressions introduced
+
+**Integration Points:**
+- Uses existing QueryResultGrid component (pure display, no logic duplication)
+- Follows existing Monaco editor patterns (GetValue, async initialization)
+- Consistent with Editor.razor's existing per-tab workspace state management
+- MudBlazor components throughout (MudButton, MudSelect, MudPaper, MudStack)
+
+**Key Pattern Used:**
+Tab-local state via `Dictionary<Guid, QueryExecutionState>` matches how QueriesWorkspace tracks per-tab text edits (OpenQueries dictionary). This ensures switching tabs doesn't clear results - each tab is truly independent.
 
 **Critical Patterns Identified:**
 
@@ -701,3 +830,107 @@ Completed full UI/Blazor review. 27 issues identified (7 critical). Critical fin
 - OnEditorInitialized always wraps CreateFromProjectAsync in try-catch; DB errors silently fall back to demo model (editor stays functional).
 - RefreshSchemaAsync guards on Workspace.CurrentProject?.QueryGenerator is null before doing anything — shows warning snackbar if no DB configured.
 - _isRefreshingSchema bool drives both button disabled state and spinner/label swap inside the button body.
+
+
+### 2026-03-13 - Query Result Data Grid - UI Layer Analysis
+
+**Task:** Comprehensive UI analysis for adding query result data grid feature to LinqStudio (requested by snakex64).
+
+**Scope:** Analyzed the Blazor component hierarchy, state management patterns, MudBlazor dynamic grid strategies, and UI/UX patterns for displaying query execution results.
+
+**Key Findings:**
+
+1. **Component Architecture:**
+   - Editor.razor is a single-page component managing ALL query tabs (not per-tab instances)
+   - Monaco editor is singleton that swaps content on tab switch
+   - State lives in QueriesWorkspace (persistent query text) + component-level execution state (transient results)
+   - Per-tab execution state should use Dictionary<Guid, QueryExecutionState> in Editor.razor.cs
+
+2. **MudDataGrid Dynamic Column Strategy:**
+   - Query results return `List<object>` with unknown compile-time type
+   - Recommended: Convert to `List<Dictionary<string, object>>` using reflection
+   - Use MudDataGrid<Dictionary<string, object>> with TemplateColumns (foreach column)
+   - Trade-off: Lose built-in sorting/filtering, gain maximum flexibility for any result type
+   - Handles entities, anonymous types, primitives via reflection
+
+3. **Execute Button Placement:**
+   - Add to existing "Editor Actions" section (below Monaco editor, line ~90)
+   - Use MudButton with StartIcon, Color.Success, loading state pattern (matches Refresh Schema button)
+   - MudProgressCircular + "Executing..." text during operation
+
+4. **Results Display:**
+   - Add results section after Monaco editor (line ~106)
+   - Three states: Loading (MudProgressCircular) → Error (MudAlert) → Results (MudDataGrid)
+   - Row count display: "Results — N row(s)"
+   - Follow existing MudPaper + Elevation="1" pattern
+
+5. **Critical Gap Identified:**
+   - NO backend query execution service exists (CompilerService only provides IntelliSense)
+   - Need QueryExecutorService to compile + execute LINQ queries against DbContext
+   - UI can be built with mock data, but backend coordination required for integration
+
+6. **Column Extraction Logic:**
+   - Use reflection to get Type.GetProperties() from first result item
+   - Handle primitive types (show "Value" column), entities (all public properties), anonymous types
+   - Convert each row to Dictionary<string, object> for grid binding
+   - Handle null values as "(null)" string display
+
+**Files Identified for Modification:**
+- `src/LinqStudio.Blazor/Components/Pages/Editor/Editor.razor` — Add Execute button + results grid section
+- `src/LinqStudio.Blazor/Components/Pages/Editor/Editor.razor.cs` — Add QueryExecutionState, ExecuteQuery(), ProcessResults()
+- `src/LinqStudio.Core/Services/QueryExecutorService.cs` — NEW (backend, requires Simon or backend dev)
+
+**Design Decisions Written to:** `.squad/decisions/inbox/eviljosh-ui-datagrid-analysis.md`
+
+**Pattern Learnings:**
+- MudBlazor button loading state: Swap button content based on bool flag (if loading: spinner + text, else: normal text)
+- Dynamic MudDataGrid: Use Dictionary<string, object> rows + foreach TemplateColumn for runtime column generation
+- Per-tab state in Editor.razor.cs: Dictionary<Guid, State> keyed by query ID, created on-demand
+- State lifecycle: Created on first execution, cleared when tab closes, persists during tab switching
+
+**Questions for snakex64:**
+1. Who implements QueryExecutorService? (Simon/backend dev or new task?)
+2. Should results persist when switching tabs? (Recommendation: Yes)
+3. Result size limits? (Recommendation: No limit in v1, add pagination if needed)
+4. Export to CSV/JSON? (Recommendation: Not in v1)
+
+**Next Steps:**
+1. Confirm backend service implementation ownership
+2. Implement UI layer with mock data (1-2 hours)
+3. Wire up real backend when ready
+4. E2E testing with Jordan
+
+
+### 2026-03-13 - Editor.razor.cs Query Execution Project Parameter Update
+
+**Task:** Update ExecuteCurrentQueryAsync to pass Project parameter to IQueryExecutionService.ExecuteQueryAsync (coordinated change with Simon's backend update).
+
+**Files Modified:**
+- `src/LinqStudio.Blazor/Components/Pages/Editor/Editor.razor.cs`
+
+**Changes Made:**
+
+1. **Line 528** (ExecuteCurrentQueryAsync method):
+   - Updated call signature from: `ExecuteQueryAsync(queryText, state.CancellationTokenSource.Token)`
+   - To: `ExecuteQueryAsync(queryText, Workspace.CurrentProject, state.CancellationTokenSource.Token)`
+   - Added null check for `Workspace.CurrentProject` before execution (lines 511-515)
+   - Shows warning snackbar "No project is open." if project is null
+
+**Technical Details:**
+- Project access: via `Workspace.CurrentProject` property (already available in component)
+- Null safety: Early return with user-friendly warning if no project open
+- Parameter order: queryText → project → cancellationToken (matches new interface signature)
+
+**Build Status:** 
+- ⚠️ Expected build failure until Simon's IQueryExecutionService interface change lands
+- Error: "No overload for method 'ExecuteQueryAsync' takes 3 arguments"
+- Fix is correct — just waiting on backend interface update
+
+**Integration:**
+- Works with existing ProjectWorkspace pattern
+- Follows existing null-check patterns in Editor (e.g., lines 93-96, 444-447)
+- Consistent with other project-dependent operations (RefreshSchemaAsync uses same pattern)
+
+**Key Pattern:**
+All query execution operations require an open project. The null check pattern used here matches existing patterns in the component where project-dependent features (schema refresh, DB context generation) already check `Workspace.CurrentProject is null` before proceeding.
+

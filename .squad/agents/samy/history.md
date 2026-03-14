@@ -1038,3 +1038,442 @@ The **30-35 hour remediation roadmap** brings the codebase from \"functional but
 ✅ 14 issues identified, prioritized, and remediated  
 ✅ Findings report written to \.squad/decisions/inbox/samy-architecture-review.md\  
 ✅ Ready for team implementation planning
+
+---
+
+### 2026-03-13: Query Result DataGrid Feature - Architectural Analysis
+
+**Task:** Comprehensive architectural analysis for adding query execution and result display  
+**Requested By:** snakex64  
+**Status:** Analysis Complete
+
+#### Analysis Scope
+
+Investigated how to add:
+1. Execute button per query tab
+2. Query compilation and execution infrastructure
+3. Dynamic MudDataGrid for result display
+4. Error handling for execution failures
+
+#### Key Architectural Discoveries
+
+**1. Current CompilerService Limitations:**
+- ✅ Provides IntelliSense via Roslyn semantic analysis
+- ✅ Wraps queries in QueryContainer with Task<IQueryable<object>> Query(context) signature
+- ❌ Does NOT compile to executable assemblies (never calls Compilation.Emit())
+- ❌ Does NOT execute queries against database
+
+**Critical Finding:** CompilerService is IntelliSense-only. Must add Roslyn Emit() to generate runnable assemblies.
+
+**2. Execution Flow Requirements:**
+`
+User Query → CompilerService.WrapUserQuery()
+  → Roslyn Compilation.Emit() → in-memory assembly
+  → Reflection: Load QueryContainer + GeneratedDbContext
+  → Create DbContext from Project.ConnectionString
+  → Invoke Query(context) → IQueryable<object>
+  → Call .ToListAsync() → List<object>
+  → Extract column names via reflection
+  → Display in MudDataGrid
+`
+
+**3. MudBlazor Data Grid:**
+- MudBlazor 8.15.0 has MudDataGrid component
+- Supports dynamic columns via TemplateColumn
+- LinqStudio currently has NO data grid usage (only MudTreeView in DatabaseTreeView)
+- Dynamic column extraction via reflection on first result item
+
+#### Architectural Decisions Made
+
+**Decision 1: Execution Service Location → Core Layer**
+- Create QueryExecutionService in LinqStudio.Core/Services/
+- Matches existing CompilerService pattern
+- Testable without UI dependencies
+- Respects layering: Core → Blazor → WebServer
+
+**Decision 2: ToListAsync() Location → QueryExecutionService**
+- Materialize results before disposing DbContext
+- EF Core context lifetime managed in service
+- Prevents ObjectDisposedException in UI layer
+- Enables cancellation token support
+
+**Decision 3: Dynamic Column Extraction → Reflect on First Item**
+- Simple implementation: esults[0].GetType().GetProperties()
+- Handles empty results gracefully (show "No results" message)
+- Matches DatabaseTreeView reflection pattern
+- Optional enhancement: extract from IQueryable.ElementType before materialization
+
+**Decision 4: UI Layout → Vertical Split (Editor Top, Grid Bottom)**
+- Matches SQL tool UX (SSMS, Azure Data Studio, DBeaver)
+- 60/40 split (editor/results)
+- Existing editor already uses lex: 1, easy to convert
+- Optional: Add draggable resize handle
+
+**Decision 5: Error Handling → Three Layers**
+1. Compilation errors → Return in QueryExecutionResult.CompilationErrors list
+2. Runtime exceptions → Catch in ExecuteQueryAsync(), use ErrorHandlingService
+3. Connection failures → EF Core DbException, show with retry button
+
+#### Implementation Plan
+
+**Phase 1: Backend (Simon) — 1.5 days**
+- Create QueryExecutionService with Roslyn emit
+- Create QueryExecutionResult record (Results, ColumnNames, CompilationErrors, ExecutionTime)
+- Implement ExecuteQueryAsync() with full error handling
+- Unit tests for all execution scenarios
+
+**Phase 2: Frontend Execute Button (EvilJosh) — 2-3 hours**
+- Add Execute button to query info bar
+- Add loading state + Cancel button
+- Implement ExecuteCurrentQuery() with cancellation
+- Update layout for vertical split
+
+**Phase 3: Frontend Result Grid (EvilJosh) — 3-4 hours**
+- Create QueryResultGrid.razor component
+- Use MudDataGrid with dynamic TemplateColumn per column
+- Implement GetCellValue() helper via reflection
+- Add pagination (50 rows default, 10/25/50/100/500 options)
+- Optional: CSV export button
+
+**Phase 4: Testing (Jordan) — 1 day**
+- Unit tests for QueryExecutionService (7 scenarios)
+- Unit tests for QueryResultGrid (6 scenarios)
+- E2E tests for full execution flow (6 scenarios)
+
+**Total Estimated Effort:** 3-4 days
+
+#### Open Questions for snakex64
+
+1. **Query Timeout:** Default 30s or configurable?
+2. **Result Set Limit:** Cap at 10k rows? Show warning?
+3. **Result Caching:** Cache last result per tab to avoid re-execution?
+4. **CSV Export:** Include in Phase 3 or defer?
+5. **Live Execution Mode:** Support quick execution without full compile? (Not recommended)
+
+#### Risks & Mitigations
+
+| Risk | Likelihood | Impact | Mitigation |
+|------|-----------|--------|------------|
+| Memory pressure from large results | Medium | High | Implement 10k row limit with warning |
+| Compilation failures | Medium | Medium | Return clear errors with line numbers |
+| DbContext lifetime issues | Low | High | Materialize before disposal (Decision 2) |
+| Dynamic column extraction fails | Low | Medium | Fallback: show raw ToString() |
+| Performance degradation | Medium | Low | Add 30s timeout + progress indicator |
+
+#### Key Learnings
+
+**CompilerService Architecture:**
+- Uses AdhocWorkspace for semantic analysis only
+- Wraps user queries in synthetic QueryContainer class
+- Thread-safe via SemaphoreSlim for concurrent Monaco callbacks
+- Never emits assemblies — pure IntelliSense service
+
+**DbContextGenerator Pattern:**
+- Generates C# source code for models + DbContext from live schema
+- Namespace: GeneratedModels, context type: GeneratedDbContext
+- Models include navigation properties (foreign keys) + collection properties
+- Used by CompilerService for IntelliSense, will also be used for execution
+
+**MudBlazor Patterns:**
+- MudDataGrid supports TemplateColumn for dynamic columns
+- Pagination via PaginationState component
+- Dense mode recommended for tabular data (Dense="true")
+- Matches existing DatabaseTreeView patterns (caching, loading states, error handling)
+
+**EF Core Execution Lifecycle:**
+- Must compile full schema (DbContext + models) into assembly
+- Create DbContext instance with Project.ConnectionString
+- Execute query to get IQueryable<object>
+- Materialize with .ToListAsync() before disposing context
+- Typical compile time: 500-1000ms (acceptable for local dev)
+
+#### Files to Create/Modify
+
+**New Files:**
+- src/LinqStudio.Core/Services/QueryExecutionService.cs
+- src/LinqStudio.Core/Models/QueryExecutionResult.cs
+- src/LinqStudio.Blazor/Components/QueryResultGrid.razor
+- src/LinqStudio.Blazor/Components/QueryResultGrid.razor.cs
+- 	ests/LinqStudio.Core.Tests/QueryExecutionServiceTests.cs
+- 	ests/LinqStudio.Blazor.Tests/QueryResultGridTests.cs
+- 	ests/LinqStudio.App.WebServer.E2ETests/QueryExecutionE2ETests.cs
+
+**Modified Files:**
+- src/LinqStudio.Blazor/Components/Pages/Editor/Editor.razor (add Execute button, split layout)
+- src/LinqStudio.Blazor/Components/Pages/Editor/Editor.razor.cs (add execution logic)
+- src/LinqStudio.Core/Extensions/ServiceCollectionExtensions.cs (register QueryExecutionService)
+
+#### Success Criteria
+
+**Functional:**
+1. ✅ Execute button visible on every query tab
+2. ✅ Compilation + execution completes in < 1 second
+3. ✅ Results display in MudDataGrid with dynamic columns
+4. ✅ Compilation errors shown in expandable alert
+5. ✅ Runtime errors handled via ErrorHandlingService
+6. ✅ Empty results show "No results" message
+7. ✅ Execution time displayed in toolbar
+8. ✅ Cancel button stops execution
+
+**Non-Functional:**
+1. ✅ UI remains responsive during execution (async)
+2. ✅ No memory leaks from DbContext lifetime
+3. ✅ All tests pass (unit + E2E)
+4. ✅ Dark/light theme support
+5. ✅ Follows layered architecture
+
+#### Deliverables
+
+- ✅ **Architectural Analysis:** .squad/decisions/inbox/samy-query-result-datagrid.md (620 lines)
+- ✅ **5 Key Decisions** documented with justifications
+- ✅ **4-Phase Implementation Plan** with time estimates
+- ✅ **5 Open Questions** for user input
+- ✅ **Risk Analysis** with mitigations
+- ✅ **Success Criteria** checklist
+- ✅ **Future Enhancements** (8 features deferred)
+
+**Conclusion:** Feature is architecturally sound and feasible. Estimated 3-4 days of work across backend, frontend, and testing. No architectural blockers identified. Ready for user approval and task assignment to Simon + EvilJosh + Jordan.
+
+
+
+### 2026-03-11T18:00:00Z: QueryExecutionService Project Context Gap Analysis
+
+**Task:** Comprehensive architectural analysis of QueryExecutionService implementation gap  
+**Requested by:** snakex64  
+**Outcome:** Complete analysis with specific recommendation (Option C)
+
+#### Problem Statement
+QueryExecutionService was implemented with NotImplementedException placeholder because IQueryExecutionService.ExecuteQueryAsync() interface lacks Project parameter. Service needs:
+- ConnectionString to connect to database
+- DatabaseType to create correct DbContextOptions
+- QueryGenerator to introspect schema and generate models
+
+#### Key Architectural Discoveries
+
+**1. Project Model Structure:**
+- Lives in LinqStudio.Core/Models/Project.cs
+- Critical properties: DatabaseType (enum), ConnectionString (string)
+- Has cached QueryGenerator for database introspection
+- ProjectService handles file I/O only (not "current project" tracking)
+
+**2. CompilerService Does NOT Get Connection String:**
+- CompilerService operates on **generated code strings**, not database connections
+- Gets context type name and namespace in constructor
+- Initializes with pre-generated model files and DbContext code
+- CompilerServiceFactory.CreateFromProjectAsync() bridges the gap:
+  - Takes Project parameter
+  - Uses Project.QueryGenerator to generate code via IDbContextGenerator
+  - Passes generated code to CompilerService.Initialize()
+
+**3. ProjectWorkspace is The Source of Truth:**
+- Scoped Blazor service (one per user session)
+- Holds CurrentProject property (the active project)
+- Owns QueriesWorkspace for query state management
+- Every major Blazor component injects it (MainLayout, Editor, DatabaseTreeView)
+- Events: WorkspaceChanged for reactive UI updates
+
+**4. QueriesWorkspace Manages Query State Only:**
+- Tracks open queries, current query, in-memory edits
+- Does NOT hold Project reference (only project file path)
+- Aggregates unsaved changes for queries
+- Parent: ProjectWorkspace, Child: individual query tabs
+
+**5. Editor.razor Pattern:**
+`csharp
+[Inject] private ProjectWorkspace Workspace { get; set; }
+[Inject] private IQueryExecutionService QueryExecutionService { get; set; }
+
+// When initializing CompilerService:
+_compiler = await CompilerServiceFactory.CreateFromProjectAsync(Workspace.CurrentProject);
+
+// When executing query (currently broken - no project passed):
+var result = await QueryExecutionService.ExecuteQueryAsync(queryText, cancellationToken);
+`
+
+#### Solution Options Evaluated
+
+**Option A: Add Project parameter to interface** ❌
+- Breaks IQueryExecutionService interface
+- Redundant - UI always wants "current project"
+- Requires updating all callers
+- Not idiomatic for scoped services
+
+**Option B: Create ICurrentProjectService abstraction** ❌
+- Unnecessary indirection (wrapper around ProjectWorkspace.CurrentProject)
+- Potential layer violation (Core depending on Blazor)
+- More complexity without benefit
+
+**Option C: Inject ProjectWorkspace into QueryExecutionService** ✅ RECOMMENDED
+- No interface change
+- Aligns with existing pattern (Editor already injects ProjectWorkspace)
+- Service automatically accesses _workspace.CurrentProject
+- Both services are scoped - no lifecycle issues
+- NOT a layer violation: runtime DI resolution, both registered in App.WebServer
+- Simplest implementation
+
+**Option D: Extract IProjectContext abstraction** ✅ ALSO VALID
+- Respects strict layer boundaries (Core depends on Abstractions)
+- More "proper" architecturally
+- Extra abstraction layer (one interface, one implementation)
+- Choose this if strict layering is critical
+
+#### Recommended Fix: Option C Implementation
+
+**Changes Required:**
+
+1. **QueryExecutionService.cs:**
+   - Add ProjectWorkspace parameter to constructor
+   - Store _workspace field
+   - Update ExecuteQueryAsync() to get project from _workspace.CurrentProject
+   - Check if project is null, return error if not open
+   - Delegate to ExecuteQueryInternalAsync(userQuery, project, cancellationToken)
+   - Change ExecuteQueryInternalAsync visibility from internal to private
+
+2. **QueryExecutionServiceTests.cs:**
+   - Create MockProjectWorkspace test helper
+   - Update all constructor calls to pass mock workspace
+   - Add test: ExecuteQueryAsync_WhenNoProjectOpen_ReturnsError
+   - Add test: ExecuteQueryAsync_WhenProjectOpen_UsesCurrentProject
+
+3. **Editor.razor.cs:**
+   - No changes needed! (Already injects ProjectWorkspace)
+
+**Impact:**
+- Lines changed: ~60-80 in QueryExecutionService.cs
+- Lines changed: ~50-100 in QueryExecutionServiceTests.cs
+- Breaking changes: None (interface preserved)
+- Ripple effect: Minimal (DI container handles injection)
+
+#### Architecture Patterns Validated
+
+**Workspace Injection Pattern:**
+- ProjectWorkspace already injected in: MainLayout, Editor, DatabaseTreeView, ProjectSettings
+- QueryExecutionService joining this pattern is **consistent**
+
+**Project Context Flow:**
+`
+User opens project
+  → ProjectWorkspace.LoadAsync(filePath)
+  → ProjectWorkspace.CurrentProject = loaded project
+  
+User types query in Editor
+  → Editor injects ProjectWorkspace, IQueryExecutionService
+  → CompilerServiceFactory.CreateFromProjectAsync(Workspace.CurrentProject)
+  → QueryExecutionService.ExecuteQueryAsync(query)
+      → Service accesses _workspace.CurrentProject internally
+`
+
+**CompilerService vs QueryExecutionService:**
+- CompilerService: IntelliSense only, works on generated code strings
+- QueryExecutionService: Runtime execution, needs real DB connection
+- Both get project context, but at different points:
+  - Compiler: via factory method parameter (CreateFromProjectAsync)
+  - Execution: via scoped workspace injection (recommended)
+
+#### Risk Analysis
+
+**Risk: ProjectWorkspace.CurrentProject changes during query execution**
+- Scenario: User closes project while query running
+- Mitigation: Capture project reference at method start
+- Cancellation token will cancel ongoing query if needed
+
+**Risk: Layer architecture concerns**
+- Core service (QueryExecutionService) depending on Blazor service (ProjectWorkspace)
+- Reality: Both registered in same DI scope at runtime (App.WebServer)
+- Not a compile-time dependency violation
+- If strict layering needed: use Option D (IProjectContext)
+
+#### Learnings About LinqStudio Architecture
+
+**Layered Dependency Flow (runtime DI):**
+`
+Abstractions (interfaces, models)
+  ↑
+Core (services: ProjectService, CompilerService, QueryExecutionService)
+  ↑
+Blazor (components + services: ProjectWorkspace, QueriesWorkspace)
+  ↑
+App.WebServer (DI container combines all)
+`
+
+At runtime in App.WebServer:
+- Core services can inject Blazor services via DI container
+- This is NOT a layer violation (no compile-time reference from Core → Blazor)
+- Both are scoped services with same lifetime
+
+**Scoped Service Lifetime Pattern:**
+`csharp
+// Registration in App.WebServer:
+services.AddLinqStudio();              // Core: registers QueryExecutionService
+services.AddLinqStudioBlazor();        // Blazor: registers ProjectWorkspace
+services.AddRazorComponents();
+
+// At runtime per user:
+UserSession
+  ├── ProjectWorkspace (scoped)
+  ├── QueriesWorkspace (scoped)
+  ├── IQueryExecutionService → QueryExecutionService (scoped)
+  │     └── injects ProjectWorkspace (same scoped instance)
+  └── Editor.razor
+        ├── injects ProjectWorkspace
+        └── injects IQueryExecutionService
+`
+
+**Factory Pattern vs Workspace Pattern:**
+- CompilerService uses **factory pattern**: CreateFromProjectAsync(Project project)
+  - Reason: Each editor can have its own compiler instance
+  - Project passed explicitly as parameter
+  - No shared state needed
+- QueryExecutionService uses **workspace pattern**: inject ProjectWorkspace
+  - Reason: Always executes against "the current project"
+  - Shared state managed by workspace
+  - Project accessed via workspace property
+
+#### Documentation Needs Identified
+
+**Missing Documentation:**
+1. docs/QUERY_EXECUTION.md - End-to-end execution flow
+2. docs/ARCHITECTURE.md - Layer boundaries and DI patterns
+3. src/LinqStudio.Core/Services/copilot.md - Service interaction patterns
+
+**Existing Documentation Review:**
+- docs/ERROR_HANDLING.md - Exists ✅
+- docs/GENERIC_COLUMN_TYPES.md - Exists ✅
+- Database explorer docs - Missing (noted in previous analysis)
+
+#### Overall Assessment
+
+**Code Quality:** 8/10
+- Clear separation of concerns (Workspace, Compiler, Execution)
+- Consistent patterns (scoped services, event-driven updates)
+- Well-tested (unit tests for QueryExecutionResult, service constructors)
+
+**Architecture Clarity:** 9/10
+- Layered architecture well-defined
+- DI usage follows .NET best practices
+- Workspace pattern elegant and functional
+
+**Implementation Readiness:**
+- Fix is straightforward (Option C: ~4 files, ~100-150 lines)
+- No breaking changes required
+- Tests exist and just need workspace mocks
+- **Estimated time: 2-3 hours for implementation + testing**
+
+#### Next Steps for Implementation Team
+
+1. **Simon (coder):** Implement Option C changes in QueryExecutionService.cs
+2. **EvilJosh (tester):** Update QueryExecutionServiceTests.cs with workspace mocks
+3. **Alice (reviewer):** Code review focusing on:
+   - Error handling when CurrentProject is null
+   - Test coverage for project state transitions
+   - Integration test strategy (E2E with real database)
+4. **Samy (me):** Review final implementation against architectural decision
+
+#### Key Insight
+
+**The gap exists because QueryExecutionService was designed as a stateless service (interface with parameters), but it actually needs stateful context (current project).** The fix is to embrace the stateful nature by injecting the workspace that holds that state. This aligns with how Blazor Server manages user sessions naturally through scoped services.
+
+---
+
+**Analysis complete. Decision document written to .squad/decisions/inbox/samy-project-context-gap.md**
+

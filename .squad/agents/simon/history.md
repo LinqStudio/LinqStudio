@@ -9,6 +9,82 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-03-13 - Query Execution Pipeline - Deep Technical Analysis
+
+**Task:** Comprehensive analysis of CompilerService and backend pipeline to design query execution feature (requested by snakex64).
+
+**Critical Finding:** CompilerService provides **IntelliSense ONLY** — there is **NO runtime query execution** anywhere in the codebase.
+
+**Current State:**
+- QueryContainer wrapper exists with correct signature: `public async Task<IQueryable<object>> Query(DbContext context)`
+- QueryContainer code lives ONLY in Roslyn's AdhocWorkspace semantic model (never compiled to executable IL)
+- DbContext is generated as **source code only**, used for type resolution, never instantiated at runtime
+- Generated DbContext has **stub configuration** using `UseInMemoryDatabase()` — not suitable for execution
+
+**Gap Analysis:**
+1. **Missing IL Compilation:** Need `CSharpCompilation.Emit()` to compile to in-memory assembly
+2. **Missing Assembly Loading:** Need `Assembly.Load(byte[])` to load compiled assembly
+3. **Missing Reflection Invocation:** Need to locate `QueryContainer.Query()` method and invoke via reflection
+4. **Missing DbContext Lifecycle:** Need to modify generator to create DbContext with real connection (not in-memory stub)
+5. **Missing Result Materialization:** Need to call `.ToListAsync()` on returned `IQueryable<object>`
+6. **Missing Column Extraction:** Need reflection on first row to extract property names/types for dynamic columns
+
+**Proposed Solution:**
+- New service: `QueryExecutionService` (separate from CompilerService for SoC)
+- Method signature: `Task<QueryExecutionResult> ExecuteQueryAsync(string userQuery, ..., CancellationToken cancellationToken)`
+- Result model: `QueryExecutionResult` with `Success`, `Rows`, `Columns`, `ErrorMessage`, `ExecutionTimeMs`
+- Error types: `CompileError`, `RuntimeError`, `DatabaseError`
+
+**DbContext Modification Strategy:**
+- Change `DbContextGenerator.GenerateDbContext()` to use constructor injection pattern:
+  ```csharp
+  public GeneratedDbContext(DbContextOptions<GeneratedDbContext> options) : base(options) { }
+  ```
+- Remove stub `OnConfiguring()` override with `UseInMemoryDatabase()`
+- At execution time, create `DbContextOptions` with real connection string
+
+**Technical Risks & Mitigations:**
+1. **Assembly Memory Leaks:** Each query compiles new assembly that can't be unloaded from default AssemblyLoadContext
+   - Mitigation: Implement assembly caching with LRU eviction (max 100 assemblies)
+   - OR: Use `AssemblyLoadContext` with `isCollectible: true` (.NET 10 feature)
+2. **Long-Running Queries:** User could write `context.HugeTable.ToListAsync()` loading millions of rows
+   - Mitigation: Add configurable row limit (default 10,000 rows) by wrapping query with `.Take(maxRows)`
+3. **DbContext Disposal:** Risk of disposing context before query materializes
+   - Mitigation: Materialize results BEFORE disposing context using `using` statement
+4. **Anonymous Type Serialization:** Anonymous types can't be serialized for SignalR/Blazor Server
+   - Mitigation: Convert to `Dictionary<string, object?>` in result model
+
+**Implementation Estimate:** 14-19 hours
+- Backend (QueryExecutionService): 6-8 hours (400-600 LOC)
+- DbContext generation changes: 1 hour (20 LOC)
+- Models & DTOs: 1 hour (100 LOC)
+- UI integration (ResultsGrid): 2-3 hours
+- Testing: 4-6 hours
+
+**Detailed Analysis:** Written to `.squad/decisions/inbox/simon-query-execution-analysis.md` (39KB document with:
+- Complete CompilerService architecture analysis
+- QueryContainer wrapper exact structure
+- Proposed `ExecuteQueryAsync()` method with full implementation strategy
+- Step-by-step compilation/execution pipeline (7 steps with code samples)
+- Reflection strategy for dynamic column extraction
+- 6 technical risks with mitigations
+- Reference implementation outline
+
+**Key Learnings:**
+1. **CompilerService is compilation-only** — loads all AppDomain assemblies as metadata references for IntelliSense, never executes code
+2. **Cursor position adjustment** — critical pattern using `__THIS_HERE__` marker to calculate wrapper overhead
+3. **QueryContainer signature already correct** — `Task<IQueryable<object>>` is exactly what execution needs
+4. **DbContext generation needs modification** — current stub `OnConfiguring()` prevents real database connections
+5. **Roslyn compilation API** — `CSharpCompilation.Create() → Emit()` can compile to in-memory assembly for dynamic execution
+
+**Next Steps (for implementation):**
+1. Create `QueryExecutionService.cs` in Core
+2. Modify `DbContextGenerator.GenerateDbContext()` to use constructor injection
+3. Add `QueryExecutionResult` model to Core.Models
+4. Implement 7-step execution pipeline (wrap → compile → load → instantiate → invoke → materialize → extract columns)
+5. Add Execute button to Editor UI with ResultsGrid component
+6. Write unit tests and integration tests with real database
+
 ### 2026-03-13 - Team Review Cycle - Full Backend Assessment
 
 Completed full backend review. Score: 9/10. Backend architecture fundamentally strong. Identified 9 issues: key duplication in query generation (3 instances), missing test coverage for edge cases, documentation gaps. MSSQL auto-discovery and connection handling validated.
@@ -927,6 +1003,47 @@ When implementing database generators:
 - Close connection in finally block only if we opened it
 - All methods follow the pattern: check state → open if needed → execute → close if we opened
 
+### 2026-03-14 - QueryExecutionService Architecture Gap Analysis
+
+**Task:** Technical deep-dive to identify why QueryExecutionService doesn't work at runtime (requested by snakex64).
+
+**Finding:** Interface/implementation mismatch. Service has complete working internal implementation but public method throws NotImplementedException because it can't receive required Project context.
+
+**Key Discovery - Two Different Patterns in Codebase:**
+
+1. **CompilerService Pattern (Factory + Initialization):**
+   - Stateful service — maintains expensive Roslyn AdhocWorkspace
+   - Created via `CompilerServiceFactory.CreateFromProjectAsync(project)`
+   - Project context baked in during initialization via `Initialize(modelFiles, dbContextCode)`
+   - High init cost, many reuses (hover, completion, typing)
+   - Needs thread safety (SemaphoreSlim)
+   - Lifecycle tied to editor session
+
+2. **QueryExecutionService Pattern (Per-Call Context):**
+   - Stateless service — no internal state between calls
+   - Each execution compiles fresh assembly, instantiates DbContext, runs query
+   - No reuse — one execution per call
+   - No thread safety needed
+   - Naturally per-request
+
+**The Gap:**
+- Internal method signature: `ExecuteQueryInternalAsync(string userQuery, Models.Project project, CancellationToken)`
+- Public interface signature: `ExecuteQueryAsync(string userQuery, CancellationToken)` ← missing Project!
+- Editor has `Workspace.CurrentProject` but doesn't pass it (interface doesn't accept it)
+- Service needs: `project.ConnectionString`, `project.DatabaseType`, `project.QueryGenerator`
+
+**Recommended Fix:** Add Project parameter to interface (stateless per-call pattern)
+- Rationale: Matches architectural intent — execution is per-request, not per-session
+- Precedent: `IDbContextGenerator.GenerateAsync(queryGenerator, cancellationToken)` already uses per-call context
+- Simplicity: 3 file changes vs 5+ for factory pattern
+- Flexibility: Can execute against different projects without re-initialization
+
+**Key Learning:** Choose pattern based on service characteristics:
+- **Factory + Initialize** → Stateful services with expensive setup (Roslyn workspace, LSP, etc.)
+- **Per-Call Context** → Stateless operations or request-scoped work (DB queries, API calls)
+
+**Analysis Document:** `.squad/decisions/inbox/simon-execution-gap-analysis.md`
+
 ## Learnings
 
 ### QueryGenerator Property Fix (2026-03-11)
@@ -1090,3 +1207,146 @@ if (string.Equals(Connection.Database, "master", StringComparison.OrdinalIgnoreC
 7. **DI:** Registered as AddScoped<IDbContextGenerator, DbContextGenerator>() — scoped so each user session gets its own instance.
 
 **Test results:** All 444 unit/integration tests pass (95 Core, 39 Blazor, 310 Database). Known pre-existing E2E flakiness in NavMenu_SaveAs_SavesCompleteProjectToFile unrelated to this change.
+
+### 2026-03-14 - Phase 1a Foundation Models + DbContext Codegen Fix
+
+**Task:** Implement foundation models and fix DbContext codegen to support query execution (Phase 1a of query execution feature).
+
+**Requested by:** snakex64 (via Squad task)
+
+**Files Created:**
+1. `src/LinqStudio.Abstractions/Models/QueryExecutionResult.cs`
+   - Result record for query execution with Rows, ColumnNames, Elapsed, ErrorMessage, IsCompileError
+   - Computed Success property (true when ErrorMessage is null)
+   - Static factory methods: Empty() and FromError()
+2. `src/LinqStudio.Abstractions/Services/IQueryExecutionService.cs`
+   - Interface for query execution service
+   - Single method: Task<QueryExecutionResult> ExecuteQueryAsync(string userQuery, CancellationToken)
+
+**Files Modified:**
+1. `src/LinqStudio.Core/Services/DbContextGenerator.cs`
+   - Fixed GenerateDbContext() to support BOTH IntelliSense and real execution
+   - **Added dual-constructor pattern:**
+     - Parameterless constructor for IntelliSense/compilation (uses in-memory fallback)
+     - Constructor accepting DbContextOptions for real execution
+   - **Modified OnConfiguring():**
+     - If _options provided → apply extensions to optionsBuilder for real DB connection
+     - Else if not configured → fallback to UseInMemoryDatabase for compilation
+   - Added `using Microsoft.EntityFrameworkCore.Infrastructure;` for IDbContextOptionsBuilderInfrastructure
+
+**Key Design Decision:**
+The DbContext codegen fix maintains backward compatibility with IntelliSense while enabling execution:
+- **Compilation path:** Parameterless constructor + OnConfiguring fallback → UseInMemoryDatabase (keeps IntelliSense working)
+- **Execution path:** Constructor with DbContextOptions + OnConfiguring applies real connection (enables query execution)
+
+**Implementation Details:**
+- Generated DbContext stores `_options` field (nullable)
+- OnConfiguring checks `_options != null` to determine execution vs compilation mode
+- Options application uses `IDbContextOptionsBuilderInfrastructure` to copy extensions from provided options
+- Preserves existing in-memory behavior when options not provided (doesn't break existing IntelliSense flow)
+
+**Build Status:** ✅ All builds pass
+- LinqStudio.Abstractions: 0 warnings, 0 errors
+- LinqStudio.Core: 0 warnings, 0 errors
+
+**Next Phase:** Phase 1b will implement QueryExecutionService using these foundation types and the fixed DbContext pattern.
+
+
+
+### 2026-03-13 - Phase 1b Implementation: QueryExecutionSettings + QueryExecutionService
+
+**Task:** Implement Phase 1b of query execution feature - settings and service foundation.
+
+**What Was Built:**
+1. **QueryExecutionSettings** (`src/LinqStudio.Core/Settings/QueryExecutionSettings.cs`)
+   - Implements IUserSettingsSection for auto-discovery
+   - SectionName = 'QueryExecutionSettings'
+   - Property: TimeoutSeconds (int, default 30, supports 0 for no timeout)
+   - Fully localized (English + French) in SharedResource.resx
+
+2. **QueryExecutionService** (`src/LinqStudio.Core/Services/QueryExecutionService.cs`)
+   - Implements IQueryExecutionService interface
+   - Registered as scoped service in DI
+   - Complete 7-step execution pipeline implemented:
+     1. Generate models/DbContext from project database
+     2. Wrap user query in QueryContainer
+     3. Compile to IL using Roslyn (CSharpCompilation.Emit)
+     4. Load assembly from memory
+     5. Instantiate DbContext with real connection (DbContextOptions)
+     6. Invoke QueryContainer.Query via reflection
+     7. Materialize with ToListAsync and extract columns
+   - Supports all database types: SQL Server, MySQL, PostgreSQL, SQLite
+   - Timeout handling with configurable seconds
+   - Comprehensive error handling (compile vs runtime)
+   - Column extraction handles primitives, anonymous types, EF entities
+
+**Technical Decisions:**
+- Added EF Core provider packages to LinqStudio.Core.csproj:
+  - Microsoft.EntityFrameworkCore 10.0.4
+  - Microsoft.EntityFrameworkCore.SqlServer 10.0.4
+  - Microsoft.EntityFrameworkCore.Sqlite 10.0.4
+  - Npgsql.EntityFrameworkCore.PostgreSQL 10.0.1
+  - MySql.EntityFrameworkCore 10.0.1
+- Updated DependencyInjection.Abstractions to 10.0.4 for compatibility
+- Public interface method throws NotImplementedException (Phase 2 will add Project parameter)
+- Internal ExecuteQueryInternalAsync method contains full implementation
+
+**Build Status:** ✅ 0 errors, 0 warnings
+**Test Status:** ✅ All 467 tests pass (4 skipped E2E)
+
+**Documentation Updated:**
+- Added QueryExecutionSettings section to Settings/readme.md
+- Added QueryExecutionService section to Services/copilot.md
+- Documented 7-step pipeline, error handling, dependencies
+
+**Key Learnings:**
+1. **Version Compatibility:** Npgsql.EntityFrameworkCore.PostgreSQL 10.0.1 requires EF Core >= 10.0.4
+2. **Namespace Conflicts:** Microsoft.CodeAnalysis.Project vs LinqStudio.Core.Models.Project - used fully qualified type
+3. **Settings Auto-Discovery:** Works perfectly - no manual DI registration needed
+4. **Assembly Compilation:** Roslyn's Emit() requires all model files + DbContext + QueryContainer in Solution
+5. **DbContext Lifecycle:** Must pass DbContextOptions via constructor for runtime execution (not OnConfiguring)
+
+**Phase Status:** Phase 1b COMPLETE - ready for Phase 2 (UI integration)
+
+### 2026-03-13 - Implemented Option A: Add Project Parameter to IQueryExecutionService.ExecuteQueryAsync
+
+**Task:** Add `Project project` parameter to `IQueryExecutionService.ExecuteQueryAsync` method signature to provide access to connection string, DatabaseType, and QueryGenerator.
+
+**Changes Made:**
+
+1. **Interface Update (IQueryExecutionService.cs)**:
+   - Moved interface from `LinqStudio.Abstractions.Services` to `LinqStudio.Core.Services` (architectural decision to avoid circular dependency)
+   - Added `Project project` parameter to `ExecuteQueryAsync` method signature:
+     `csharp
+     Task<QueryExecutionResult> ExecuteQueryAsync(
+         string userQuery,
+         Project project,
+         CancellationToken cancellationToken = default);
+     `
+
+2. **Implementation Update (QueryExecutionService.cs)**:
+   - Updated public `ExecuteQueryAsync` method to accept `Project project` parameter
+   - Wired public method to internal `ExecuteQueryInternalAsync` (which already had full implementation)
+   - Removed `NotImplementedException` - now uses real implementation with project's connection string, database type, and query generator
+
+3. **Test Updates (QueryExecutionServiceTests.cs)**:
+   - Updated all test methods to pass `Project` instance with appropriate test values
+   - Changed test assertions to reflect new behavior (no longer expect NotImplementedException)
+   - Tests verify:
+     - Error when no connection string configured
+     - Error when empty connection string provided
+     - Proper cancellation handling
+
+**Build & Test Results:**
+- ✅ Build: SUCCESS (0 errors)
+- ✅ Tests: All 485 tests passed (121 Core + 39 Blazor + 310 Databases + 15 E2E, 4 skipped E2E tests)
+- Duration: ~30 seconds
+
+**Architectural Note:**
+Initially attempted to move `Project` class to `LinqStudio.Abstractions.Models` to avoid having interface in Abstractions reference Core.Models, but this created circular dependency (Abstractions → Databases ← Abstractions). Final solution: moved `IQueryExecutionService` from Abstractions to Core, which is architecturally sound since the interface is specific to Core's execution logic and Project model.
+
+**Files Changed:**
+- `src/LinqStudio.Core/Services/IQueryExecutionService.cs` (moved from Abstractions, updated signature)
+- `src/LinqStudio.Core/Services/QueryExecutionService.cs` (removed NotImplementedException, wired to internal impl)
+- `tests/LinqStudio.Core.Tests/QueryExecutionServiceTests.cs` (updated tests with Project parameter)
+- Various using statement cleanups across codebase
