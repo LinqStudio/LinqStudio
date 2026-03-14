@@ -1,4 +1,4 @@
-﻿using LinqStudio.Abstractions;
+using LinqStudio.Abstractions;
 using LinqStudio.Core.Extensions;
 using System.Text.Json;
 using System.Text.Json.Nodes;

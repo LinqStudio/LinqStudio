@@ -7,6 +7,122 @@
 
 ## Learnings
 
+### 2026-03-14 - Composite Primary Key Options Analysis & Architecture Recommendation
+
+**Task:** Analyze four fix options for EF Core composite key generation error and recommend best approach.
+
+**Options Analyzed:**
+
+1. **Option A ([PrimaryKey] Class Attribute)**
+   - Pros: Modern C# 11+, self-documenting, minimal code generation
+   - Cons: Requires C# 11+, needs nameof() parameters, column order sensitive
+
+2. **Option B (Fluent API HasKey for Composite Only)**
+   - Pros: Traditional EF pattern, no C# constraint
+   - Cons: Inconsistent single/composite patterns, complex generation logic
+
+3. **Option C (Fluent API for ALL Keys) — RECOMMENDED**
+   - Pros: Consistent pattern for all tables, matches Scaffold-DbContext output, no C# constraint, future-extensible
+   - Cons: Requires generating OnModelCreating, slightly more code
+
+4. **Option D (Smart Hybrid)**
+   - Pros: Single PKs keep [Key], composite PKs use [PrimaryKey]
+   - Cons: Two different patterns, cognitive overhead, branching logic required
+
+**Recommendation Rationale:**
+- **Consistency matters:** Single-key and multi-key tables use identical patterns
+- **EF Core alignment:** Matches official scaffolding tool
+- **Future extensibility:** OnModelCreating is where you'd add indices, constraints, shadow properties
+- **Robustness:** Zero C# version constraints
+- **Roslyn safety:** Generated code compiles identically regardless of pattern
+
+**Key Data Available at Generation Time:**
+- `TableColumn.IsPrimaryKey` boolean for each column
+- `DatabaseTableDetail.Columns` full list with preserved order
+- Column names and table ownership info
+
+**Roslyn Impact:** ZERO — code generation approach doesn't affect compilation or intellisense.
+
+**Deliverables:**
+- Comprehensive 4-option analysis with pros/cons breakdown
+- Implementation checklist for Option C
+- Risk assessment (Low risk, medium on EF Core syntax correctness)
+- Clear fallback strategy (Option D if complexity arises)
+
+**Outcome:** Simon accepted recommendation and implemented Option C successfully (513 tests passing).
+
+**Key Learning:** Architecture decisions benefit from analyzing multiple approaches with clear pro/con tradeoffs. This makes implementation direction obvious and builds team consensus.
+
+---
+
+### 2026-03-14T10:15:00Z: Composite Primary Key Generation Analysis
+
+**Task:** Analyze and document fix options for EF Core composite key error  
+**Requested by:** snakex64  
+**Issue:** DbContextGenerator applies `[Key]` to each column in a composite PK, which breaks EF Core (expects single `[PrimaryKey]` attribute or Fluent API `HasKey()`)
+
+#### Analysis Summary
+
+**Problem Root Cause:**
+- `DbContextGenerator.GenerateModel()` applies `[Key]` to every `col.IsPrimaryKey` column (lines 96-101)
+- Valid for single-key tables (e.g., Orders.OrderId)
+- Invalid for composite-key tables (e.g., OrderItems.OrderId + OrderItems.OrderItemId)
+- EF Core forbids multiple `[Key]` attributes; requires centralized configuration
+
+**Key Data Available at Generation Time:**
+- `TableColumn.IsPrimaryKey` boolean for each column
+- Full column list in `DatabaseTableDetail.Columns`
+- Column order preserved (schema order)
+- Column names available for Fluent API generation
+- Composite key detection: count columns where `IsPrimaryKey == true`
+
+**Roslyn Impact:** ZERO
+- Generated code (both models and DbContext) fed to Roslyn for compilation/intellisense
+- Changing `[Key]` → `[PrimaryKey]` or Fluent API `HasKey()` has no impact on compilation
+- All three approaches compile identically; intellisense unaffected
+- Query wrapping in `QueryContainer` class works with any PK pattern
+
+#### Fix Options Analyzed
+
+1. **Option A: [PrimaryKey(...)] Class Attribute**
+   - Pros: Modern C# 11+, self-documenting, minimal code generation
+   - Cons: Requires C# 11+, must use `nameof()` for column parameters, order-sensitive
+
+2. **Option B: Fluent API HasKey() for Composite Only (Hybrid)**
+   - Pros: Traditional EF pattern, no C# version constraint
+   - Cons: Inconsistent (single PKs keep `[Key]`, composite PKs use `HasKey()`), complex generation
+
+3. **Option C: Fluent API for ALL Keys (Recommended)**
+   - Pros: ✅ CONSISTENT pattern for all tables, matches EF Scaffold-DbContext output, future-extensible
+   - Cons: Requires generating full `OnModelCreating`, slightly more code
+
+4. **Option D: Smart Hybrid (Detect at Gen Time)**
+   - Pros: Single PKs unchanged, composite PKs get modern syntax
+   - Cons: Two patterns = cognitive overhead, branching logic needed
+
+**Recommendation:** **Option C (Fluent API for ALL keys)**
+- Reason: Consistency across single and composite keys. Matches official EF Scaffold-DbContext. Zero C# version constraints. Roslyn-safe.
+- Implementation: Modify `GenerateDbContext` to iterate tables, emit `HasKey(e => ...)` for all
+- Testing: Single PK (Orders), composite PK (OrderItems), Roslyn compilation, EF runtime
+
+#### Files Analyzed
+- `src/LinqStudio.Core/Services/DbContextGenerator.cs` (293 lines)
+- `src/LinqStudio.Abstractions/Models/DatabaseTableDetail.cs` (17 lines)
+- `src/LinqStudio.Abstractions/Models/TableColumn.cs` (52 lines)
+- `src/LinqStudio.Core/Services/CompilerService.cs` (initialization + completion flow)
+- `src/LinqStudio.Database/MssqlGenerator.cs` (schema introspection)
+- `src/LinqStudio.Database/AdoNetDatabaseGeneratorBase.cs` (base generator pattern)
+
+#### Deliverables
+- ✅ Comprehensive analysis document: `.squad/decisions/inbox/samy-composite-key-options.md`
+- ✅ All 4 options documented with detailed pros/cons
+- ✅ Recommendation with implementation checklist
+- ✅ Risk assessment and verification strategy
+
+**Conclusion:** Composite key issue is solvable via Fluent API. Roslyn integration is unaffected. Option C (consistent HasKey() for all keys) is architecturally cleanest and most maintainable.
+
+---
+
 ### 2026-03-11T17:30:00Z: Full Architectural Analysis of DatabaseTreeView Feature
 
 **Task:** Perform comprehensive analysis of entire DatabaseTreeView feature prior to Alice validation  

@@ -1,0 +1,67 @@
+@using LinqStudio.Abstractions.Models
+
+@if (IsExecuting)
+{
+	<div class="d-flex align-center pa-4">
+		<MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mr-3" />
+		<MudText Typo="Typo.body1">Executing query...</MudText>
+	</div>
+}
+else if (Result is not null)
+{
+	@if (!Result.Success)
+	{
+		<MudAlert Severity="Severity.Error" Variant="Variant.Filled" Class="my-2">
+			<MudText Typo="Typo.body1">
+				@if (Result.IsCompileError)
+				{
+					<strong>Compilation error:</strong>
+					@(" ")
+				}
+				@Result.ErrorMessage
+			</MudText>
+			<MudText Typo="Typo.caption" Class="mt-2">
+				Elapsed: @FormatElapsedTime(Result.Elapsed)
+			</MudText>
+		</MudAlert>
+	}
+	else if (Result.Rows.Count == 0)
+	{
+		<MudAlert Severity="Severity.Info" Variant="Variant.Filled" Class="my-2">
+			<MudText Typo="Typo.body1">Query returned no results.</MudText>
+			<MudText Typo="Typo.caption" Class="mt-2">
+				Elapsed: @FormatElapsedTime(Result.Elapsed)
+			</MudText>
+		</MudAlert>
+	}
+	else
+	{
+		<div class="mt-2">
+			<MudTable Items="@Result.Rows" 
+					  Dense="true" 
+					  Hover="true" 
+					  Striped="true" 
+					  FixedHeader="true" 
+					  Height="400px"
+					  Elevation="2">
+				<HeaderContent>
+					@foreach (var col in Result.ColumnNames)
+					{
+						<MudTh>@col</MudTh>
+					}
+				</HeaderContent>
+				<RowTemplate>
+					@foreach (var col in Result.ColumnNames)
+					{
+						<MudTd>@context.GetValueOrDefault(col)?.ToString()</MudTd>
+					}
+				</RowTemplate>
+			</MudTable>
+			<div class="d-flex justify-end pa-2">
+				<MudText Typo="Typo.caption" Class="mud-text-secondary">
+					@Result.Rows.Count @(Result.Rows.Count == 1 ? "row" : "rows") · @FormatElapsedTime(Result.Elapsed)
+				</MudText>
+			</div>
+		</div>
+	}
+}

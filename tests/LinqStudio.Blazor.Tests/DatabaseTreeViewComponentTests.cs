@@ -7,7 +7,6 @@ using LinqStudio.Core.Extensions;
 using LinqStudio.Core.Services;
 using LinqStudio.Core.Models;
 using LinqStudio.Abstractions;
-using LinqStudio.Abstractions.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;

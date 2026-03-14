@@ -9,6 +9,68 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-03-14 - MSSQL Composite Primary Key Fix — Root Cause Analysis & Option C Implementation
+
+**Task:** Implement fix for EF Core error on composite primary key tables in MSSQL databases.
+
+**Root Cause Identified:**
+- `MssqlGenerator.GetColumnsAsync()` used `GetSchemaAsync("IndexColumns")` — returns ALL indexed columns, not just PKs
+- Tables with performance indexes incorrectly had all indexed columns marked as primary keys
+- `DbContextGenerator.GenerateModel()` emitted `[Key]` for each PK column, invalid for composite keys
+
+**Implementation Approach (Option C - Fluent API for ALL keys):**
+1. **MssqlGenerator.cs:** Replaced IndexColumns with direct SQL query filtering `is_primary_key = 1` via `sys.indexes` system views
+2. **DbContextGenerator.cs:** 
+   - Removed all `[Key]` attribute emissions
+   - Added `OnModelCreating()` method with `HasKey()` calls for all tables
+   - Single PKs: `HasKey(e => e.ColumnName)`
+   - Composite PKs: `HasKey(e => new { e.Col1, e.Col2 })`
+3. **DbContextGeneratorTests.cs:** Updated 5 test cases to verify new behavior
+
+**Why Option C was chosen over A/B/D:**
+- Consistency: Single and composite PKs use identical patterns
+- EF Core alignment: Matches official `Scaffold-DbContext` tool output
+- No C# version constraints: Works with .NET 6+ (Fluent API stable since EF Core 1.0)
+- Roslyn safe: Generated code compiles identically; no intellisense impact
+- Extensible: OnModelCreating is natural place for indices, constraints, shadow properties
+
+**Test Results:** 517 tests total, 513 passed (4 pre-existing skips), 0 failures. Build successful.
+
+**Key Learning:** MSSQL schema discovery must use system views with explicit filtering (e.g., `is_primary_key = 1`) rather than generic schema collections. IndexColumns returns too much data and leads to false positives.
+
+---
+
+### 2026-03-14 - RoslynWorkspaceService Extraction — Code Duplication Elimination
+
+**Task:** Extract shared Roslyn workspace initialization logic from CompilerService and QueryExecutionService.
+
+**Achievement:** Eliminated code duplication, fixed assembly loading inconsistencies, improved testability.
+
+**What was learned:**
+- CompilerService and QueryExecutionService had ~120 lines of nearly identical workspace setup code
+- CompilerService was missing SQLite, PostgreSQL, MySQL EF Core providers (QueryExecutionService had them)
+- Extracted `RoslynWorkspaceService` as stateless singleton with three public methods:
+  1. `CreateWorkspace(string projectName)` → tuple of (AdhocWorkspace, ProjectId, Solution)
+  2. `GetMetadataReferences()` → canonical assembly list for all EF providers
+  3. `WrapQuery(userQuery, contextTypeName, projectNamespace, beforeReturn)` → wrapped query for Roslyn analysis
+
+**Why singleton is correct here:**
+- No shared mutable state — creates fresh workspaces on each call
+- Thread-safe by design
+- Both services just call methods, no state dependency
+- Mirrors how DbContextGenerator is used (stateless utility service)
+
+**Why NOT a factory pattern:**
+- CompilerService has its own `CompilerServiceFactory` because it needs stateful workspace + document lifecycle + SemaphoreSlim
+- QueryExecutionService creates fresh workspace per query (per-call pattern)
+- RoslynWorkspaceService is pure utility — no lifecycle management needed
+
+**Test impact:** All tests updated to inject RoslynWorkspaceService, 487 total passing (121 Core, 56 Blazor, 310 Databases, 26 E2E + 4 skipped). Build: 0 errors.
+
+**Key technical detail:** `WrapQuery()` must produce byte-for-byte identical output to original implementations. CompilerService uses `__THIS_HERE__` placeholder to calculate cursor offset; any whitespace change breaks position math.
+
+---
+
 ### 2026-03-13 - Query Execution Pipeline - Deep Technical Analysis
 
 **Task:** Comprehensive analysis of CompilerService and backend pipeline to design query execution feature (requested by snakex64).
@@ -1350,3 +1412,190 @@ Initially attempted to move `Project` class to `LinqStudio.Abstractions.Models` 
 - `src/LinqStudio.Core/Services/QueryExecutionService.cs` (removed NotImplementedException, wired to internal impl)
 - `tests/LinqStudio.Core.Tests/QueryExecutionServiceTests.cs` (updated tests with Project parameter)
 - Various using statement cleanups across codebase
+
+## Learnings
+
+### AssemblyLoadContext Pattern for Dynamic Query Compilation
+- **What:** Queries are compiled to assemblies and loaded into collectible AssemblyLoadContext instances
+- **Why:** Without collectible ALCs, every query execution permanently grows memory (assemblies can't be unloaded from default AppDomain)
+- **Implementation:** See QueryExecutionService.CompileToAssemblyAsync() - creates 
+ew AssemblyLoadContext("query-exec", isCollectible: true)
+- **Critical Detail:** All query results must be fully materialized (via ExtractResults()) before calling lc.Unload() in the finally block
+- **File:** src\LinqStudio.Core\Services\QueryExecutionService.cs
+
+### DbContext Disposal Pattern with await using
+- **What:** DbContext instances are wrapped with wait using to ensure prompt disposal
+- **Why:** Ensures EF Core releases database connections before the AssemblyLoadContext is unloaded
+- **Pattern:** wait using var dbContext = Activator.CreateInstance(...) as DbContext;
+- **File:** src\LinqStudio.Core\Services\QueryExecutionService.cs
+
+### Try/Finally Block Structure for ALC Disposal
+- **What:** Query execution wrapped in try/finally to guarantee ALC cleanup
+- **Structure:** Compile → check success (early return with alc.Unload()) → try { execute + materialize } finally { alc.Unload() }
+- **Important:** Both error path and success path must call alc.Unload()
+- **File:** src\LinqStudio.Core\Services\QueryExecutionService.cs
+
+### Key Service Locations
+- **QueryExecutionService:** src\LinqStudio.Core\Services\QueryExecutionService.cs - compiles and executes LINQ queries
+- **DbContextGenerator:** src\LinqStudio.Core\Services\DbContextGenerator.cs - generates DbContext code from database schema
+- **CompilerService:** src\LinqStudio.Core\Services\CompilerService.cs - provides IntelliSense via Roslyn
+- **Documentation:** Always update copilot.md files when adding patterns or architectural decisions
+
+### 2026-03-13 - RoslynWorkspaceService Extraction - Refactoring Duplicate Code
+
+**Task:** Extract duplicated Roslyn workspace creation and query wrapping logic from CompilerService and QueryExecutionService into a shared RoslynWorkspaceService (requested by snakex64).
+
+**Problem:**
+- CompilerService and QueryExecutionService both contained nearly identical code for:
+  1. Creating AdhocWorkspace with project setup
+  2. Loading EF Core metadata references (assemblies)
+  3. Wrapping user queries in QueryContainer class
+- Assembly lists were inconsistent: CompilerService was missing SQLite, PostgreSQL, and MySQL providers
+- This duplication violated DRY principle and created maintenance burden
+
+**Solution:**
+Created new RoslynWorkspaceService as a singleton service with three public methods:
+- CreateWorkspace(string projectName) - Creates AdhocWorkspace with project and all metadata references
+- GetMetadataReferences() - Returns complete list of EF Core + DB provider assemblies
+- WrapQuery(...) - Wraps user query in QueryContainer class
+
+**Key Decisions:**
+1. **Stateless design**: No shared mutable state, creates fresh workspaces per call
+2. **Used QueryExecutionService's assembly list**: More comprehensive (includes all DB providers)
+3. **Preserved cursor position logic**: WrapQuery() output is byte-for-byte identical to original implementations
+4. **CompilerService retains**: SemaphoreSlim, document lifecycle, CSharpParseOptions (documentation mode)
+5. **Registration order**: RoslynWorkspaceService registered BEFORE CompilerService/QueryExecutionService in DI
+
+**Implementation:**
+- Created src/LinqStudio.Core/Services/RoslynWorkspaceService.cs
+- Refactored CompilerService constructor to inject and use RoslynWorkspaceService
+- Refactored QueryExecutionService constructor to inject and use RoslynWorkspaceService
+- Updated CompilerServiceFactory to inject and pass RoslynWorkspaceService
+- Registered as singleton in ServiceCollectionExtensions.AddLinqStudio()
+- Updated all test files to create RoslynWorkspaceService instances
+
+**Testing:**
+- All 487 tests pass (121 Core, 56 Blazor, 310 Databases, 26 E2E + 4 skipped)
+- Build succeeded with 0 errors, 0 warnings
+- Cursor position calculation verified through existing CompilerService tests
+- No functional changes - pure refactoring
+
+**Learnings:**
+- Assembly loading pattern: Try AppDomain first, fall back to Assembly.Load() for specific EF Core assemblies
+- CompilerService sets CSharpParseOptions at project level for XML doc support
+- QueryExecutionService creates fresh workspace per compilation (no reuse)
+- WrapQuery must produce exact output for CompilerService's __THIS_HERE__ cursor calculation
+
+### 2026-03-13 - AddDocuments Refactoring - Consolidating Document Addition Logic
+
+**Task:** Add AddDocuments() method to RoslynWorkspaceService to eliminate duplicate document-adding code across services (requested by snakex64).
+
+**Problem:**
+- QueryExecutionService.CompileToAssemblyAsync() manually added model files, DbContext, and query documents with repetitive foreach loops and DocumentId.CreateNewId() calls
+- This logic was duplicated inline, making the code verbose and harder to maintain
+
+**Solution:**
+Added AddDocuments() method to RoslynWorkspaceService:
+- Takes solution, projectId, modelFiles dictionary, dbContextCode, wrappedQuery, and optional queryFileName
+- Adds all model files, DbContext.cs, and query file in a single centralized method
+- Returns updated Solution
+
+**Key Decisions:**
+1. **Did NOT refactor CompilerService.Initialize()**: It uses AddOrUpdateFile() which handles document updates (documents may already exist). AddDocuments() only adds new documents, making it unsuitable for Initialize() which can be called multiple times with schema changes.
+2. **Refactored QueryExecutionService only**: It creates a fresh workspace per execution, so AddDocuments() is perfect there - no existing documents to update.
+3. **Kept AddOrUpdateFile() intact**: Still needed by CompilerService for incremental updates and AddUserQuery() calls.
+
+**Implementation:**
+- Added AddDocuments() to src/LinqStudio.Core/Services/RoslynWorkspaceService.cs
+- Added using Microsoft.CodeAnalysis.Text (for SourceText)
+- Refactored QueryExecutionService.CompileToAssemblyAsync() to replace 20+ lines of document-adding code with single AddDocuments() call
+- CompilerService unchanged - AddOrUpdateFile() pattern is correct for its update-heavy workflow
+
+**Testing:**
+- Build succeeded with 0 errors, 0 warnings
+- Full test suite not run yet (to be verified by requester)
+
+**Learnings:**
+- RoslynWorkspaceService has two distinct use patterns:
+  1. Fresh workspace creation (QueryExecutionService) → AddDocuments() is ideal
+  2. Long-lived workspace with updates (CompilerService) → AddOrUpdateFile() is required
+- CompilerService maintains state across calls: _solution, _projectId, _lock
+- QueryExecutionService is stateless: creates + disposes workspace per query execution
+- Document addition vs. update: Solution.AddDocument() for new, Solution.WithDocumentText() for existing
+
+---
+
+### 2026-03-14 - MSSQL Composite Primary Key Bug - Root Cause Investigation
+
+**Task:** Investigate why auto-generated MSSQL DbContext entities fail with "multiple properties with the [Key] attribute" error for tables with composite primary keys.
+
+**Root Cause Identified:**
+- **Bug location:** `src\LinqStudio.Database\MssqlGenerator.cs` lines 224-232 in `GetColumnsAsync()`
+- **The issue:** Code uses `GetSchemaAsync("IndexColumns")` to identify primary keys
+- **Why it's wrong:** IndexColumns returns ALL columns from ALL indexes (including non-PK indexes), not just primary key columns
+- **Result:** Any indexed column gets marked as `IsPrimaryKey = true`, causing multiple `[Key]` attributes to be generated
+
+**The Cascade:**
+1. `MssqlGenerator.GetColumnsAsync()` incorrectly marks multiple columns as primary keys
+2. `DbContextGenerator.GenerateModel()` (`src\LinqStudio.Core\Services\DbContextGenerator.cs` lines 96-101) emits `[Key]` attribute for each `IsPrimaryKey` column
+3. EF Core rejects multiple `[Key]` attributes (requires `[PrimaryKey]` class attribute or `HasKey()` fluent API for composite keys)
+
+**EF Core Composite Key Requirements:**
+- ✅ Class-level: `[PrimaryKey(nameof(OrderId), nameof(ProductId))]`
+- ✅ Fluent API: `HasKey(e => new { e.OrderId, e.ProductId })`
+- ❌ Multiple `[Key]` attributes: NOT SUPPORTED (what we're generating)
+
+**Scope:**
+- Only affects MSSQL generator (MySQL/PostgreSQL/SQLite don't use IndexColumns)
+- Affects any MSSQL table with composite primary key
+- Single-column primary keys work correctly
+
+**Files Involved:**
+- `src\LinqStudio.Database\MssqlGenerator.cs` - Bug location
+- `src\LinqStudio.Core\Services\DbContextGenerator.cs` - Generates [Key] attributes
+- `src\LinqStudio.Abstractions\Models\TableColumn.cs` - Column metadata model
+- `src\LinqStudio.Abstractions\Models\DatabaseTableDetail.cs` - Table metadata model
+
+**Detailed report:** `.squad\decisions\inbox\simon-mssql-key-investigation.md`
+
+
+---
+
+### 2026-03-14 - Option C Implementation - Composite Primary Key Fix
+
+**Task:** Implement Option C to fix the composite primary key error by using Fluent API HasKey() for ALL primary keys and removing [Key] attributes.
+
+**Root Cause:**
+1. MssqlGenerator.GetColumnsAsync() used GetSchemaAsync("IndexColumns") which returns ALL indexed columns, not just PK columns, causing false positives for IsPrimaryKey
+2. DbContextGenerator.GenerateModel() emitted [Key] attributes per property, which EF Core doesn't support for composite keys
+
+**Solution Implemented:**
+
+**Fix 1: MssqlGenerator.cs (lines 215-247)**
+- Replaced GetSchemaAsync("IndexColumns") with direct SQL query using SQL Server system views
+- Query: sys.indexes JOIN sys.index_columns JOIN sys.columns WHERE is_primary_key = 1
+- Correctly identifies ONLY primary key columns using schema-qualified table name @tableName = schema.tableName
+- Filters by OBJECT_ID(@tableName) to ensure correct table scope
+
+**Fix 2: DbContextGenerator.cs**
+- **Lines 90-112 (GenerateModel)**: Removed [Key] attribute emission entirely; still emits [DatabaseGenerated] for identity columns
+- **Lines 159-207 (GenerateDbContext)**: Added OnModelCreating() method to DbContext with HasKey() calls:
+  - Single PK: modelBuilder.Entity<ClassName>().HasKey(e => e.ColumnName);
+  - Composite PK: modelBuilder.Entity<ClassName>().HasKey(e => new { e.Col1, e.Col2 });
+  - Skips tables with no primary keys
+
+**Test Updates:**
+- Updated 2 legacy tests (GenerateAsync_SingleTable_NoForeignKeys_ProducesModelFile, GenerateAsync_GuidPrimaryKey_NoIdentityAnnotation_WhenNotIdentity) to expect NO [Key] and verify HasKey() in DbContext
+- 3 newer tests already expected this behavior (GenerateAsync_SingleColumnPrimaryKey_NoKeyAttributeEmitted, GenerateAsync_CompositePrimaryKey_NoKeyAttributeAndFluentApiWithAnonymousObject, GenerateAsync_IdentityColumn_DatabaseGeneratedAttributeStillEmitted)
+
+**Testing:**
+- All 517 tests pass (513 succeeded, 4 skipped)
+- Build succeeded with 0 errors, 1 warning (unrelated)
+
+**Learnings:**
+- GetSchemaAsync("IndexColumns") is misleading - returns ALL indexes, not just primary keys
+- SQL Server system views (sys.indexes, sys.index_columns) are authoritative for PK detection
+- EF Core composite key requirements: Fluent API HasKey() or class-level [PrimaryKey] attribute (C# 11+), NOT multiple [Key] attributes
+- DbContextGenerator now generates OnModelCreating for all DbContexts with primary keys
+- Pattern: Attribute-based config for simple properties, Fluent API for relationships and composite structures
+

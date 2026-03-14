@@ -1,4 +1,4 @@
-﻿using LinqStudio.Abstractions;
+using LinqStudio.Abstractions;
 using LinqStudio.Core.Models;
 using LinqStudio.Core.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,10 +16,15 @@ public static class ServiceCollectionExtensions
 
 		AddAndBindOptions(services);
 
+		// Register the shared Roslyn workspace service (before services that depend on it)
+		services.AddSingleton<RoslynWorkspaceService>();
+
 		// register the CompilerServiceFactory so Blazor components can create CompilerService instances
 		services.AddScoped<CompilerServiceFactory>();
 
 		services.AddScoped<IDbContextGenerator, DbContextGenerator>();
+
+		services.AddScoped<IQueryExecutionService, QueryExecutionService>();
 
 		return services;
 	}

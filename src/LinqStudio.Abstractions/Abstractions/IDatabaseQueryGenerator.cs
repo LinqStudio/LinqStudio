@@ -1,4 +1,4 @@
-﻿using LinqStudio.Abstractions.Models;
+using LinqStudio.Abstractions.Models;
 
 namespace LinqStudio.Abstractions;
 

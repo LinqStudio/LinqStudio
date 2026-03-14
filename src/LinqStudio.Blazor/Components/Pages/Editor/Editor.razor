@@ -4,6 +4,7 @@
 @using BlazorMonaco
 @using BlazorMonaco.Editor
 @using BlazorMonaco.Languages
+@using LinqStudio.Blazor.Components
 
 <PageTitle>Editor - LinqStudio</PageTitle>
 
@@ -76,12 +77,53 @@
 			}
 		</div>
 
-		<!-- Editor Actions -->
-		<MudPaper Class="pa-2" Elevation="1" data-testid="editor-info-bar">
+		<!-- Query Execution Actions -->
+		<MudPaper Class="pa-2" Elevation="1" data-testid="query-execution-bar">
 			<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-				<MudText Typo="Typo.body2" Color="Color.Secondary">
-					Editor provides IntelliSense using Roslyn compiler with EF Core support
-				</MudText>
+				<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+					@{
+						var execState = GetCurrentExecutionState();
+					}
+					@if (execState.IsExecuting)
+					{
+						<MudButton StartIcon="@Icons.Material.Filled.Stop"
+								   Color="Color.Error"
+								   Size="Size.Small"
+								   Variant="Variant.Filled"
+								   OnClick="StopCurrentQuery"
+								   data-testid="stop-query-btn">
+							Stop
+						</MudButton>
+					}
+					else
+					{
+						<MudButton StartIcon="@Icons.Material.Filled.PlayArrow"
+								   Color="Color.Primary"
+								   Size="Size.Small"
+								   Variant="Variant.Filled"
+								   OnClick="ExecuteCurrentQueryAsync"
+								   Disabled="@(Workspace.Queries.CurrentQueryId is null)"
+								   data-testid="execute-query-btn">
+							Execute
+						</MudButton>
+					}
+
+					<div data-testid="timeout-select">
+						<MudSelect T="int" 
+								@bind-Value="_selectedTimeout" 
+								Variant="Variant.Outlined" 
+								Dense="true"
+								Disabled="@execState.IsExecuting">
+							<MudSelectItem T="int" Value="10">10s</MudSelectItem>
+							<MudSelectItem T="int" Value="30">30s</MudSelectItem>
+							<MudSelectItem T="int" Value="60">1 min</MudSelectItem>
+							<MudSelectItem T="int" Value="120">2 min</MudSelectItem>
+							<MudSelectItem T="int" Value="300">5 min</MudSelectItem>
+							<MudSelectItem T="int" Value="0">No timeout</MudSelectItem>
+						</MudSelect>
+					</div>
+				</MudStack>
+
 				<MudTooltip Text="Refresh IntelliSense schema from database">
 					<MudButton StartIcon="@Icons.Material.Filled.Refresh"
 							   Color="Color.Primary"
@@ -102,6 +144,19 @@
 					</MudButton>
 				</MudTooltip>
 			</MudStack>
+		</MudPaper>
+
+		<!-- Query Result Grid -->
+		<div style="flex:1; overflow:auto" data-testid="query-result-container">
+			<QueryResultGrid Result="@GetCurrentExecutionState().Result" 
+							 IsExecuting="@GetCurrentExecutionState().IsExecuting" />
+		</div>
+
+		<!-- Editor Info -->
+		<MudPaper Class="pa-2" Elevation="1" data-testid="editor-info-bar">
+			<MudText Typo="Typo.body2" Color="Color.Secondary">
+				Editor provides IntelliSense using Roslyn compiler with EF Core support
+			</MudText>
 		</MudPaper>
 		}
 		else

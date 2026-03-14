@@ -107,10 +107,37 @@ dotnet watch test --project tests/LinqStudio.App.WebServer.E2ETests/LinqStudio.A
 dotnet test --filter "DatabaseTreeView"
 ```
 
+## QueryResultGrid Component Tests (bUnit)
+**File:** `tests/LinqStudio.Blazor.Tests/QueryResultGridTests.cs`
+
+17 tests covering all 5 render states of the `QueryResultGrid` component:
+
+```bash
+dotnet test tests/LinqStudio.Blazor.Tests/LinqStudio.Blazor.Tests.csproj --filter "FullyQualifiedName~QueryResultGrid"
+```
+
+### Test List:
+- ✅ `QueryResultGrid_RendersEmpty_WhenResultIsNullAndNotExecuting`
+- ✅ `QueryResultGrid_ShowsSpinner_WhenIsExecutingTrue`
+- ✅ `QueryResultGrid_HidesSpinner_WhenIsExecutingFalse`
+- ✅ `QueryResultGrid_ShowsError_WhenResultHasRuntimeError`
+- ✅ `QueryResultGrid_ShowsCompileError_WhenResultIsCompileError`
+- ✅ `QueryResultGrid_ShowsElapsedTime_InErrorState`
+- ✅ `QueryResultGrid_ShowsEmptyInfo_WhenQueryReturnsNoRows`
+- ✅ `QueryResultGrid_ShowsElapsedTime_InEmptyState`
+- ✅ `QueryResultGrid_ShowsTable_WhenResultHasRows`
+- ✅ `QueryResultGrid_RendersColumnHeaders_ForEachColumn`
+- ✅ `QueryResultGrid_ShowsRowCount_InSuccessState`
+- ✅ `QueryResultGrid_ShowsSingularRow_WhenSingleRow`
+- ✅ `QueryResultGrid_ShowsElapsedTime_InSuccessState`
+- ✅ `QueryResultGrid_FormatsSubSecondElapsed_AsMilliseconds`
+- ✅ `QueryResultGrid_FormatsSecondElapsed_AsSeconds`
+- ✅ `QueryResultGrid_ShowsSpinner_EvenWhenResultIsNotNull`
+- ✅ `QueryResultGrid_HandleNullCellValues_Gracefully`
+
 ## Current Status
 
-- ✅ Tests compile successfully
-- ✅ Tests are discoverable by xUnit
-- ⏳ Waiting for DatabaseTreeView.razor component implementation
-- ⏳ Some tests will fail until component exists (expected)
-- ✅ Basic infrastructure tests should pass now (placeholder, DI, etc.)
+- ✅ All 56 Blazor component tests pass
+- ✅ DatabaseTreeView tests pass (5 tests)
+- ✅ QueryResultGrid tests pass (17 tests)
+- ✅ ErrorHandling tests pass (34 tests)

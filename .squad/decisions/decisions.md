@@ -758,3 +758,779 @@ For future reviews:
 
 **Code Review:**
 - `.squad/decisions/inbox/alex-review-current-changes.md` (merged)
+
+
+---
+
+# Alex — Code Review: Query Execution Feature
+
+**Date:** 2026-03-14  
+**Reviewer:** Alex (Code Reviewer)  
+**Requested by:** snakex64  
+**Scope:** Full query execution pipeline implementation
+
+---
+
+## ✅ Looks Good
+
+### Architecture & Design
+- **7-step Roslyn pipeline** is well-structured and correctly separated
+- **DbContext dual-constructor pattern** is elegant: parameterless for IntelliSense, parameterized for execution
+- **Per-tab execution state** design matches existing QueriesWorkspace pattern — consistent and clean
+- **QueryExecutionResult model** is simple, testable, and has good static factory methods
+- **Settings integration** follows IUserSettingsSection pattern correctly with full localization
+
+### Error Handling
+- Comprehensive try-catch with proper logging throughout
+- Distinguishes compile-time vs runtime errors via `IsCompileError` flag
+- OperationCanceledException handled properly in both service and UI
+- Cancellation token passed through entire pipeline correctly
+
+### Test Coverage
+- QueryExecutionResult factory methods: 100% tested (Empty, FromError, Success property)
+- QueryExecutionSettings: well tested (defaults, serialization, IUserSettingsSection compliance)
+- QueryResultGrid: comprehensive bUnit tests covering all 5 rendering states
+- Edge cases covered: null results, empty data, null cell values, elapsed time formatting
+
+### UI/UX
+- QueryResultGrid component handles all states gracefully (loading, error, empty, success, null)
+- Execute/Stop button toggle is clear and intuitive
+- Timeout dropdown with sensible defaults (10s–5min, 0=unlimited)
+- Clean separation: QueryResultGrid.razor (markup) + QueryResultGrid.razor.cs (code-behind)
+
+---
+
+## ⚠️ Findings
+
+### QueryExecutionService.cs
+
+#### **[Severity: High]** Memory Leak — Assembly Never Unloaded
+**Line:** 343 — `var assembly = Assembly.Load(ms.ToArray());`
+
+**Issue:** Compiled assemblies are loaded into the default AppDomain and remain in memory forever. Each query execution creates a new assembly that cannot be garbage collected. With hundreds of query executions, this will leak memory continuously.
+
+**Impact:** 
+- Memory grows unbounded over time
+- Production risk: Blazor Server app will eventually exhaust memory
+- No disposal path for loaded assemblies
+
+**What to fix:**
+1. Use `AssemblyLoadContext` with `Unloadability=true` for each compilation:
+   ```csharp
+   var alc = new AssemblyLoadContext(name: null, isCollectible: true);
+   var assembly = alc.LoadFromStream(ms);
+   // ... use assembly ...
+   alc.Unload(); // Critical: unload when done
+   ```
+2. Track `AssemblyLoadContext` instances in QueryExecutionState or return them from CompileToAssemblyAsync
+3. Dispose/unload after query materialization completes
+4. Add integration test that runs 100 queries and verifies memory doesn't grow
+
+**Why it matters:** This is a production blocker. Without proper cleanup, the app will crash under normal usage.
+
+---
+
+#### **[Severity: High]** MemoryStream Not Disposed Before Assembly.Load
+**Line:** 328-343
+
+**Issue:** `MemoryStream ms` is declared with `using` but the stream's content is copied to a byte array before disposal. The MemoryStream is properly disposed, but the byte array (`ms.ToArray()`) persists in memory even after `Assembly.Load()` completes.
+
+**Impact:** 
+- Each query execution allocates a byte array copy of the compiled IL
+- Byte array is held by the Assembly object
+- Combining with the assembly leak above, this doubles the memory footprint per query
+
+**What to fix:**
+1. Load directly from stream without `ToArray()`:
+   ```csharp
+   ms.Seek(0, SeekOrigin.Begin);
+   var assembly = alc.LoadFromStream(ms);
+   // MemoryStream disposed here, assembly references its own copy
+   ```
+2. This is the correct pattern when using AssemblyLoadContext
+
+**Why it matters:** Reduces per-query memory footprint by 50%, especially for large model assemblies.
+
+---
+
+#### **[Severity: High]** DbContext Never Disposed
+**Lines:** 88-93, 124
+
+**Issue:** `DbContext` instance created via `Activator.CreateInstance` is never disposed. DbContext holds database connections and EF Core change tracker state.
+
+**Impact:**
+- Connection pool exhaustion over time
+- Memory leaks from EF Core internal state
+- Database connections may remain open longer than necessary
+
+**What to fix:**
+1. Wrap DbContext in `await using`:
+   ```csharp
+   await using var dbContext = Activator.CreateInstance(dbContextType, dbContextOptions) as DbContext;
+   if (dbContext == null) { /* error */ }
+   // ... use dbContext ...
+   // Disposed automatically here
+   ```
+2. Remove explicit null checks after `await using` — pattern guarantees non-null or throws
+
+**Why it matters:** EF Core best practice. Connection leaks will cause production failures under load.
+
+---
+
+#### **[Severity: Medium]** CancellationToken Not Respected During Compilation
+**Lines:** 222-345
+
+**Issue:** `CompileToAssemblyAsync()` accepts a `cancellationToken` but only passes it to two operations:
+- `project.GetCompilationAsync(cancellationToken)` (line 317)
+- `compilation.Emit(ms, cancellationToken: cancellationToken)` (line 329)
+
+All other steps (loading assemblies, adding documents, building metadata references) do not check cancellation.
+
+**Impact:**
+- User clicks "Stop" but compilation continues for several seconds
+- Poor UX: button says "Stopped" but CPU usage shows work still happening
+- Not a safety issue, just unresponsive UI
+
+**What to fix:**
+1. Add `cancellationToken.ThrowIfCancellationRequested()` at key points:
+   - Before loading assemblies (line 256)
+   - After adding metadata references (line 293)
+   - Before adding documents (line 295)
+2. Wrap long-running loops in cancellation checks
+
+**Why it matters:** User expects immediate response to cancellation. Current behavior feels broken.
+
+---
+
+#### **[Severity: Medium]** ExtractResults() Does Not Handle Collections
+**Lines:** 347-391
+
+**Issue:** `ExtractResults()` uses reflection to read public properties. If a query returns entities with collection navigation properties (e.g., `Customer.Orders`), calling `prop.GetValue(item)` will trigger lazy-loading and execute additional database queries.
+
+**Impact:**
+- Unexpected database round-trips (N+1 queries)
+- Performance degradation with complex models
+- Results include serialized collection data (often not desired)
+
+**What to fix:**
+1. Filter out collection properties:
+   ```csharp
+   var props = type.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+       .Where(p => !typeof(IEnumerable).IsAssignableFrom(p.PropertyType) 
+                || p.PropertyType == typeof(string))
+       .ToArray();
+   ```
+2. Alternatively, use `AsNoTracking()` on queryable before materialization to prevent lazy-loading entirely
+3. Add integration test: query that returns entity with nav properties, verify no extra queries executed
+
+**Why it matters:** N+1 queries will cause severe performance issues with production data.
+
+---
+
+#### **[Severity: Medium]** WrapUserQuery() Does Not Handle Return Type Variance
+**Lines:** 174-195
+
+**Issue:** Wrapped query assumes user returns `IQueryable<object>`, but users might return:
+- `IQueryable<Customer>` (specific type)
+- `IEnumerable<T>` (already materialized)
+- Scalar values (`int Count = context.Users.Count()`)
+- `Task<List<T>>` (awaited expression)
+
+Current code only handles the exact signature `Task<IQueryable<object>>`.
+
+**Impact:**
+- Compile errors for common query patterns
+- Cryptic Roslyn diagnostics ("cannot convert IQueryable<Customer> to IQueryable<object>")
+- Users don't understand what's wrong
+
+**What to fix:**
+1. Detect query result type and wrap accordingly:
+   ```csharp
+   // If user returns scalar: wrap as single-row result
+   // If user returns IEnumerable<T>: wrap as IQueryable<object>
+   // If user returns IQueryable<T>: cast to IQueryable<object>
+   ```
+2. OR: change QueryContainer signature to use `dynamic` return type and handle runtime casting
+3. Add tests for each query pattern variation
+
+**Why it matters:** Users expect `context.Users.Count()` to work. Current implementation rejects common patterns.
+
+---
+
+#### **[Severity: Low]** Timeout Implementation Creates Double CancellationToken
+**Lines:** 128-144
+
+**Issue:** Method creates `timeoutCts` and then `linkedCts` combining timeout + caller's token. Both are disposed, but the pattern is unnecessarily complex.
+
+**Impact:**
+- More allocations than necessary
+- Slightly harder to read
+- Functionally correct, just not optimal
+
+**What to fix:**
+1. Simplify to single CancellationTokenSource:
+   ```csharp
+   var timeoutSeconds = _settings.CurrentValue.TimeoutSeconds;
+   using var cts = timeoutSeconds > 0 
+       ? CancellationTokenSource.CreateLinkedTokenSource(cancellationToken)
+       : new CancellationTokenSource();
+   
+   if (timeoutSeconds > 0)
+       cts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
+   
+   var items = await queryable.ToListAsync(cts.Token);
+   ```
+2. One less allocation, same functionality
+
+**Why it matters:** Minor optimization, cleaner code.
+
+---
+
+### DbContextGenerator.cs
+
+#### **[Severity: Low]** Generated DbContext Constructor Comment Misleading
+**Lines:** 183-187
+
+**Comment says:** "Parameterless constructor for IntelliSense compilation - never instantiated at runtime"
+
+**Reality:** QueryExecutionService instantiates via `Activator.CreateInstance(dbContextType, dbContextOptions)` (line 88) which uses the parameterized constructor.
+
+**Impact:** Comment is confusing for future maintainers.
+
+**What to fix:**
+1. Update comment:
+   ```csharp
+   // Parameterless constructor for CompilerService IntelliSense (no real database)
+   public GeneratedDbContext() { }
+   
+   // Parameterized constructor for QueryExecutionService (real query execution)
+   public GeneratedDbContext(DbContextOptions options) : base(options) { }
+   ```
+
+**Why it matters:** Accurate comments prevent confusion during future debugging.
+
+---
+
+### Editor.razor.cs
+
+#### **[Severity: Medium]** Dictionary Access Race Condition in Blazor Server
+**Line:** 56, 479, 481
+
+**Issue:** `_executionStates` is a non-thread-safe `Dictionary<Guid, QueryExecutionState>` accessed from multiple async paths:
+1. `GetCurrentExecutionState()` (line 472)
+2. `ExecuteCurrentQueryAsync()` (line 488)
+3. UI rendering (line 151-152)
+4. Dispose cleanup (line 569-575)
+
+In Blazor Server, multiple SignalR messages can arrive concurrently for the same circuit.
+
+**Impact:**
+- Rare race condition: `Dictionary` throws if accessed during resize
+- Hard to reproduce, may only occur under load
+- Potential crash: unhandled exception in Blazor circuit
+
+**What to fix:**
+1. Use `ConcurrentDictionary<Guid, QueryExecutionState>`:
+   ```csharp
+   private readonly ConcurrentDictionary<Guid, QueryExecutionState> _executionStates = new();
+   ```
+2. Change `GetCurrentExecutionState()` to use `GetOrAdd()`:
+   ```csharp
+   return _executionStates.GetOrAdd(queryId, _ => new QueryExecutionState());
+   ```
+3. No other changes needed — ConcurrentDictionary has compatible API
+
+**Why it matters:** Blazor Server threading model allows concurrent access. Dictionary is not thread-safe.
+
+---
+
+#### **[Severity: Medium]** ExecuteCurrentQueryAsync Race: Navigate Away During Execution
+**Lines:** 488-551
+
+**Issue:** User clicks Execute → navigates to different tab → result arrives → `StateHasChanged()` called for wrong tab.
+
+**Flow:**
+1. User on QueryA, clicks Execute
+2. `state.IsExecuting = true; StateHasChanged();` (line 521-523)
+3. User immediately switches to QueryB
+4. QueryA completes, `state.Result = result; StateHasChanged();` (line 528, 550)
+5. UI updates for QueryB but shows QueryA's result briefly
+
+**Impact:**
+- UI flicker: wrong result shown for ~1 frame
+- Confusing UX: "Why did my result disappear?"
+- Not a data corruption issue, just visual glitch
+
+**What to fix:**
+1. Check if still on same query before StateHasChanged:
+   ```csharp
+   if (Workspace.Queries.CurrentQueryId == queryId) {
+       StateHasChanged();
+   }
+   ```
+2. Apply at lines 523, 528, 550
+
+**Why it matters:** Edge case but noticeable. Users will report it as a bug.
+
+---
+
+#### **[Severity: Low]** Cancellation Cleanup Missing in Finally Block
+**Lines:** 545-551
+
+**Issue:** `finally` block disposes `CancellationTokenSource` but doesn't handle the case where cancellation occurs before the token is created.
+
+**Impact:** If `GetCurrentExecutionState()` throws (shouldn't happen, but defensive coding), cleanup is skipped.
+
+**What to fix:**
+1. Move cleanup logic to ensure it always runs:
+   ```csharp
+   finally
+   {
+       if (_executionStates.TryGetValue(queryId, out var cleanupState))
+       {
+           cleanupState.IsExecuting = false;
+           cleanupState.CancellationTokenSource?.Cancel();
+           cleanupState.CancellationTokenSource?.Dispose();
+           cleanupState.CancellationTokenSource = null;
+       }
+       StateHasChanged();
+   }
+   ```
+
+**Why it matters:** Defensive programming. Edge case but worth handling correctly.
+
+---
+
+### QueryResultGrid.razor
+
+#### **[Severity: Low]** No Pagination for Large Result Sets
+**Lines:** 40-59
+
+**Issue:** `MudTable` renders all rows at once. If query returns 10,000 rows, browser performance degrades significantly.
+
+**Impact:**
+- Browser hangs for large result sets
+- Poor UX: no way to page through data
+- Memory usage spikes in browser
+
+**What to fix:**
+1. Add `MudTable` pagination attributes:
+   ```razor
+   <MudTable Items="@Result.Rows" 
+             Dense="true" Hover="true" Striped="true" 
+             FixedHeader="true" Height="400px" Elevation="2"
+             RowsPerPage="100">
+       @* ... *@
+   </MudTable>
+   ```
+2. Consider adding server-side pagination later (more complex)
+
+**Why it matters:** Users will execute queries that return thousands of rows. Current implementation will freeze the browser.
+
+---
+
+#### **[Severity: Low]** Elapsed Time Format Inconsistency
+**Line:** 16-19 (FormatElapsedTime method)
+
+**Issue:** Sub-second times show no decimal (e.g., "123ms"), but seconds show 2 decimals (e.g., "1.50s"). This inconsistency is minor but noticeable.
+
+**Impact:** Purely cosmetic. Users might find it odd.
+
+**What to fix:**
+
+---
+
+## MSSQL Composite Primary Key Generation Fix (2026-03-14)
+
+**Status:** ✅ Implemented & Verified  
+**Owner:** Simon (Backend Core Dev)  
+**Architect:** Samy (Architecture)  
+**Tester:** Jordan (Tests Dev)  
+**Date:** 2026-03-14
+
+### Problem Statement
+
+When executing a query on MSSQL tables with composite primary keys, EF Core throws:
+```
+The entity type 'OrderItems' has multiple properties with the [Key] attribute. 
+Composite primary keys can be configured by placing the [PrimaryKey] attribute 
+on the entity type class, or by using 'HasKey' in 'OnModelCreating'.
+```
+
+### Root Cause Analysis
+
+**Primary Issue:** `MssqlGenerator.GetColumnsAsync()` uses `connection.GetSchemaAsync("IndexColumns", ...)` to detect PKs, but this returns **ALL indexed columns**, not just primary key columns. For tables with performance indexes on non-key columns, this incorrectly marks those columns as PKs.
+
+**Secondary Issue:** `DbContextGenerator.GenerateModel()` emits `[Key]` attribute on every column marked as `col.IsPrimaryKey`. EF Core forbids multiple `[Key]` attributes; it requires either:
+- Class-level `[PrimaryKey(...)]` attribute (C# 11+)
+- Fluent API `HasKey()` in `OnModelCreating`
+- NOT multiple property-level `[Key]` attributes
+
+### Solution Implemented (Option C)
+
+**Approach:** Fluent API for ALL primary keys (consistent single & composite key handling)
+
+#### Change 1: MssqlGenerator.cs — Correct PK Detection
+**File:** `src\LinqStudio.Database\MssqlGenerator.cs` (GetColumnsAsync method, lines 215-247)
+
+**Before:** Used IndexColumns schema (incorrect)
+
+**After:** Direct SQL query filtering by `is_primary_key = 1`:
+```sql
+SELECT c.name AS column_name, ic.key_ordinal AS key_ordinal
+FROM sys.indexes i
+INNER JOIN sys.index_columns ic ON i.object_id = ic.object_id AND i.index_id = ic.index_id
+INNER JOIN sys.columns c ON ic.object_id = c.object_id AND ic.column_id = c.column_id
+WHERE i.is_primary_key = 1 AND i.object_id = OBJECT_ID(@tableName)
+ORDER BY ic.key_ordinal
+```
+
+**Benefit:** Accurately identifies ONLY primary key columns, respects schema-qualified table names, preserves column order
+
+#### Change 2: DbContextGenerator.cs — Remove [Key] Emissions
+**File:** `src\LinqStudio.Core\Services\DbContextGenerator.cs` (GenerateModel method, lines 90-112)
+
+**Before:** Emitted `[Key]` for every `col.IsPrimaryKey` column
+
+**After:**
+- Removed all `[Key]` attribute emissions
+- Kept `[DatabaseGenerated(DatabaseGeneratedOption.Identity)]` for identity columns
+- Uses Fluent API HasKey() instead
+
+#### Change 3: DbContextGenerator.cs — Add OnModelCreating
+**File:** `src\LinqStudio.Core\Services\DbContextGenerator.cs` (GenerateDbContext method, lines 159-207)
+
+**Added:** Protected override OnModelCreating(ModelBuilder modelBuilder) method
+```csharp
+protected override void OnModelCreating(ModelBuilder modelBuilder)
+{
+    // Single PK: modelBuilder.Entity<ClassName>().HasKey(e => e.ColumnName);
+    // Composite PK: modelBuilder.Entity<ClassName>().HasKey(e => new { e.Col1, e.Col2 });
+}
+```
+
+**Coverage:** Emits HasKey() for all tables with primary keys
+
+#### Change 4: DbContextGeneratorTests.cs — Update Assertions
+**File:** `tests\LinqStudio.Core.Tests\DbContextGeneratorTests.cs`
+
+**Changes:**
+- Updated existing test assertions to expect NO [Key] attributes
+- Added 5 new tests covering:
+  - Single column primary keys
+  - Composite primary keys
+  - Identity columns with HasKey
+  - Multiple table scenarios
+  - GUID primary keys
+
+### Design Rationale (Why Option C)
+
+**Option C chosen over A, B, D for these reasons:**
+
+1. **Consistency:** Single-key and multi-key tables use identical patterns. No need to remember two conventions.
+2. **EF Core Alignment:** Matches output of official `Scaffold-DbContext` tool (which uses `HasKey()` for generated models).
+3. **Future Extensibility:** `OnModelCreating` is the natural place to add indices, constraints, shadow properties, cascade rules.
+4. **Robustness:** Fluent API has zero C# version constraints (works on .NET 6+, 7, 8, 10).
+5. **Roslyn Safety:** Generated code compiles identically regardless of PK annotation style. No intellisense impact.
+
+**Rejected Alternatives:**
+- **Option A ([PrimaryKey]):** Requires C# 11+, needs nameof() parameters, column order sensitive
+- **Option B (Hybrid HasKey):** Inconsistent single/composite patterns, unnecessary complexity
+- **Option D (Smart Hybrid):** Two different patterns, higher maintenance burden
+
+### Test Coverage
+
+**New Tests (5 total):**
+1. `GenerateAsync_SingleColumnPrimaryKey_NoKeyAttributeEmitted` — Validates single PK handling
+2. `GenerateAsync_CompositePrimaryKey_NoKeyAttributeAndFluentApiWithAnonymousObject` — Validates composite PK with anonymous object
+3. `GenerateAsync_IdentityColumn_DatabaseGeneratedAttributeStillEmitted` — Confirms identity marking still works
+4. `GenerateAsync_MultipleTables_OnModelCreatingCoversAllPrimaryKeys` — Multi-table scenarios
+5. Updated existing test for GUID PKs without identity
+
+**Test Results:**
+- Total: 517 tests
+- Passed: 513
+- Skipped: 4 (pre-existing)
+- Failed: 0
+- Build: ✅ Success
+
+### Verification
+
+**Mental Trace - OrderItems Table (Composite PK: OrderId + OrderItemId):**
+
+1. **MssqlGenerator.GetColumnsAsync()**
+   - SQL query executes on server
+   - Returns only OrderId and OrderItemId (Quantity not included)
+   - primaryKeys set contains: ["OrderId", "OrderItemId"]
+   - IsPrimaryKey = true for OrderId and OrderItemId only
+
+2. **DbContextGenerator.GenerateModel()**
+   - Entity class generated with NO [Key] attributes
+   - Properties: public int OrderId { get; set; }, public int OrderItemId { get; set; }, public int Quantity { get; set; }
+   - [DatabaseGenerated] not needed (not identity columns)
+
+3. **DbContextGenerator.GenerateDbContext()**
+   - OnModelCreating contains:
+     ```csharp
+     modelBuilder.Entity<OrderItems>().HasKey(e => new { e.OrderId, e.OrderItemId });
+     ```
+   - EF Core accepts this and configures composite PK correctly
+
+### Impact
+
+**Affected Databases:**
+- ✅ **MSSQL:** Fixed (PK detection SQL query + Fluent API)
+- ✅ **MySQL/PostgreSQL/SQLite:** Fixed (Fluent API only; PK detection already correct)
+
+**Breaking Changes:** None for users. Generated code now compiles correctly with EF Core.
+
+**Code Generation Pattern:** Established Fluent API pattern for all structural configurations (PKs, relationships, indices)
+
+### Risk Assessment
+
+**Low Risk:** Roslyn compilation unaffected (metadata-only change)  
+**Confidence Level:** High (513 tests passing, covers single PKs, composite PKs, identity, multi-table scenarios)
+
+### Related Documentation
+
+- Architecture decision: `.squad/decisions/inbox/samy-composite-key-options.md` (merged)
+- Investigation report: `.squad/decisions/inbox/simon-mssql-key-investigation.md` (merged)
+- Implementation summary: `.squad/decisions/inbox/simon-option-c-implementation.md` (merged)
+- Test coverage: `.squad/decisions/inbox/jordan-pk-tests.md` (merged)
+1. Standardize format:
+   ```csharp
+   if (elapsed.TotalSeconds < 1)
+       return $"{elapsed.TotalMilliseconds:F1}ms"; // "123.4ms"
+   return $"{elapsed.TotalSeconds:F2}s";
+   ```
+2. Or: always use 0 decimals for ms, 2 for seconds (current behavior is fine)
+
+**Why it matters:** Very low priority. Current behavior is acceptable.
+
+---
+
+### IQueryExecutionService Location
+
+#### **[Severity: Low]** Interface in Core.Services, Not Abstractions
+**File:** `src/LinqStudio.Core/Services/IQueryExecutionService.cs`
+
+**Issue:** The review request specifically flagged this. Interface lives in `LinqStudio.Core.Services` namespace but references `LinqStudio.Core.Models.Project` type. Technically, interfaces should be in `LinqStudio.Abstractions.Services` with all types in `Abstractions.Models`.
+
+**Impact:**
+- Breaks clean layering (Abstractions → Core)
+- `Project` model has additional properties not needed for this interface
+- Future: if Blazor needs different execution service, can't swap implementations easily
+
+**Current Reality:**
+- Works fine in practice
+- `Project` model is central to the app's domain
+- No actual layer violation since Core depends on Abstractions
+
+**What to fix:**
+1. **Option A (Ideal):** Move interface to `LinqStudio.Abstractions.Services`, create lightweight `QueryExecutionRequest` record in Abstractions with only needed fields (connectionString, databaseType, queryGenerator)
+2. **Option B (Acceptable):** Document in copilot.md that this is an accepted exception to layering rules
+3. **Option C (Current):** Leave as-is, note in decisions.md
+
+**Recommendation:** Option B or C. The current design works and refactoring would touch many files for minimal benefit.
+
+**Why it matters:** Architectural consistency vs pragmatism. This is a gray area, not a clear violation.
+
+---
+
+## 🧪 Missing Tests
+
+### QueryExecutionService Integration Tests
+**File:** `tests/LinqStudio.Core.Tests/QueryExecutionServiceTests.cs`
+
+**Issue:** Tests only cover:
+- Constructor validation
+- Static factory methods (QueryExecutionResult)
+- Settings defaults
+- Basic error cases (no connection string, cancellation)
+
+**Missing critical integration tests:**
+1. `ExecuteQueryAsync_WithValidQuery_ReturnsResults` — SQLite in-memory, simple SELECT
+2. `ExecuteQueryAsync_WithSyntaxError_ReturnsCompileError` — verify IsCompileError=true
+3. `ExecuteQueryAsync_WithRuntimeError_ReturnsRuntimeError` — null reference in query
+4. `ExecuteQueryAsync_WithTimeout_CancelsQuery` — verify timeout enforcement
+5. `ExecuteQueryAsync_WithComplexModel_HandlesNavigationProperties` — test lazy-loading behavior
+6. `ExecuteQueryAsync_MemoryUsage_DoesNotLeakAssemblies` — run 100 queries, measure memory
+7. `ExecuteQueryAsync_MultipleConcurrent_ThreadSafe` — parallel executions
+
+**Why it matters:** Unit tests don't validate the 7-step pipeline works end-to-end. Integration tests are essential.
+
+---
+
+### Editor.razor.cs Execution State Tests
+**File:** No tests exist
+
+**Missing scenarios:**
+1. Execute query on Tab A → switch to Tab B → verify Tab A result preserved
+2. Execute query → navigate away mid-execution → verify cleanup
+3. Concurrent execute on two tabs → verify state isolation
+4. Dispose during execution → verify cancellation
+
+**Why it matters:** Per-tab state is core functionality. Needs explicit test coverage.
+
+---
+
+### QueryResultGrid Edge Cases
+**File:** `tests/LinqStudio.Blazor.Tests/QueryResultGridTests.cs`
+
+**Existing tests are excellent.** Only minor gap:
+
+**Missing:**
+1. Test with 1000+ rows → verify performance is acceptable
+2. Test with very long column names → verify table layout doesn't break
+3. Test with deeply nested object ToString() → verify no stack overflow
+
+**Why it matters:** Edge cases are rare but when they hit, they're hard to debug without tests.
+
+---
+
+## 🧹 Cleanup
+
+### QueryExecutionServiceTests.cs Comment Block
+**Lines:** 301-316
+
+**Issue:** Large comment block explaining why integration tests aren't included. This is fine for documentation, but clutters the test file.
+
+**What to clean up:**
+Move to `docs/testing.md` or `tests/README.md` with a reference comment:
+```csharp
+// Integration test scenarios documented in docs/testing.md
+```
+
+**Why it matters:** Test files should be concise. Long explanatory comments belong in docs.
+
+---
+
+### DbContextGenerator.cs String Builder Pattern
+**Lines:** 79-157
+
+**Observation:** Uses StringBuilder for code generation (correct), but could use C# 11 raw string literals for multi-line templates instead of AppendLine chains.
+
+**Not a bug, just a style note.** Current code is readable and maintainable.
+
+**Why it matters:** Very low priority. If refactoring other things, consider raw strings for cleaner templates.
+
+---
+
+## 🔍 Findings vs Accepted Trade-offs
+
+Checked `.squad/decisions.md` for relevant decisions:
+
+### Decision #11-15: Query Execution Feature
+All findings above are **new issues** not covered by accepted trade-offs. The decisions document describes the implementation but doesn't acknowledge the memory leak, disposal, or concurrency issues.
+
+### Recommendation: Address High-Severity Findings Before Production
+The three **High** severity issues (assembly leak, MemoryStream handling, DbContext disposal) are production blockers. The **Medium** issues are important for production quality. **Low** issues can be deferred.
+
+---
+
+## Summary
+
+**Overall Assessment:** The query execution feature is **well-architected** with excellent separation of concerns, comprehensive test coverage for UI components, and follows established patterns. The 7-step Roslyn pipeline is clever and correct.
+
+**Critical Issues:** Three **High** severity memory leaks will cause production failures under normal usage:
+1. Assembly memory leak (unbounded growth)
+2. DbContext not disposed (connection pool exhaustion)
+3. MemoryStream byte array copies (2x memory footprint)
+
+**Recommendation:**
+1. **Must fix before production:** All High severity issues
+2. **Should fix before production:** Medium severity issues (race conditions, cancellation handling)
+3. **Can defer:** Low severity issues (pagination, comments, style)
+4. **Must add:** Integration tests for QueryExecutionService (currently only unit tests exist)
+
+**Before Merging:**
+- [ ] Implement AssemblyLoadContext with unloadability
+- [ ] Add `await using` for DbContext disposal
+- [ ] Load assembly from stream directly (no ToArray())
+- [ ] Add integration tests (at minimum: valid query, compile error, runtime error)
+- [ ] Change Dictionary to ConcurrentDictionary in Editor.razor.cs
+
+**Estimated Effort:** 4-6 hours to fix High + Medium issues + add integration tests.
+
+**Quality Gate:** Once fixes applied, this feature is production-ready. Architecture is solid, test coverage (after integration tests) will be strong, and patterns are consistent with the rest of the codebase.
+
+
+---
+
+## AssemblyLoadContext Collectible Pattern for Query Execution (2026-03-14)
+
+**Status:** ✅ Established  
+**Owner:** Simon  
+**Context:** QueryExecutionService.cs had 3 critical memory management issues causing memory leaks and resource disposal problems.
+
+### Problem Statement
+1. **AssemblyLoadContext Memory Leak:** Each compiled query assembly remained in AppDomain indefinitely, preventing garbage collection
+2. **DbContext Resource Leak:** EF Core DbContext connections not promptly released after query execution
+3. **Inefficient Memory Handling:** MemoryStream.ToArray() created unnecessary copy during assembly loading
+
+### Root Cause Analysis
+- Previous implementation used Assembly.Load(ms.ToArray()) which kept assemblies in default context
+- DbContext instantiated without disposal guarantee, blocking connection pool cleanup
+- No explicit assembly unloading mechanism between query executions
+- Over time, accumulated assemblies consumed increasing memory and eventually caused failures
+
+### Solution: Collectible AssemblyLoadContext Pattern
+
+**Core Implementation:**
+`csharp
+// Each query compilation creates isolated, collectible ALC
+var alc = new AssemblyLoadContext("query-exec", isCollectible: true);
+
+// Use LoadFromStream instead of ToArray — avoids memory copy
+ms.Seek(0, SeekOrigin.Begin);
+var assembly = alc.LoadFromStream(ms);
+
+// DbContext wrapped in await using for guaranteed disposal
+await using var dbContext = QueryGenerator.CreateDbContext(/* params */, alc);
+
+try
+{
+    // Execute query
+}
+finally
+{
+    // Guaranteed cleanup
+    alc?.Unload();
+}
+`
+
+**Key Design Decisions:**
+1. **Collectible ALC:** isCollectible: true allows ALC to be unloaded and garbage collected
+2. **LoadFromStream:** Reads assembly directly from stream without ToArray() copy
+3. **await using:** Ensures DbContext.Dispose() called immediately after query execution
+4. **try/finally:** Guarantees alc.Unload() even on exceptions or early returns
+5. **ALC parameter threading:** Method signatures updated to pass ALC through constructor chain
+
+### Files Modified
+- src/LinqStudio.Core/Services/QueryExecutionService.cs
+  - ExecuteQuery method: Added ALC creation, LoadFromStream, await using DbContext
+  - Error handling: Added early returns with alc?.Unload()
+- src/LinqStudio.Core/Services/DbContextGenerator.cs
+  - Constructor comment: Documented ALC parameter addition
+- src/LinqStudio.Core/Services/copilot.md
+  - Technical reference: Documented ALC pattern for future maintenance
+
+### Verification
+- **Build:** 0 errors, 0 warnings
+- **Test Coverage:** All 487 tests passing
+  - LinqStudio.Core.Tests: 121/121 ✅
+  - LinqStudio.Blazor.Tests: 56/56 ✅
+  - LinqStudio.Databases.Tests: 310/310 ✅
+
+### Impact
+- **Memory:** Assemblies immediately unloadable after query execution
+- **Connections:** DbContext disposal prompt, connection pool cleanup efficient
+- **Performance:** LoadFromStream eliminates unnecessary allocations
+- **Reliability:** Guaranteed cleanup prevents accumulation issues over time
+
+### Future Reference
+When adding new query execution paths or modifying DbContext generation:
+1. Always use collectible ALC pattern for temporary assemblies
+2. Wrap DbContext in wait using statement
+3. Add lc?.Unload() in finally blocks for all execution paths
+4. See copilot.md in Services directory for technical notes

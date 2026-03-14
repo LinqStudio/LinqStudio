@@ -162,6 +162,12 @@
   <data name="UserSettings.UISettings.IsDarkMode" xml:space="preserve">
     <value>"True"pour activer le mode sombre</value>
   </data>
+  <data name="UserSettings.QueryExecutionSettings" xml:space="preserve">
+    <value>Exécution de requête</value>
+  </data>
+  <data name="UserSettings.QueryExecutionSettings.TimeoutSeconds" xml:space="preserve">
+    <value>Délai d'attente de requête (secondes)</value>
+  </data>
   <data name="ConnectionSettings.Title" xml:space="preserve">
     <value>Paramètres de connexion</value>
   </data>

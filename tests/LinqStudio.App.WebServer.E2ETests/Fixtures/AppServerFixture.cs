@@ -9,6 +9,7 @@ public class AppServerFixture : IAsyncLifetime
 
 	public Uri BaseUrl => _factory.ClientOptions.BaseAddress ?? throw new InvalidOperationException("BlazorWebAppFactory not initialized");
 	public MockFileSystemService MockFileSystemService => _factory.MockFileSystemService;
+	public MockQueryExecutionService MockQueryExecutionService => _factory.MockQueryExecutionService;
 
 	public AppServerFixture()
 	{

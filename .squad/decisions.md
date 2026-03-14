@@ -1955,6 +1955,59 @@ Task<QueryExecutionResult> ExecuteQueryAsync(
 
 ## END OF ANALYSIS
 
+---
+
+### 9. Extract RoslynWorkspaceService — Reduce Code Duplication
+
+**Date:** 2026-03-14  
+**Author:** Simon (Backend Core Dev)  
+**Status:** ✅ Implemented
+
+**Problem:** CompilerService and QueryExecutionService both contained nearly identical code for:
+1. Creating Roslyn `AdhocWorkspace` instances with project setup
+2. Loading EF Core metadata references (Microsoft.EntityFrameworkCore.*, database providers, System.Linq.*)
+3. Wrapping user LINQ queries in a synthetic `QueryContainer` class
+
+**Consequences of Duplication:**
+- **Inconsistent assembly lists**: CompilerService was missing SQLite, PostgreSQL, and MySQL providers
+- **Maintenance burden**: Any change to workspace setup required updating both services
+- **Testing overhead**: Test fixtures had to duplicate workspace creation logic
+
+**Decision:** Extract shared Roslyn workspace management into a new `RoslynWorkspaceService` singleton service.
+
+**Implementation:**
+
+```csharp
+public class RoslynWorkspaceService
+{
+    /// Creates a new AdhocWorkspace with a project pre-configured with all EF Core metadata references
+    public (AdhocWorkspace Workspace, ProjectId ProjectId, Solution Solution) CreateWorkspace(string projectName);
+
+    /// Returns the complete set of MetadataReferences for EF Core + all DB providers + common system assemblies
+    public IReadOnlyList<MetadataReference> GetMetadataReferences();
+
+    /// Wraps a user LINQ query in a QueryContainer class for Roslyn analysis or compilation
+    public string WrapQuery(string userQuery, string contextTypeName, string projectNamespace, string beforeReturn = "return");
+}
+```
+
+**Key Design Decisions:**
+
+1. **Stateless Singleton** — No shared mutable state, thread-safe, creates fresh workspaces per call
+2. **Assembly list from QueryExecutionService** — Canonical source includes all DB providers (fixed missing SQLite, PostgreSQL, MySQL)
+3. **Preserved cursor position logic** — `WrapQuery()` produces byte-for-byte identical output to original implementations
+4. **Maintained separation of concerns** — CompilerService retains `SemaphoreSlim` and document lifecycle management
+5. **Registered before dependents** — Ensures proper injection order: RoslynWorkspaceService → CompilerService → QueryExecutionService
+
+**Results:**
+- ✅ Eliminated duplicate workspace initialization code
+- ✅ Fixed assembly loading inconsistencies across services
+- ✅ Improved testability with single RoslynWorkspaceService instance
+- ✅ All 487 tests pass (121 Core + 56 Blazor + 310 Databases + 26 E2E, 4 skipped)
+- ✅ Build succeeded with 0 errors, 0 warnings
+
+**Status:** ✅ Implemented, tested, ready for merge
+
 
 ---
 
@@ -2133,3 +2186,141 @@ Once Simon's interface change lands:
 - Related files: 
   - `src/LinqStudio.Abstractions/Services/IQueryExecutionService.cs` (interface definition)
   - `src/LinqStudio.Core/Services/QueryExecutionService.cs` (implementation)
+
+
+---
+
+# Decision: RoslynWorkspaceService.AddDocuments() Method
+
+**Date:** 2026-03-13  
+**Author:** Simon (Backend Core Dev)  
+**Status:** Implemented
+
+## Context
+
+RoslynWorkspaceService was created to centralize Roslyn workspace creation and query wrapping. However, QueryExecutionService still contained verbose, repetitive code for adding documents (model files, DbContext, query wrapper) to the workspace.
+
+## Decision
+
+Added `AddDocuments()` method to RoslynWorkspaceService:
+
+```csharp
+public Solution AddDocuments(
+    Solution solution,
+    ProjectId projectId,
+    IReadOnlyDictionary<string, string> modelFiles,
+    string dbContextCode,
+    string wrappedQuery,
+    string queryFileName = "QueryContainer.cs")
+```
+
+This method handles batch document addition to a Roslyn solution in one call.
+
+## Rationale
+
+1. **Eliminates duplication**: QueryExecutionService had ~20 lines of document-adding code that's now a single method call
+2. **Follows existing patterns**: RoslynWorkspaceService already owns workspace creation and query wrapping; document addition is a natural fit
+3. **Clear separation of concerns**:
+   - **AddDocuments()**: For fresh workspace creation (QueryExecutionService)
+   - **AddOrUpdateFile()**: For long-lived workspaces with updates (CompilerService)
+
+## Implementation Notes
+
+- Refactored QueryExecutionService.CompileToAssemblyAsync() to use AddDocuments()
+- Did NOT refactor CompilerService.Initialize() because it requires update capability (AddOrUpdateFile())
+- Added `using Microsoft.CodeAnalysis.Text` to RoslynWorkspaceService for SourceText
+
+## Alternatives Considered
+
+**Option 1:** Refactor CompilerService to also use AddDocuments()
+- **Rejected**: CompilerService.Initialize() can be called multiple times and must update existing documents, not add duplicates
+
+**Option 2:** Make AddDocuments() handle updates
+- **Rejected**: Would blur the distinction between one-time setup (QueryExecutionService) and incremental updates (CompilerService)
+
+## Consequences
+
+### Positive
+- Cleaner QueryExecutionService code (single method call vs. foreach loops)
+- Centralized document-adding logic in RoslynWorkspaceService
+- Maintains clear distinction between fresh-workspace and update-workspace patterns
+
+### Negative
+- None identified - both services use the pattern that fits their lifecycle
+
+## Related
+
+- RoslynWorkspaceService extraction (2026-03-13)
+- CompilerService and QueryExecutionService architecture
+
+
+---
+
+# RoslynWorkspaceService.AddDocuments() Test Structure
+
+**Date:** 2026-03-13  
+**Author:** Jordan (Tests Dev)  
+**Status:** Implemented
+
+## Decision
+
+Created `RoslynWorkspaceServiceTests.cs` to test the `AddDocuments()` method using a minimal AdhocWorkspace pattern.
+
+## Context
+
+Simon added `RoslynWorkspaceService.AddDocuments()` which adds model files, DbContext, and query files to a Roslyn solution. Needed tests to verify correct document addition behavior.
+
+## Test Pattern Established
+
+### Minimal Workspace Creation
+```csharp
+private static (Solution solution, ProjectId projectId) CreateTestProject()
+{
+    var workspace = new AdhocWorkspace();
+    var projectInfo = ProjectInfo.Create(
+        ProjectId.CreateNewId(),
+        VersionStamp.Create(),
+        "TestProject",
+        "TestProject",
+        LanguageNames.CSharp);
+    var solution = workspace.CurrentSolution.AddProject(projectInfo);
+    return (solution, projectInfo.Id);
+}
+```
+
+**Why this pattern:**
+- No metadata references needed for document addition tests
+- Fast test execution (no assembly loading)
+- Straightforward tuple return for ergonomics
+- Reusable across tests
+
+### Verification Pattern
+```csharp
+var project = updatedSolution.GetProject(projectId);
+var docNames = project.Documents.Select(d => d.Name).ToList();
+Assert.Contains("DbContext.cs", docNames);
+```
+
+**Why this approach:**
+- Tests the observable API surface (document names)
+- Simple to read and maintain
+- No need to verify document content (out of scope for AddDocuments)
+
+## Alternatives Considered
+
+1. **Full workspace with metadata references:** Rejected - unnecessary overhead for document addition tests
+2. **Mocking Solution/Project:** Rejected - Roslyn APIs are concrete and work well in tests
+3. **Testing document content:** Rejected - AddDocuments receives content as parameters; content validation is caller's responsibility
+
+## Implications
+
+- Future Roslyn service tests can reuse `CreateTestProject()` pattern
+- Tests are fast (no assembly loading) and isolated
+- Clear separation: AddDocuments tests verify structure, not content
+- If we need content validation tests later, they belong in caller tests (e.g., CompilerService)
+
+## Related
+
+- `RoslynWorkspaceServiceTests.cs` in `tests/LinqStudio.Core.Tests/`
+- Pattern similar to `CompilerServiceFactoryTests.CreateRoslynWorkspaceService()` helper
+

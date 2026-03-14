@@ -50,10 +50,11 @@ public class DbContextGeneratorTests
 
 		Assert.True(result.ModelFiles.ContainsKey("Orders.cs"));
 		var code = result.ModelFiles["Orders.cs"];
-		Assert.Contains("[Key]", code);
+		Assert.DoesNotContain("[Key]", code); // No [Key] - using HasKey() in OnModelCreating
 		Assert.Contains("[DatabaseGenerated(DatabaseGeneratedOption.Identity)]", code);
 		Assert.Contains("[Required]", code);
 		Assert.Contains("[MaxLength(200)]", code);
+		Assert.Contains("modelBuilder.Entity<Orders>().HasKey(e => e.Id);", result.DbContextCode);
 		Assert.Equal("GeneratedDbContext", result.ContextTypeName);
 		Assert.Equal("GeneratedModels", result.Namespace);
 	}
@@ -278,7 +279,8 @@ public class DbContextGeneratorTests
 		Assert.Contains("DbSet<Orders>", result.DbContextCode);
 		Assert.Contains("DbSet<Customers>", result.DbContextCode);
 		Assert.Contains("GeneratedDbContext", result.DbContextCode);
-		Assert.Contains("UseInMemoryDatabase", result.DbContextCode);
+		Assert.Contains("DbContextOptions options", result.DbContextCode);
+		Assert.DoesNotContain("UseInMemoryDatabase", result.DbContextCode);
 		Assert.Contains("namespace GeneratedModels", result.DbContextCode);
 	}
 
@@ -332,7 +334,149 @@ public class DbContextGeneratorTests
 		var result = await _generator.GenerateAsync(fake);
 
 		var code = result.ModelFiles["Entities.cs"];
-		Assert.Contains("[Key]", code);
+		Assert.DoesNotContain("[Key]", code); // No [Key] - using HasKey() in OnModelCreating
 		Assert.DoesNotContain("[DatabaseGenerated(", code);
+		Assert.Contains("modelBuilder.Entity<Entities>().HasKey(e => e.Id);", result.DbContextCode);
+	}
+
+	[Fact]
+	public async Task GenerateAsync_SingleColumnPrimaryKey_NoKeyAttributeEmitted()
+	{
+		// Arrange: Table with single-column PK
+		var table = new DatabaseTableName { Name = "Orders" };
+		var detail = new DatabaseTableDetail
+		{
+			Name = "Orders",
+			Columns =
+			[
+				new TableColumn { Name = "Id", DataType = "int", GenericType = DbColumnType.Int32, IsNullable = false, IsPrimaryKey = true, IsIdentity = false }
+			],
+			ForeignKeys = []
+		};
+
+		var fake = new FakeGenerator([table], new Dictionary<string, DatabaseTableDetail> { ["Orders"] = detail });
+
+		// Act
+		var result = await _generator.GenerateAsync(fake);
+
+		// Assert: Entity class does NOT contain [Key]
+		var entityCode = result.ModelFiles["Orders.cs"];
+		Assert.DoesNotContain("[Key]", entityCode);
+
+		// Assert: DbContext contains OnModelCreating with HasKey(e => e.Id)
+		Assert.Contains("protected override void OnModelCreating(ModelBuilder modelBuilder)", result.DbContextCode);
+		Assert.Contains("modelBuilder.Entity<Orders>().HasKey(e => e.Id);", result.DbContextCode);
+	}
+
+	[Fact]
+	public async Task GenerateAsync_CompositePrimaryKey_NoKeyAttributeAndFluentApiWithAnonymousObject()
+	{
+		// Arrange: Table with composite PK (OrderId, ProductId)
+		var table = new DatabaseTableName { Name = "OrderItems" };
+		var detail = new DatabaseTableDetail
+		{
+			Name = "OrderItems",
+			Columns =
+			[
+				new TableColumn { Name = "OrderId", DataType = "int", GenericType = DbColumnType.Int32, IsNullable = false, IsPrimaryKey = true, IsIdentity = false },
+				new TableColumn { Name = "ProductId", DataType = "int", GenericType = DbColumnType.Int32, IsNullable = false, IsPrimaryKey = true, IsIdentity = false },
+				new TableColumn { Name = "Quantity", DataType = "int", GenericType = DbColumnType.Int32, IsNullable = false, IsPrimaryKey = false, IsIdentity = false }
+			],
+			ForeignKeys = []
+		};
+
+		var fake = new FakeGenerator([table], new Dictionary<string, DatabaseTableDetail> { ["OrderItems"] = detail });
+
+		// Act
+		var result = await _generator.GenerateAsync(fake);
+
+		// Assert: Entity class does NOT contain [Key]
+		var entityCode = result.ModelFiles["OrderItems.cs"];
+		Assert.DoesNotContain("[Key]", entityCode);
+
+		// Assert: DbContext contains OnModelCreating with HasKey for composite key
+		Assert.Contains("protected override void OnModelCreating(ModelBuilder modelBuilder)", result.DbContextCode);
+		Assert.Contains("modelBuilder.Entity<OrderItems>().HasKey(e => new { e.OrderId, e.ProductId });", result.DbContextCode);
+	}
+
+	[Fact]
+	public async Task GenerateAsync_IdentityColumn_DatabaseGeneratedAttributeStillEmitted()
+	{
+		// Arrange: Table with identity PK column
+		var table = new DatabaseTableName { Name = "Orders" };
+		var detail = new DatabaseTableDetail
+		{
+			Name = "Orders",
+			Columns =
+			[
+				new TableColumn { Name = "Id", DataType = "int", GenericType = DbColumnType.Int32, IsNullable = false, IsPrimaryKey = true, IsIdentity = true }
+			],
+			ForeignKeys = []
+		};
+
+		var fake = new FakeGenerator([table], new Dictionary<string, DatabaseTableDetail> { ["Orders"] = detail });
+
+		// Act
+		var result = await _generator.GenerateAsync(fake);
+
+		// Assert: Entity class does NOT contain [Key]
+		var entityCode = result.ModelFiles["Orders.cs"];
+		Assert.DoesNotContain("[Key]", entityCode);
+
+		// Assert: Entity class DOES contain [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+		Assert.Contains("[DatabaseGenerated(DatabaseGeneratedOption.Identity)]", entityCode);
+
+		// Assert: DbContext contains OnModelCreating with HasKey
+		Assert.Contains("protected override void OnModelCreating(ModelBuilder modelBuilder)", result.DbContextCode);
+		Assert.Contains("modelBuilder.Entity<Orders>().HasKey(e => e.Id);", result.DbContextCode);
+	}
+
+	[Fact]
+	public async Task GenerateAsync_MultipleTables_OnModelCreatingCoversAllPrimaryKeys()
+	{
+		// Arrange: Two tables — one with single PK, one with composite PK
+		var ordersTable = new DatabaseTableName { Name = "Orders" };
+		var orderItemsTable = new DatabaseTableName { Name = "OrderItems" };
+
+		var ordersDetail = new DatabaseTableDetail
+		{
+			Name = "Orders",
+			Columns =
+			[
+				new TableColumn { Name = "Id", DataType = "int", GenericType = DbColumnType.Int32, IsNullable = false, IsPrimaryKey = true, IsIdentity = true }
+			],
+			ForeignKeys = []
+		};
+
+		var orderItemsDetail = new DatabaseTableDetail
+		{
+			Name = "OrderItems",
+			Columns =
+			[
+				new TableColumn { Name = "OrderId", DataType = "int", GenericType = DbColumnType.Int32, IsNullable = false, IsPrimaryKey = true, IsIdentity = false },
+				new TableColumn { Name = "ProductId", DataType = "int", GenericType = DbColumnType.Int32, IsNullable = false, IsPrimaryKey = true, IsIdentity = false }
+			],
+			ForeignKeys = []
+		};
+
+		var fake = new FakeGenerator(
+			[ordersTable, orderItemsTable],
+			new Dictionary<string, DatabaseTableDetail>
+			{
+				["Orders"] = ordersDetail,
+				["OrderItems"] = orderItemsDetail
+			});
+
+		// Act
+		var result = await _generator.GenerateAsync(fake);
+
+		// Assert: Neither entity class contains [Key]
+		Assert.DoesNotContain("[Key]", result.ModelFiles["Orders.cs"]);
+		Assert.DoesNotContain("[Key]", result.ModelFiles["OrderItems.cs"]);
+
+		// Assert: DbContext OnModelCreating contains HasKey for both tables
+		Assert.Contains("protected override void OnModelCreating(ModelBuilder modelBuilder)", result.DbContextCode);
+		Assert.Contains("modelBuilder.Entity<Orders>().HasKey(e => e.Id);", result.DbContextCode);
+		Assert.Contains("modelBuilder.Entity<OrderItems>().HasKey(e => new { e.OrderId, e.ProductId });", result.DbContextCode);
 	}
 }

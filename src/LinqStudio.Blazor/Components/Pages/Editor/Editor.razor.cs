@@ -2,6 +2,7 @@ using BlazorMonaco;
 using BlazorMonaco.Editor;
 using BlazorMonaco.Languages;
 using LinqStudio.Abstractions;
+using LinqStudio.Abstractions.Models;
 using LinqStudio.Blazor.Abstractions;
 using LinqStudio.Blazor.Components.Dialogs;
 using LinqStudio.Blazor.Constants;
@@ -25,10 +26,12 @@ public partial class Editor : ComponentBase, IDisposable
 	[Inject] private CompilerServiceFactory CompilerServiceFactory { get; set; } = null!;
 	[Inject] private IDbContextGenerator DbContextGenerator { get; set; } = null!;
 	[Inject] private IOptionsMonitor<UISettings> UISettings { get; set; } = null!;
+	[Inject] private IOptionsMonitor<QueryExecutionSettings> QueryExecutionSettings { get; set; } = null!;
 	[Inject] private ProjectWorkspace Workspace { get; set; } = null!;
 	[Inject] private NavigationManager NavigationManager { get; set; } = null!;
 	[Inject] private IDialogService DialogService { get; set; } = null!;
 	[Inject] private IFileSystemService FileSystemService { get; set; } = null!;
+	[Inject] private IQueryExecutionService QueryExecutionService { get; set; } = null!;
 
 	[Parameter] public Guid? QueryIdParam { get; set; }
 
@@ -41,6 +44,17 @@ public partial class Editor : ComponentBase, IDisposable
 
 	private CancellationTokenSource? _debounceTokenSource;
 	private const int DebounceDelayMs = 300;
+
+	// Per-tab execution state
+	private class QueryExecutionState
+	{
+		public QueryExecutionResult? Result { get; set; }
+		public bool IsExecuting { get; set; }
+		public CancellationTokenSource? CancellationTokenSource { get; set; }
+	}
+
+	private readonly Dictionary<Guid, QueryExecutionState> _executionStates = new();
+	private int _selectedTimeout = 30; // Default timeout in seconds
 
 	private StandaloneEditorConstructionOptions EditorConstructionOptions(StandaloneCodeEditor ed) => new()
 	{
@@ -65,6 +79,7 @@ public partial class Editor : ComponentBase, IDisposable
 	protected override void OnInitialized()
 	{
 		Workspace.WorkspaceChanged += OnWorkspaceChanged;
+		_selectedTimeout = QueryExecutionSettings.CurrentValue.TimeoutSeconds;
 	}
 
 	private void OnWorkspaceChanged(object? sender, EventArgs e)
@@ -453,6 +468,95 @@ public partial class Editor : ComponentBase, IDisposable
 		}
 	}
 
+	private QueryExecutionState GetCurrentExecutionState()
+	{
+		if (Workspace.Queries.CurrentQueryId is null)
+		{
+			return new QueryExecutionState();
+		}
+
+		if (!_executionStates.TryGetValue(Workspace.Queries.CurrentQueryId.Value, out var state))
+		{
+			state = new QueryExecutionState();
+			_executionStates[Workspace.Queries.CurrentQueryId.Value] = state;
+		}
+
+		return state;
+	}
+
+	private async Task ExecuteCurrentQueryAsync()
+	{
+		if (_editor is null || Workspace.Queries.CurrentQueryId is null)
+		{
+			return;
+		}
+
+		// Get query text
+		var queryText = await _editor.GetValue();
+		if (string.IsNullOrWhiteSpace(queryText))
+		{
+			Snackbar.Add("Query is empty.", Severity.Warning);
+			return;
+		}
+
+		// Ensure project is available
+		if (Workspace.CurrentProject is null)
+		{
+			Snackbar.Add("No project is open.", Severity.Warning);
+			return;
+		}
+
+		var queryId = Workspace.Queries.CurrentQueryId.Value;
+		var state = GetCurrentExecutionState();
+
+		// Cancel any existing execution
+		state.CancellationTokenSource?.Cancel();
+		state.CancellationTokenSource?.Dispose();
+
+		// Create cancellation token with timeout
+		state.CancellationTokenSource = _selectedTimeout > 0
+			? new CancellationTokenSource(TimeSpan.FromSeconds(_selectedTimeout))
+			: new CancellationTokenSource();
+
+		state.IsExecuting = true;
+		state.Result = null;
+		StateHasChanged();
+
+		try
+		{
+			var result = await QueryExecutionService.ExecuteQueryAsync(queryText, Workspace.CurrentProject, state.CancellationTokenSource.Token);
+			state.Result = result;
+
+			if (result.Success)
+			{
+				Snackbar.Add($"Query executed successfully. {result.Rows.Count} row(s) returned.", Severity.Success);
+			}
+		}
+		catch (OperationCanceledException)
+		{
+			state.Result = QueryExecutionResult.FromError("Query execution was cancelled.", false, TimeSpan.Zero);
+			Snackbar.Add("Query execution cancelled.", Severity.Warning);
+		}
+		catch (Exception ex)
+		{
+			Logger.LogError(ex, "Query execution failed with exception.");
+			state.Result = QueryExecutionResult.FromError($"Unexpected error: {ex.Message}", false, TimeSpan.Zero);
+		}
+		finally
+		{
+			state.IsExecuting = false;
+			state.CancellationTokenSource?.Dispose();
+			state.CancellationTokenSource = null;
+			StateHasChanged();
+		}
+	}
+
+	private void StopCurrentQuery()
+	{
+		var state = GetCurrentExecutionState();
+		state.CancellationTokenSource?.Cancel();
+	}
+
 	public void Dispose()
 	{
 		Workspace.WorkspaceChanged -= OnWorkspaceChanged;
@@ -461,6 +565,14 @@ public partial class Editor : ComponentBase, IDisposable
 		_hoverProviderDisposable?.Dispose();
 
 		_compiler?.Dispose();
+
+		// Clean up all execution state
+		foreach (var state in _executionStates.Values)
+		{
+			state.CancellationTokenSource?.Cancel();
+			state.CancellationTokenSource?.Dispose();
+		}
+		_executionStates.Clear();
 
 		GC.SuppressFinalize(this);
 	}

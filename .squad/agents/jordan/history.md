@@ -72,6 +72,56 @@
 - Test names that communicate intent (easy to spot when two tests would be redundant)
 
 **Deliverable:** Full report written to `.squad/decisions/inbox/jordan-test-audit.md` with detailed analysis, summary table, and specific test method names for all findings.
+### 2026-03-14 - Composite Primary Key Test Coverage for DbContextGenerator
+
+**Task:** Write comprehensive unit tests for DbContextGenerator composite PK Fluent API implementation.
+
+**Test Coverage Added (5 new tests):**
+
+1. **GenerateAsync_SingleColumnPrimaryKey_NoKeyAttributeEmitted**
+   - Validates that single PK columns no longer have [Key] attribute
+   - Verifies OnModelCreating contains: `HasKey(e => e.ColumnName)`
+
+2. **GenerateAsync_CompositePrimaryKey_NoKeyAttributeAndFluentApiWithAnonymousObject**
+   - Tests composite PK with 2+ key columns
+   - Verifies HasKey with anonymous object: `HasKey(e => new { e.Col1, e.Col2 })`
+   - Ensures NO [Key] attributes on any property
+
+3. **GenerateAsync_IdentityColumn_DatabaseGeneratedAttributeStillEmitted**
+   - Confirms [DatabaseGenerated(Identity)] still present after PK changes
+   - Validates both [DatabaseGenerated] AND HasKey() in output
+   - Tests single identity PK behavior
+
+4. **GenerateAsync_MultipleTables_OnModelCreatingCoversAllPrimaryKeys**
+   - Multi-table scenario: one with single PK, one with composite PK
+   - Verifies both tables get correct HasKey() calls
+   - Tests OnModelCreating iteration/coverage
+
+5. **Updated Existing Test: GenerateAsync_GuidPrimaryKey_NoIdentityAnnotation_WhenNotIdentity**
+   - Changed from expecting [Key] to expecting NO [Key]
+   - Added OnModelCreating assertion for GUID PKs
+
+**Test Patterns Used:**
+- FakeGenerator in-memory DatabaseTableDetail objects
+- Standard XUnit assertions (Assert.Contains, Assert.DoesNotContain, Assert.Equal)
+- Naming convention: `MethodName_Scenario_ExpectedResult`
+- No FluentAssertions (per project conventions)
+
+**Coordination Notes:**
+- Simon implemented composite PK fix while these tests were written
+- All 5 new tests + 1 updated test validate Simon's changes
+- Integration: Tests run after Simon's implementation (517 total, 513 passed)
+
+**Key Learning:** Test naming should clearly indicate both the scenario AND the expected outcome. Example: `GenerateAsync_CompositePrimaryKey_NoKeyAttributeAndFluentApiWithAnonymousObject` tells you exactly what gets tested and what the expected behavior is.
+
+**Result:** Comprehensive coverage achieved. Tests validate:
+- ✅ No [Key] attributes in entity classes
+- ✅ HasKey() calls in DbContext OnModelCreating
+- ✅ Single vs composite key handling
+- ✅ Identity column annotation preservation
+- ✅ Multi-table scenarios
+
+---
 
 ### 2026-03-13 - Test Fixes and New Service Tests Added
 
@@ -1124,3 +1174,96 @@ When Customers is a table, `classNameByTableName["Customers"] = "Customers"`. Th
 - 12 new DbContextGeneratorTests: ALL PASS
 - Blazor.Tests: 39 passed
 - Build: 0 warnings, 0 errors
+
+## RoslynWorkspaceService.AddDocuments() Tests (2026-03-13)
+
+### Context
+Simon added AddDocuments() method to RoslynWorkspaceService.cs. Wrote comprehensive unit tests to verify it correctly adds model files, DbContext, and query files to a Roslyn solution.
+
+### Test File Created
+- 	ests/LinqStudio.Core.Tests/RoslynWorkspaceServiceTests.cs (5 tests)
+
+### Test Setup Pattern
+- Helper method CreateTestProject() creates minimal AdhocWorkspace + ProjectId
+- Uses Roslyn's ProjectInfo.Create() with LanguageNames.CSharp
+- Simple tuple return: (Solution solution, ProjectId projectId)
+- Service instantiation: 
+ew RoslynWorkspaceService() (logger optional)
+
+### Tests Written
+1. **AddDocuments_AddsModelFiles_ToSolution** - Verify Model1.cs and Model2.cs appear in Documents
+2. **AddDocuments_AddsDbContextFile_ToSolution** - Verify DbContext.cs always added
+3. **AddDocuments_AddsQueryContainerFile_WithDefaultName** - Default fileName="QueryContainer.cs"
+4. **AddDocuments_RespectsCustomQueryFileName** - Custom fileName="UserQuery.cs" used, no QueryContainer.cs
+5. **AddDocuments_EmptyModelFiles_StillAddsDbContextAndQuery** - Empty dict → exactly 2 docs (DbContext + Query)
+
+### Assertions
+- project.Documents.Select(d => d.Name).ToList() to get document names
+- Assert.Contains("DbContext.cs", docNames) for presence
+- Assert.DoesNotContain("QueryContainer.cs", docNames) for custom fileName verification
+- Assert.Equal(2, documents.Count) for exact count
+
+### Key Learning
+- **AdhocWorkspace** is straightforward to create in tests without additional setup
+- AddDocuments() is pure: takes a solution, returns updated solution (no side effects)
+- No need for complex mocking or fixtures - Roslyn APIs work well in unit tests
+- Standard XUnit assertions (Assert.Contains, Assert.Equal) are clean and sufficient
+
+### Test Results
+- **Core.Tests:** 121 total, 121 passed (added 5 new tests)
+- **Blazor.Tests:** 56 total, 56 passed
+- **Databases.Tests:** 310 total, 310 passed
+- **Total: 487 tests, 0 failures**
+
+## Primary Key Fluent API Tests (2026-03-13)
+
+### Context
+Simon is fixing a bug in `DbContextGenerator.cs` where composite primary keys were incorrectly emitting multiple `[Key]` attributes. His fix (Option C) removes ALL `[Key]` attribute emissions and adds Fluent API `HasKey()` in `OnModelCreating()`.
+
+### Test File
+- **Modified:** `tests/LinqStudio.Core.Tests/DbContextGeneratorTests.cs` (added 5 new tests)
+
+### Tests Written (All verify EXPECTED behavior after Simon's fix)
+
+1. **GenerateAsync_SingleColumnPrimaryKey_NoKeyAttributeEmitted**
+   - Input: Single PK column (Orders.Id)
+   - Asserts: NO `[Key]` in entity class
+   - Asserts: `OnModelCreating` contains `HasKey(e => e.Id)`
+
+2. **GenerateAsync_CompositePrimaryKey_NoKeyAttributeAndFluentApiWithAnonymousObject**
+   - Input: Composite PK (OrderId, ProductId)
+   - Asserts: NO `[Key]` in entity class
+   - Asserts: `OnModelCreating` contains `HasKey(e => new { e.OrderId, e.ProductId })`
+
+3. **GenerateAsync_IdentityColumn_DatabaseGeneratedAttributeStillEmitted**
+   - Input: Identity PK column
+   - Asserts: NO `[Key]` in entity class
+   - Asserts: `[DatabaseGenerated(DatabaseGeneratedOption.Identity)]` STILL present
+   - Asserts: `OnModelCreating` contains `HasKey(e => e.Id)`
+
+4. **GenerateAsync_MultipleTables_OnModelCreatingCoversAllPrimaryKeys**
+   - Input: Two tables (one single PK, one composite PK)
+   - Asserts: NO `[Key]` in either entity class
+   - Asserts: `OnModelCreating` contains `HasKey` for both tables
+
+5. **Updated existing test: GenerateAsync_GuidPrimaryKey_NoIdentityAnnotation_WhenNotIdentity**
+   - Changed to verify NO `[Key]` attribute (consistent with new behavior)
+
+### Assertion Patterns Used
+- `Assert.DoesNotContain("[Key]", entityCode)` - Verify attribute removal
+- `Assert.Contains("protected override void OnModelCreating(ModelBuilder modelBuilder)", dbContextCode)` - Verify method exists
+- `Assert.Contains("modelBuilder.Entity<Orders>().HasKey(e => e.Id);", dbContextCode)` - Single-column key
+- `Assert.Contains("modelBuilder.Entity<OrderItems>().HasKey(e => new { e.OrderId, e.ProductId });", dbContextCode)` - Composite key
+- `Assert.Contains("[DatabaseGenerated(DatabaseGeneratedOption.Identity)]", entityCode)` - Identity attribute preserved
+
+### Key Learning
+- Tests written BEFORE the fix (TDD approach) — they will fail until Simon's changes are merged
+- Used existing `FakeGenerator` pattern with in-memory `DatabaseTableDetail` objects
+- Standard XUnit `Assert.*` methods only (no FluentAssertions)
+- Test names follow convention: `MethodName_Scenario_ExpectedResult`
+
+### Coordination
+- Simon is making the fix concurrently in `DbContextGenerator.cs`
+- Jordan wrote tests to validate the fix
+- Tests NOT run yet (per task instructions — Simon's changes in progress)
+

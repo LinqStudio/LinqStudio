@@ -5,6 +5,8 @@ namespace LinqStudio.Core.Tests;
 
 public class CompilerService_HoverTests
 {
+    private static RoslynWorkspaceService CreateRoslynWorkspaceService() => new();
+
     [Fact]
     public async Task Hover_ReturnsPropertyInfo_ForSimpleProperty()
     {
@@ -15,7 +17,7 @@ public class CompilerService_HoverTests
         var userQuery = "context.People";
 
         var models = new Dictionary<string, string> { { "Person", modelCode } };
-        using var service = new CompilerService("TestDbContext", projectNamespace);
+        using var service = new CompilerService("TestDbContext", projectNamespace, CreateRoslynWorkspaceService());
 
         await service.Initialize(models, dbContextCode);
 
@@ -41,7 +43,7 @@ public class CompilerService_HoverTests
         var userQuery = "context.People.Where(p => p.Name == \"Bob\")";
 
         var models = new Dictionary<string, string> { { "Person", modelCode } };
-        using var service = new CompilerService("TestDbContext", projectNamespace);
+        using var service = new CompilerService("TestDbContext", projectNamespace, CreateRoslynWorkspaceService());
 
         await service.Initialize(models, dbContextCode);
 
@@ -71,7 +73,7 @@ public class CompilerService_HoverTests
 
         var userQuery = "context.Foos";
 
-        using var service = new CompilerService("FooContext", projectNamespace);
+        using var service = new CompilerService("FooContext", projectNamespace, CreateRoslynWorkspaceService());
         await service.Initialize(new Dictionary<string, string> { { "Foo", modelCode } }, dbContextCode);
 
         var cursor = userQuery.IndexOf("Foos") + 1;
@@ -94,7 +96,7 @@ public class CompilerService_HoverTests
         var userQuery = "context.People";
 
         var models = new Dictionary<string, string> { { "Person", modelCode } };
-        using var service = new CompilerService("TestDbContext", projectNamespace);
+        using var service = new CompilerService("TestDbContext", projectNamespace, CreateRoslynWorkspaceService());
 
         await service.Initialize(models, dbContextCode);
 
@@ -117,7 +119,7 @@ public class CompilerService_HoverTests
         var userQuery = "context.People.Where(p => p.Name == \"Bob\")";
 
         var models = new Dictionary<string, string> { { "Person", modelCode } };
-        using var service = new CompilerService("TestDbContext", projectNamespace);
+        using var service = new CompilerService("TestDbContext", projectNamespace, CreateRoslynWorkspaceService());
 
         await service.Initialize(models, dbContextCode);
 

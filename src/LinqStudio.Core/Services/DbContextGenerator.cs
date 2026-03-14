@@ -93,12 +93,9 @@ public class DbContextGenerator : IDbContextGenerator
 			var csType = GetCSharpTypeName(col.GenericType, col.IsNullable);
 			bool isStringLike = IsStringLike(col.GenericType);
 
-			if (col.IsPrimaryKey)
-			{
-				sb.AppendLine("    [Key]");
-				if (col.IsIdentity)
-					sb.AppendLine("    [DatabaseGenerated(DatabaseGeneratedOption.Identity)]");
-			}
+			// [Key] attribute removed - using HasKey() in OnModelCreating instead
+			if (col.IsPrimaryKey && col.IsIdentity)
+				sb.AppendLine("    [DatabaseGenerated(DatabaseGeneratedOption.Identity)]");
 
 			if (isStringLike && !col.IsNullable)
 				sb.AppendLine("    [Required]");
@@ -180,10 +177,38 @@ public class DbContextGenerator : IDbContextGenerator
 		}
 
 		sb.AppendLine();
-		sb.AppendLine("    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)");
+		sb.AppendLine("    // Parameterless constructor for IntelliSense compilation; also used as base class for runtime instantiation via the options constructor");
+		sb.AppendLine($"    public {ContextTypeName}() {{ }}");
+		sb.AppendLine();
+		sb.AppendLine("    // Standard EF Core constructor used for real query execution");
+		sb.AppendLine($"    public {ContextTypeName}(DbContextOptions options) : base(options) {{ }}");
+		sb.AppendLine();
+		sb.AppendLine("    protected override void OnModelCreating(ModelBuilder modelBuilder)");
 		sb.AppendLine("    {");
-		sb.AppendLine("        // Intentionally in-memory / stubbed for compilation-only scenarios");
-		sb.AppendLine("        optionsBuilder.UseInMemoryDatabase(\"LinqStudioGeneratedDb\");");
+
+		// Generate HasKey() for all tables
+		foreach (var table in tableDetails)
+		{
+			var className = classNameByTableName[table.FullName];
+			var pkColumns = table.Columns.Where(c => c.IsPrimaryKey).ToList();
+
+			if (pkColumns.Count == 0)
+				continue; // Skip tables without primary keys
+
+			if (pkColumns.Count == 1)
+			{
+				// Single primary key
+				var pkPropName = ToPascalCase(pkColumns[0].Name);
+				sb.AppendLine($"        modelBuilder.Entity<{className}>().HasKey(e => e.{pkPropName});");
+			}
+			else
+			{
+				// Composite primary key
+				var pkProps = string.Join(", ", pkColumns.Select(c => $"e.{ToPascalCase(c.Name)}"));
+				sb.AppendLine($"        modelBuilder.Entity<{className}>().HasKey(e => new {{ {pkProps} }});");
+			}
+		}
+
 		sb.AppendLine("    }");
 		sb.AppendLine("}");
 		return sb.ToString();

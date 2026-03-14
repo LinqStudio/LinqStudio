@@ -1,4 +1,4 @@
-﻿using LinqStudio.Blazor.Services;
+using LinqStudio.Blazor.Services;
 using Microsoft.Extensions.DependencyInjection;
 using MudBlazor.Services;
 

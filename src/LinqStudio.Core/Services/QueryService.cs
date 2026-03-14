@@ -1,5 +1,5 @@
-using LinqStudio.Core.Extensions;
 using LinqStudio.Core.Models;
+using LinqStudio.Core.Extensions;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 

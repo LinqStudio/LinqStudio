@@ -1,4 +1,4 @@
-﻿using LinqStudio.Abstractions;
+using LinqStudio.Abstractions;
 
 namespace LinqStudio.Databases.Tests;
 

@@ -7,8 +7,9 @@ namespace LinqStudio.Core.Services;
 /// <summary>
 /// Scoped factory used by UI pages to create and initialize CompilerService instances.
 /// </summary>
-public class CompilerServiceFactory(IDbContextGenerator? generator = null, ILogger<CompilerService>? logger = null)
+public class CompilerServiceFactory(RoslynWorkspaceService roslynWorkspaceService, IDbContextGenerator? generator = null, ILogger<CompilerService>? logger = null)
 {
+	private readonly RoslynWorkspaceService _roslynWorkspaceService = roslynWorkspaceService;
 	private readonly string _defaultContextTypeName = "TestDbContext";
 	private readonly string _defaultProjectNamespace = "LinqStudio.TestModels";
 
@@ -17,7 +18,7 @@ public class CompilerServiceFactory(IDbContextGenerator? generator = null, ILogg
 	/// </summary>
 	public async Task<CompilerService> CreateAsync()
 	{
-		var svc = new CompilerService(_defaultContextTypeName, _defaultProjectNamespace, logger);
+		var svc = new CompilerService(_defaultContextTypeName, _defaultProjectNamespace, _roslynWorkspaceService, logger);
 
 		var models = new Dictionary<string, string>
 		{
@@ -74,7 +75,7 @@ public class TestDbContext : DbContext
 		}
 
 		var result = await generator.GenerateAsync(project.QueryGenerator, cancellationToken);
-		var svc = new CompilerService(result.ContextTypeName, result.Namespace, logger);
+		var svc = new CompilerService(result.ContextTypeName, result.Namespace, _roslynWorkspaceService, logger);
 		await svc.Initialize(result.ModelFiles, result.DbContextCode);
 		return svc;
 	}
