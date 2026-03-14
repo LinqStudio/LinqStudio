@@ -78,9 +78,30 @@
 
 		<!-- Editor Actions -->
 		<MudPaper Class="pa-2" Elevation="1" data-testid="editor-info-bar">
-			<MudText Typo="Typo.body2" Color="Color.Secondary">
-				Editor provides IntelliSense using Roslyn compiler with EF Core support
-			</MudText>
+			<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+				<MudText Typo="Typo.body2" Color="Color.Secondary">
+					Editor provides IntelliSense using Roslyn compiler with EF Core support
+				</MudText>
+				<MudTooltip Text="Refresh IntelliSense schema from database">
+					<MudButton StartIcon="@Icons.Material.Filled.Refresh"
+							   Color="Color.Primary"
+							   Size="Size.Small"
+							   Variant="Variant.Text"
+							   OnClick="RefreshSchemaAsync"
+							   Disabled="@(_isRefreshingSchema || Workspace.CurrentProject?.QueryGenerator is null)"
+							   data-testid="refresh-schema-btn">
+						@if (_isRefreshingSchema)
+						{
+							<MudProgressCircular Size="Size.Small" Indeterminate="true" />
+							<span style="margin-left:4px">Refreshing...</span>
+						}
+						else
+						{
+							<span>Refresh Schema</span>
+						}
+					</MudButton>
+				</MudTooltip>
+			</MudStack>
 		</MudPaper>
 		}
 		else

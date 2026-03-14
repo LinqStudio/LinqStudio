@@ -1057,3 +1057,36 @@ if (string.Equals(Connection.Database, "master", StringComparison.OrdinalIgnoreC
 - `src/LinqStudio.Database/MssqlGenerator.cs` (surgical additions only, no breaking changes)
 
 
+
+### 2026-03-14 - DbContextGenerator Implementation
+
+**Task:** Implemented DbContextGenerator — in-memory schema-to-code service that feeds live database schema into Roslyn's CompilerService for real IntelliSense.
+
+**Files created/modified:**
+- **NEW** src/LinqStudio.Core/Services/DbContextGenerator.cs — full IDbContextGenerator implementation
+- **UPDATED** src/LinqStudio.Core/Extensions/ServiceCollectionExtensions.cs — replaced NullDbContextGenerator placeholder with real AddScoped<IDbContextGenerator, DbContextGenerator>()
+
+**Interface/result type already existed:**
+- src/LinqStudio.Abstractions/Abstractions/IDbContextGenerator.cs — already had the interface stub
+- src/LinqStudio.Abstractions/Models/DbContextGeneratorResult.cs — already had the result record
+- src/LinqStudio.Core/Services/CompilerServiceFactory.cs — already had CreateFromProjectAsync stub with the correct constructor signature
+
+**Key design decisions implemented:**
+
+1. **DbColumnType → C# type mapping:** Value types (bool, int, long, Guid, DateTime, etc.) stay non-nullable unless IsNullable=true then get ?. String-like types (String, Xml, Json) map to string; non-nullable get [Required] +  = string.Empty;. Binary maps to yte[] with  = []; initializer when non-nullable.
+
+2. **Data annotations:** [Key] on IsPrimaryKey, [DatabaseGenerated(DatabaseGeneratedOption.Identity)] when IsIdentity, [Required] only on non-nullable string-like columns, [MaxLength(n)] when MaxLength has value != -1.
+
+3. **Naming conventions:** ToPascalCase() splits on underscores and capitalizes first letter of each segment. Table name → class name (no schema prefix). DbSet property name = class name (same as table PascalCase).
+
+4. **Navigation properties:** 
+   - Child table (FK owner): public virtual RefClass? NavName { get; set; } where NavName = Singularize(referencedClassName). Disambiguates duplicate nav names using FK column name (strip "Id" suffix).
+   - Parent table (FK target): public virtual ICollection<ChildClass> CollectionName { get; set; } = [] where CollectionName = Pluralize(childClassName).
+
+5. **Basic singularize/pluralize:** Handles common patterns (strip 's', 'ies' → 'y', etc.). Sufficient for typical EF Core schema navigation.
+
+6. **Fixed namespace/context name:** GeneratedModels / GeneratedDbContext — hardcoded constants in the service.
+
+7. **DI:** Registered as AddScoped<IDbContextGenerator, DbContextGenerator>() — scoped so each user session gets its own instance.
+
+**Test results:** All 444 unit/integration tests pass (95 Core, 39 Blazor, 310 Database). Known pre-existing E2E flakiness in NavMenu_SaveAs_SavesCompleteProjectToFile unrelated to this change.

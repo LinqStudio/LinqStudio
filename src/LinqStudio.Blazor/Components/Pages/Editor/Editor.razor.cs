@@ -1,6 +1,7 @@
 using BlazorMonaco;
 using BlazorMonaco.Editor;
 using BlazorMonaco.Languages;
+using LinqStudio.Abstractions;
 using LinqStudio.Blazor.Abstractions;
 using LinqStudio.Blazor.Components.Dialogs;
 using LinqStudio.Blazor.Constants;
@@ -22,6 +23,7 @@ public partial class Editor : ComponentBase, IDisposable
 	[Inject] private ErrorHandlingService ErrorHandlingService { get; set; } = null!;
 	[Inject] private MonacoProvidersService MonacoProvidersService { get; set; } = null!;
 	[Inject] private CompilerServiceFactory CompilerServiceFactory { get; set; } = null!;
+	[Inject] private IDbContextGenerator DbContextGenerator { get; set; } = null!;
 	[Inject] private IOptionsMonitor<UISettings> UISettings { get; set; } = null!;
 	[Inject] private ProjectWorkspace Workspace { get; set; } = null!;
 	[Inject] private NavigationManager NavigationManager { get; set; } = null!;
@@ -35,6 +37,7 @@ public partial class Editor : ComponentBase, IDisposable
 	private IDisposable? _hoverProviderDisposable;
 	private CompilerService? _compiler;
 	private string _lastQueryText = string.Empty;
+	private bool _isRefreshingSchema = false;
 
 	private CancellationTokenSource? _debounceTokenSource;
 	private const int DebounceDelayMs = 300;
@@ -187,7 +190,18 @@ public partial class Editor : ComponentBase, IDisposable
 		}
 
 		_lastQueryText = await _editor.GetValue();
-		_compiler = await CompilerServiceFactory.CreateAsync();
+
+		try
+		{
+			_compiler = Workspace.CurrentProject != null
+				? await CompilerServiceFactory.CreateFromProjectAsync(Workspace.CurrentProject)
+				: await CompilerServiceFactory.CreateAsync();
+		}
+		catch (Exception ex)
+		{
+			Logger.LogWarning(ex, "[Editor] Failed to initialize CompilerService from project schema, falling back to demo model.");
+			_compiler = await CompilerServiceFactory.CreateAsync();
+		}
 
 		_providerDisposable = await MonacoProvidersService.RegisterCompletionProviderAsync(_editor, async (modelUri, position, context) =>
 		{
@@ -406,6 +420,36 @@ public partial class Editor : ComponentBase, IDisposable
 		{
 			Logger.LogError(ex, "Failed to save query.");
 			await ErrorHandlingService.HandleErrorAsync(ex, "Failed to save query");
+		}
+	}
+
+	private async Task RefreshSchemaAsync()
+	{
+		if (!Workspace.IsProjectOpen || Workspace.CurrentProject?.QueryGenerator is null)
+		{
+			Snackbar.Add("No database connection configured for this project.", Severity.Warning);
+			return;
+		}
+
+		_isRefreshingSchema = true;
+		StateHasChanged();
+
+		try
+		{
+			var newCompiler = await CompilerServiceFactory.CreateFromProjectAsync(Workspace.CurrentProject!);
+			_compiler?.Dispose();
+			_compiler = newCompiler;
+			Snackbar.Add("Schema refreshed. IntelliSense updated.", Severity.Success);
+		}
+		catch (Exception ex)
+		{
+			Logger.LogError(ex, "Failed to refresh schema.");
+			Snackbar.Add($"Failed to refresh schema: {ex.Message}", Severity.Error);
+		}
+		finally
+		{
+			_isRefreshingSchema = false;
+			StateHasChanged();
 		}
 	}
 

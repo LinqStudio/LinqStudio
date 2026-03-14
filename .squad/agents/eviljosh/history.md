@@ -679,3 +679,25 @@ Completed full UI/Blazor review. 27 issues identified (7 critical). Critical fin
 **TESTS:** ✅ All 44 Blazor tests pass, 45 Core tests pass  
 **NOTE:** 1 pre-existing MSSQL test failure (GetTableAsync_ShouldReturnColumns_AfterAutoDiscovery) in Simon's database domain — not caused by these changes
 
+
+### 2026-03-13 - Refresh Schema UI (Editor.razor + Editor.razor.cs)
+
+**Task:** Wired up Refresh Schema button to trigger live DB schema generation and CompilerService re-initialization.
+
+**Changes Made:**
+
+1. **IDbContextGenerator** (LinqStudio.Abstractions/Abstractions/IDbContextGenerator.cs) — New interface. DbContextGeneratorResult record in Models/DbContextGeneratorResult.cs. Both are team contracts; Simon implements DbContextGenerator in Core.
+
+2. **CompilerServiceFactory** — Updated constructor to (IDbContextGenerator? generator, ILogger<CompilerService>? logger). New method CreateFromProjectAsync(Project) — uses real schema when project.QueryGenerator != null, falls back to demo model.
+
+3. **Editor.razor.cs** — Injected IDbContextGenerator. Added _isRefreshingSchema state field. Updated OnEditorInitialized to call CreateFromProjectAsync with try-catch fallback (critical: unreachable DB must not crash the editor). Added RefreshSchemaAsync() method with loading state, snackbar feedback, and early-exit guard for missing DB connection.
+
+4. **Editor.razor** — Replaced info-bar MudPaper with MudStack Row layout containing info text + MudButton (refresh trigger).
+
+**data-testid values added:**
+- efresh-schema-btn — The Refresh Schema button in the editor info bar.
+
+**Key Patterns:**
+- OnEditorInitialized always wraps CreateFromProjectAsync in try-catch; DB errors silently fall back to demo model (editor stays functional).
+- RefreshSchemaAsync guards on Workspace.CurrentProject?.QueryGenerator is null before doing anything — shows warning snackbar if no DB configured.
+- _isRefreshingSchema bool drives both button disabled state and spinner/label swap inside the button body.

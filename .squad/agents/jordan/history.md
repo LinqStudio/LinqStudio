@@ -1083,3 +1083,44 @@ Worked with Simon who fixed the production bug (ISNULL wrapping in SQL query). J
 - Test intent remains crystal clear with parameter names
 
 **Outcome:** Successfully reduced 11 test methods across 3 files while maintaining 100% of original test coverage. Clearer test intent through parameterized tests with descriptive boolean parameters (useProjectPath, createDirectory, singleQuery).
+## DbContextGenerator Tests (2026-03-13)
+
+### Context
+Wrote comprehensive unit tests for `DbContextGenerator` in `tests/LinqStudio.Core.Tests/DbContextGeneratorTests.cs`.
+
+### Approach
+- Created `FakeGenerator` inner class implementing `IDatabaseQueryGenerator` with in-memory tables/details
+- Dict keys use `FullName` (e.g., `"dbo.Orders"` when schema set, `"Orders"` when no schema) — matches `GetTableAsync(DatabaseTableName)` default interface impl that calls `GetTableAsync(table.FullName, ...)`
+- All 12 tests use inline data, no embedded resources needed
+
+### Key Assertions Verified
+| Test | What it checks |
+|------|----------------|
+| SingleTable_NoForeignKeys | `[Key]`, `[DatabaseGenerated]`, `[Required]`, `[MaxLength]`, ContextTypeName, Namespace |
+| NullableStringColumn | No `[Required]`, has `string?` |
+| NonNullableStringColumn | `[Required]`, no `string?`, `= string.Empty;` |
+| NullableValueType | `int?` for nullable Int32 |
+| MaxLength_Minus1 | No `[MaxLength(`, still has `[Required]` |
+| SnakeCaseColumnName | `created_at` → `public DateTime? CreatedAt`, no `created_at` in output |
+| SchemaPrefix | `dbo.OrderItems` → key `"OrderItems.cs"`, class `OrderItems` |
+| ForeignKey_NavProps | Child: `public virtual Customers? Customer` (type=class name, navName=singular); Parent: `ICollection<Orders>` |
+| MultipleTables_DbContext | `DbSet<Orders>`, `DbSet<Customers>`, `GeneratedDbContext`, `UseInMemoryDatabase`, `namespace GeneratedModels` |
+| EmptyTableList | Empty `ModelFiles`, DbContext still has `GeneratedDbContext` |
+| BinaryColumn | `byte[]`, `= [];` initializer |
+| GuidPK_NoIdentity | `[Key]` present, no `[DatabaseGenerated(` |
+
+### FK Navigation Property Naming — Important Detail
+When Customers is a table, `classNameByTableName["Customers"] = "Customers"`. The nav prop on child (Orders) side is:
+- Type: `refClassName` = `"Customers"` (full class name)
+- NavName: `Singularize("Customers")` = `"Customer"`
+- So: `public virtual Customers? Customer { get; set; }`
+- Assertion must use `"public virtual Customers? Customer"` NOT `"public virtual Customer?"`
+
+### Pre-existing Test Failure
+`ProjectServiceTests.SaveProjectAsync_ConcurrentCalls_AreHandledSafely` fails with `UnauthorizedAccessException` on Windows file move during concurrent tests. Pre-existing flaky test, unrelated to DbContextGenerator.
+
+### Test Results
+- Core.Tests: 106 passed, 1 failed (pre-existing), 107 total
+- 12 new DbContextGeneratorTests: ALL PASS
+- Blazor.Tests: 39 passed
+- Build: 0 warnings, 0 errors

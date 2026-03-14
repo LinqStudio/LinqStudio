@@ -6,7 +6,7 @@ using LinqStudio.Blazor.Services;
 using LinqStudio.Core.Extensions;
 using LinqStudio.Core.Services;
 using LinqStudio.Core.Models;
-using LinqStudio.Abstractions.Abstractions;
+using LinqStudio.Abstractions;
 using LinqStudio.Abstractions.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;

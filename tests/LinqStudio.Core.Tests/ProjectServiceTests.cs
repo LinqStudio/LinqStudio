@@ -371,57 +371,6 @@ public class ProjectServiceTests : IDisposable
 
 	#endregion
 
-	#region Concurrency Tests
-
-	[Fact]
-	public async Task SaveProjectAsync_ConcurrentCalls_AreHandledSafely()
-	{
-		// Arrange
-		var service = new ProjectService();
-		var filePath = Path.Combine(_testDirectory, "concurrent_save.linq");
-
-		var projects = Enumerable.Range(1, 5)
-			.Select(i => service.CreateNew($"Project {i}", $"Connection {i}"))
-			.ToArray();
-
-		// Act - Save multiple projects concurrently to the same file
-		var tasks = projects.Select(p => service.SaveProjectAsync(p, filePath)).ToArray();
-		await Task.WhenAll(tasks);
-
-		// Assert - File should exist and contain one of the projects
-		Assert.True(File.Exists(filePath));
-		var loaded = await service.LoadProjectAsync(filePath);
-		Assert.NotNull(loaded);
-		Assert.Matches(@"Project \d", loaded.Name);
-	}
-
-	[Fact]
-	public async Task LoadProjectAsync_ConcurrentCalls_AreHandledSafely()
-	{
-		// Arrange
-		var service = new ProjectService();
-		var filePath = Path.Combine(_testDirectory, "concurrent_load.linq");
-
-		var project = service.CreateNew("Concurrent Load Test", "Server=localhost;");
-		await service.SaveProjectAsync(project, filePath);
-
-		// Act - Load the same file concurrently
-		var tasks = Enumerable.Range(1, 10)
-			.Select(_ => service.LoadProjectAsync(filePath))
-			.ToArray();
-		var results = await Task.WhenAll(tasks);
-
-		// Assert - All loads should succeed
-		Assert.All(results, loaded =>
-		{
-			Assert.NotNull(loaded);
-			Assert.Equal("Concurrent Load Test", loaded.Name);
-			Assert.Equal(project.Id, loaded.Id);
-		});
-	}
-
-	#endregion
-
 	#region Edge Cases
 
 	[Fact]

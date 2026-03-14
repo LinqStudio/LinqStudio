@@ -1,4 +1,4 @@
-using LinqStudio.Abstractions.Abstractions;
+using LinqStudio.Abstractions;
 using LinqStudio.Abstractions.Models;
 using System.Data;
 using System.Data.Common;

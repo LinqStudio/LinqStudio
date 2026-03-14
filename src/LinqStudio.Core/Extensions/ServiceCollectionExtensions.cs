@@ -19,6 +19,8 @@ public static class ServiceCollectionExtensions
 		// register the CompilerServiceFactory so Blazor components can create CompilerService instances
 		services.AddScoped<CompilerServiceFactory>();
 
+		services.AddScoped<IDbContextGenerator, DbContextGenerator>();
+
 		return services;
 	}
 
