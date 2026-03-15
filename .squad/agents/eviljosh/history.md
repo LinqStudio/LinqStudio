@@ -1125,3 +1125,37 @@ Called in Editor.OnAfterRenderAsync(firstRender).
 - Component tests for selection logic and clipboard
 - E2E tests for full interaction flow
 - Potential: Persist column order in saved query files (future enhancement)
+
+## Learnings
+
+### Removing addDataTestIdsToRows JavaScript Function
+**Date:** 2025-01-26
+**Context:** Project policy enforces "no JS when avoidable in Blazor/C#". The `addDataTestIdsToRows` function was injecting `data-testid="row-X"` attributes to MudDataGrid `<tr>` rows purely for E2E testing purposes.
+
+**Action Taken:**
+- Removed entire `addDataTestIdsToRows` function from `queryResultGrid.js` (lines 71-94)
+- Removed C# invocation in `QueryResultGrid.razor.cs` `OnAfterRenderAsync` method (Task.Delay + JSRuntime call)
+- Kept `IJSRuntime` injection intact (still needed for clipboard functionality)
+
+**Why This Was Right:**
+- JS was only for testing, not user-facing functionality
+- MudDataGrid's RowTemplate cannot easily add attributes to `<tr>` in pure Blazor
+- E2E tests updated by Jordan to use existing cell-based selectors (`data-testid="cell-{RowIndex}-{ColumnName}"`)
+- Aligns with team charter: avoid JS when Blazor can handle it OR when feature isn't critical
+
+**Key Principle:** Test infrastructure should adapt to the codebase, not vice versa. Don't introduce JS just to make tests easier if it violates architectural principles.
+
+### Session Complete: 2026-03-15 — Remove JS Row TestID Injection
+
+**Scribe Update:** All work items from this session are now documented:
+- Orchestration logs created for EvilJosh, Jordan, Alex, Alice
+- Session log created: `.squad/log/2026-03-15T15-38-18Z-remove-js-testid-rows.md`
+- Decision record merged into `.squad/decisions/decisions.md`
+- Inbox files archived (3 decision files removed)
+
+**Final Status:** ✅ ALL TESTS PASS (212/212)
+- Core Unit Tests: 119/119 ✅
+- Blazor Unit Tests: 60/60 ✅
+- E2E Tests: 33/33 ✅
+- Zero regressions, ready for production
+

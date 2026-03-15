@@ -68,31 +68,6 @@ window.disposeSplitter = function(splitterId) {
     }
 };
 
-// Add data-testid attributes to MudDataGrid rows for E2E testing
-window.addDataTestIdsToRows = function(gridSelector) {
-    const grid = document.querySelector(gridSelector);
-    if (!grid) {
-        console.warn('addDataTestIdsToRows: Grid not found', gridSelector);
-        return;
-    }
-    
-    const tbody = grid.querySelector('tbody');
-    if (!tbody) {
-        console.warn('addDataTestIdsToRows: tbody not found in grid');
-        return;
-    }
-    
-    const rows = tbody.querySelectorAll('tr.mud-table-row');
-    console.log(`addDataTestIdsToRows: Found ${rows.length} rows`);
-    rows.forEach((row, index) => {
-        // Only add if not already present (avoid duplicates on re-renders)
-        if (!row.hasAttribute('data-testid')) {
-            row.setAttribute('data-testid', `row-${index}`);
-            console.log(`addDataTestIdsToRows: Added testid row-${index}`);
-        }
-    });
-};
-
 // Copy text to clipboard using Clipboard API
 window.copyToClipboard = function(text) {
     // Fallback if clipboard API not available

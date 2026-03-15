@@ -301,3 +301,50 @@ When reviewing database generator classes, distinguish between:
 
 **Status:** ⚠️ Findings (High Severity JS Leak + Missing Feature).
 
+---
+
+### 2026-03-13: `addDataTestIdsToRows` Removal Review
+
+**Task:** Review removal of JavaScript-based `data-testid` injection for MudDataGrid rows (requested by snakex64).
+
+**Changes:**
+1. Removed `addDataTestIdsToRows` JS function from `queryResultGrid.js` (25 lines)
+2. Removed JS call + `Task.Delay(100)` from `QueryResultGrid.razor.cs` `OnAfterRenderAsync`
+3. Updated 4 E2E tests to use cell locators (`cell-0-Id`) instead of row locators (`row-0`)
+4. Renamed unit test from `QueryResultGrid_RendersRows_WithCorrectTestIds` → `QueryResultGrid_RendersRows_WithCorrectCount`
+5. Updated `copilot.md` documentation to reflect removal
+
+**Verification Performed:**
+- ✅ No remaining references to `addDataTestIdsToRows` (only in history files)
+- ✅ `IJSRuntime` still needed and used correctly (clipboard functionality)
+- ✅ E2E test locators work correctly (`CreateMultiColumnResult()` first column is "Id")
+- ✅ No dead code (no unused imports, properly removed empty catch block)
+- ✅ `OnAfterRenderAsync` sort propagation still works (no dependency on removed delay)
+- ✅ All tests pass: 21/21 unit tests, 7/7 E2E tests
+
+**Review Outcome:** ✅ **APPROVED** — No issues found
+
+**Architecture Assessment:** This is an improvement. Eliminated:
+- Timing-dependent JS injection workaround (`Task.Delay(100)`)
+- Two-tier testid strategy (Blazor + JS) → simplified to single-tier (Blazor cells only)
+- Empty catch blocks for JS failures
+
+**Key Learning:** E2E tests now click cells to trigger row selection (more realistic than clicking rows directly). Test data structure verified to ensure cell locators (`cell-0-Id`) match actual column names in `CreateMultiColumnResult()`.
+
+**Document Created:** `.squad/decisions/inbox/alex-review-remove-js-testid.md`
+
+
+### Session Complete: 2026-03-15 — Remove JS Row TestID Injection
+
+**Scribe Update:** All work items from this session are now documented:
+- Orchestration logs created for EvilJosh, Jordan, Alex, Alice
+- Session log created: `.squad/log/2026-03-15T15-38-18Z-remove-js-testid-rows.md`
+- Decision record merged into `.squad/decisions/decisions.md`
+- Inbox files archived (3 decision files removed)
+
+**Final Status:** ✅ ALL TESTS PASS (212/212)
+- Core Unit Tests: 119/119 ✅
+- Blazor Unit Tests: 60/60 ✅
+- E2E Tests: 33/33 ✅
+- Zero regressions, ready for production
+

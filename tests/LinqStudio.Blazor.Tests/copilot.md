@@ -149,7 +149,7 @@ dotnet test tests/LinqStudio.Blazor.Tests/LinqStudio.Blazor.Tests.csproj --filte
 ### New bUnit Tests (QueryResultGridTests.cs)
 Added 4 tests for MudDataGrid migration features:
 - `QueryResultGrid_ShowsNullAsText_WhenCellValueIsNull` - NULL values display as "NULL" text
-- `QueryResultGrid_RendersRows_WithCorrectTestIds` - Rows have `data-testid="row-{index}"`
+- `QueryResultGrid_RendersRows_WithCorrectCount` - Verifies rows are rendered with correct count and content
 - `QueryResultGrid_RendersColumnHeaders_WithCorrectTestIds` - Headers have `data-testid="column-header-{ColumnName}"`
 - `QueryResultGrid_RendersCells_WithCorrectTestIds` - Cells have `data-testid="cell-{rowIndex}-{columnName}"`
 
@@ -160,9 +160,6 @@ Added 4 tests for MudDataGrid migration features:
 
 <!-- Cells -->
 <td data-testid="cell-@rowIndex-@columnName">
-
-<!-- Rows -->
-<tr data-testid="row-@rowIndex">
 ```
 
-**Note:** MudDataGrid uses same `.mud-table-root` CSS class as MudTable, so existing 17 tests need no selector updates.
+**Note:** MudDataGrid uses same `.mud-table-root` CSS class as MudTable, so existing 17 tests need no selector updates. Rows no longer have data-testid attributes (JavaScript injection removed).

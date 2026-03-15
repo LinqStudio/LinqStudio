@@ -358,7 +358,7 @@ public class QueryResultGridTests : BunitContext
 	// ── MudDataGrid structure ───────────────────────────────────────────────
 
 	[Fact]
-	public void QueryResultGrid_RendersRows_WithCorrectTestIds()
+	public void QueryResultGrid_RendersRows_WithCorrectCount()
 	{
 		SetupServices();
 		var result = new QueryExecutionResult
@@ -377,7 +377,7 @@ public class QueryResultGridTests : BunitContext
 			.Add(c => c.Result, result)
 			.Add(c => c.IsExecuting, false));
 
-		// Verify rows are rendered (data-testid is added by JS in E2E, not in bUnit)
+		// Verify rows are rendered with correct count and content
 		// In bUnit, verify structure via table rows
 		var tbody = cut.Find("tbody");
 		var rows = tbody.QuerySelectorAll("tr.mud-table-row");

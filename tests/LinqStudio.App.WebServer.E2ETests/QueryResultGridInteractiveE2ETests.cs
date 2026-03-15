@@ -52,9 +52,9 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 		var headerValue = page.Locator("[data-testid='column-header-Value']");
 		await Expect(headerValue).ToBeVisibleAsync();
 
-		// Verify at least one row is rendered
-		var firstRow = page.Locator("[data-testid='row-0']");
-		await Expect(firstRow).ToBeVisibleAsync();
+		// Verify at least one row is rendered (via first cell)
+		var firstRowCell = page.Locator("[data-testid='cell-0-Id']");
+		await Expect(firstRowCell).ToBeVisibleAsync();
 	}
 
 	[Fact(Timeout = 90_000)]
@@ -175,10 +175,10 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 		var resultTable = resultContainer.Locator(".mud-table-root");
 		await Expect(resultTable).ToBeVisibleAsync(new() { Timeout = 10000 });
 
-		// Click the first row directly by data-testid
-		var row = page.Locator("[data-testid='row-0']");
-		await Expect(row).ToBeVisibleAsync();
-		await row.ClickAsync();
+		// Click the first row via a cell (cell click triggers row selection)
+		var firstCell = page.Locator("[data-testid='cell-0-Id']");
+		await Expect(firstCell).ToBeVisibleAsync();
+		await firstCell.ClickAsync();
 
 		// Verify selection count shows row selection
 		var selectionCount = page.GetByTestId("selection-count");
@@ -221,17 +221,17 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 		await Expect(resultTable).ToBeVisibleAsync(new() { Timeout = 10000 });
 
 		// Select first row by clicking it
-		var row1 = page.Locator("[data-testid='row-0']");
-		await Expect(row1).ToBeVisibleAsync();
-		await row1.ClickAsync();
+		var firstRowCell = page.Locator("[data-testid='cell-0-Id']");
+		await Expect(firstRowCell).ToBeVisibleAsync();
+		await firstRowCell.ClickAsync();
 
 		// Wait for selection
 		await Task.Delay(300);
 
 		// Ctrl+Click second row to add to selection
-		var row2 = page.Locator("[data-testid='row-1']");
-		await Expect(row2).ToBeVisibleAsync();
-		await row2.ClickAsync(new() { Modifiers = [Microsoft.Playwright.KeyboardModifier.Control] });
+		var secondRowCell = page.Locator("[data-testid='cell-1-Id']");
+		await Expect(secondRowCell).ToBeVisibleAsync();
+		await secondRowCell.ClickAsync(new() { Modifiers = [Microsoft.Playwright.KeyboardModifier.Control] });
 
 		// Wait for selection to register
 		await Task.Delay(300);
@@ -342,9 +342,9 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 		await Expect(resultTable).ToBeVisibleAsync(new() { Timeout = 10000 });
 
 		// Select a row in Tab 1
-		var row = page.Locator("[data-testid='row-0']");
-		await Expect(row).ToBeVisibleAsync();
-		await row.ClickAsync();
+		var firstRowCell = page.Locator("[data-testid='cell-0-Id']");
+		await Expect(firstRowCell).ToBeVisibleAsync();
+		await firstRowCell.ClickAsync();
 
 		// Verify selection in Tab 1
 		var selectionCount = page.GetByTestId("selection-count");

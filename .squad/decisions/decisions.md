@@ -1534,3 +1534,119 @@ When adding new query execution paths or modifying DbContext generation:
 2. Wrap DbContext in wait using statement
 3. Add lc?.Unload() in finally blocks for all execution paths
 4. See copilot.md in Services directory for technical notes
+
+---
+
+## 2026-03-15: Removed addDataTestIdsToRows JS Function — Complete Implementation
+
+**Status:** ✅ APPROVED & IMPLEMENTED  
+**By:** EvilJosh (implementation), Jordan (tests), Alex (review)  
+**Requested by:** snakex64  
+
+### Decision
+Removed JavaScript-based data-testid="row-X" injection from MudDataGrid. Replaced with cell-based selector pattern already present in Blazor markup.
+
+### Rationale
+**Project Policy:** No JavaScript unless absolutely necessary and approved for user-facing features.
+
+The removed ddDataTestIdsToRows function was:
+- Purely test infrastructure (not user-facing)
+- Reliant on timing workaround (Task.Delay(100))
+- Fragile due to virtual rendering dynamics
+
+Alternative solution validates existing best practice: Cell clicks in MudDataGrid trigger row selection via event bubbling.
+
+### Implementation Details
+
+**Code Changes (EvilJosh):**
+1. Removed ddDataTestIdsToRows function from src/LinqStudio.Blazor/wwwroot/queryResultGrid.js (25 lines)
+2. Removed JS interop call from QueryResultGrid.razor.cs OnAfterRenderAsync()
+3. Removed Task.Delay(100) workaround (no longer needed)
+4. Preserved IJSRuntime for clipboard functionality (copyToClipboard — user-facing)
+
+**Test Updates (Jordan):**
+- Updated 4 E2E tests in QueryResultGridInteractiveE2ETests.cs: row selectors → cell selectors
+  - ResultGrid_ShowsColumns_AfterSuccessfulQuery: ow-0 → cell-0-Id
+  - ResultGrid_SelectsRow_OnClick: ow-0 → cell-0-Id
+  - ResultGrid_CopiesTSV_OnCtrlC: ow-0, ow-1 → cell-0-Id, cell-1-Id
+  - ResultGrid_PerTab_SelectionIsIndependent: ow-0 → cell-0-Id
+- Renamed unit test: QueryResultGrid_RendersRows_WithCorrectTestIds → QueryResultGrid_RendersRows_WithCorrectCount
+- Updated documentation in test project copilot.md files
+
+### Test Results
+
+**Full Suite:**
+- LinqStudio.Core.Tests: 119/119 passed ✅
+- LinqStudio.Blazor.Tests: 60/60 passed ✅
+- LinqStudio.App.WebServer.E2ETests: 33/33 passed ✅
+- Total: 212/212 tests passing
+
+**Specific E2E Tests (affected by change):**
+- ResultGrid_ShowsColumns_AfterSuccessfulQuery ✅
+- ResultGrid_SelectsRow_OnClick ✅
+- ResultGrid_CopiesTSV_OnCtrlC ✅
+- ResultGrid_PerTab_SelectionIsIndependent ✅
+
+### Architecture Improvement
+
+**Before:** Two-tier testid strategy
+- Cells: via Blazor markup
+- Rows: via JavaScript injection
+
+**After:** Single-tier strategy
+- Cells only: via Blazor markup
+- Row selection: via cell click + event bubbling
+
+**Benefits:**
+1. Simpler — one locator strategy
+2. Faster — no Task.Delay(100) workaround
+3. More maintainable — no JS interop for testids
+4. More realistic — tests interact like real users (clicking cells)
+
+### Verification Checklist
+
+✅ No remaining references to ddDataTestIdsToRows (codebase search: 0 matches)  
+✅ IJSRuntime still needed and used (clipboard)  
+✅ E2E test locators validated against test data  
+✅ No dead code or orphaned imports  
+✅ OnAfterRenderAsync sort propagation intact  
+✅ All 212 tests pass (zero regressions)  
+
+### Review Sign-Off
+
+**Alex (Code Review):**
+- Issues: 0
+- Concerns: 0
+- Recommendation: **SHIP IT**
+- All changes correct, complete, improve code quality
+
+### Files Modified
+
+**Source:**
+- src/LinqStudio.Blazor/wwwroot/queryResultGrid.js
+- src/LinqStudio.Blazor/Components/QueryResultGrid.razor.cs
+
+**Tests:**
+- tests/LinqStudio.App.WebServer.E2ETests/QueryResultGridInteractiveE2ETests.cs
+- tests/LinqStudio.Blazor.Tests/QueryResultGridTests.cs
+- tests/LinqStudio.App.WebServer.E2ETests/copilot.md
+- tests/LinqStudio.Blazor.Tests/copilot.md
+
+### Pattern: Cell Click → Row Selection
+
+This pattern is validated and established for future reference:
+
+`csharp
+// Cell click triggers row selection via event bubbling
+var cell = page.Locator($"[data-testid='cell-{rowIndex}-{columnName}']");
+await cell.ClickAsync(); // Row automatically selected
+
+// Proof: ResultGrid_SelectsRow_OnCellClick test validates this works
+`
+
+When testing MudDataGrid row interactions, click cells instead of trying to click rows directly.
+
+### Cross-Reference
+- Orchestration logs: .squad/orchestration-log/2026-03-15T15-38-18Z-*.md
+- Session log: .squad/log/2026-03-15T15-38-18Z-remove-js-testid-rows.md
+

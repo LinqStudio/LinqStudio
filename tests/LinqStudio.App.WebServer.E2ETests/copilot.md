@@ -156,10 +156,11 @@ Added 7 comprehensive E2E tests for QueryResultGrid interactive features:
 ### Required `data-testid` Attributes (for EvilJosh):
 - `data-testid="column-header-{ColumnName}"` — column headers
 - `data-testid="cell-{RowIndex}-{ColumnName}"` — cells (0-indexed row)
-- `data-testid="row-{RowIndex}"` — rows
 - `data-testid="selection-count"` — selection indicator (shows "N cells/rows selected")
 - `data-testid="editor-results-splitter"` — draggable splitter div
 - `data-testid="query-result-container"` — (already exists, keep)
+
+**Note:** Rows no longer have data-testid attributes. Tests click cells instead (cell click triggers row selection).
 
 ### Clipboard Test Permissions
 ```csharp

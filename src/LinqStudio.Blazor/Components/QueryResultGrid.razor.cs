@@ -48,22 +48,6 @@ public partial class QueryResultGrid : ComponentBase
 	{
 		await base.OnAfterRenderAsync(firstRender);
 
-		// Add data-testid attributes to rows for E2E testing
-		// MudDataGrid with Virtualize needs a delay for rows to be rendered in DOM
-		if (Result?.Rows.Count > 0)
-		{
-			try
-			{
-				// Small delay to allow virtualized rows to render
-				await Task.Delay(100);
-				await JSRuntime.InvokeVoidAsync("addDataTestIdsToRows", "[data-testid='query-result-grid']");
-			}
-			catch
-			{
-				// Silently ignore if JS function not available or fails
-			}
-		}
-
 		// Snapshot current sort state from grid and propagate changes to parent
 		if (_dataGrid is not null && OnSortDefinitionsChanged.HasDelegate)
 		{
