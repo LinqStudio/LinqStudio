@@ -934,3 +934,194 @@ Tab-local state via `Dictionary<Guid, QueryExecutionState>` matches how QueriesW
 **Key Pattern:**
 All query execution operations require an open project. The null check pattern used here matches existing patterns in the component where project-dependent features (schema refresh, DB context generation) already check `Workspace.CurrentProject is null` before proceeding.
 
+
+---
+
+## Learnings
+
+### 2026-03-11 - QueryResultGrid SSMS-like Features UI/UX Analysis
+
+**Task:** Comprehensive analysis of enhancing QueryResultGrid.razor with SSMS-like advanced grid features (column resize, reorder, cell/row selection, sorting).
+
+**Key Findings:**
+
+#### Current State
+- Component uses basic MudTable with dynamic columns (foreach over Result.ColumnNames)
+- Data model: QueryExecutionResult with Dictionary<string, object?> rows
+- No custom CSS — fully relies on MudBlazor theming
+- Embedded in Editor page with fixed 400px height, scrollable container
+
+#### MudDataGrid vs MudTable Decision
+- **MudDataGrid provides natively:**
+  - Column resizing (Resizable="true")
+  - Column reordering (DragDropColumnReordering="true")
+  - Multi-column sorting
+  - Row selection without checkboxes (SelectOnRowClick="true")
+  - Better performance (virtualization, optimized rendering)
+- **Challenge:** MudDataGrid expects strongly-typed T, current code uses Dictionary<string, object?>
+- **Solution:** Use ExpandoObject or dynamic TemplateColumn approach (explored previously in Dec 2024 context)
+- **Recommendation:** Switch to MudDataGrid — saves 2+ weeks of custom JS interop work
+
+#### Implementation Complexity by Feature
+| Feature | MudDataGrid | MudTable Custom | Winner |
+|---------|-------------|-----------------|--------|
+| Column resize | ✅ Native (1-2h) | ❌ Custom JS (2-3d) | **MudDataGrid** |
+| Column reorder | ✅ Native (1h) | ❌ Custom JS (2d) | **MudDataGrid** |
+| Column sorting | ✅ Native (1h) | ✅ MudTableSortLabel (1-2h) | Tie |
+| Row selection | ✅ Native (2h) | ⚠️ Custom (1d) | **MudDataGrid** |
+| Cell selection | ❌ Custom (2-3d) | ❌ Custom (2-3d) | Tie |
+
+**Total effort:** MudDataGrid (~1.5 weeks) vs MudTable custom (~3-4 weeks)
+
+#### Cell Selection vs Row Selection Insight
+- **SSMS has both modes** with separate toggle (cell mode vs row mode)
+- **Blazor constraint:** Can't easily do both simultaneously — they conflict in event handling
+- **Options:**
+  1. Implement both with mode toggle (complex but flexible)
+  2. Cell selection only (power-user preference)
+  3. Row selection only (simpler, good enough for most queries)
+- **Recommendation:** Start with row selection (easy with MudDataGrid), add cell selection in v2 if users request
+
+#### JS Interop Concerns
+- **Cell selection requires JS interop:**
+  - Blazor's @onclick event args don't expose Ctrl/Shift modifier keys
+  - Need custom JS to detect modifiers and pass to C# (getModifierKeys() function)
+  - Keyboard navigation needs JS event listeners (keydown on table element)
+- **Copy to clipboard:**
+  - 
+avigator.clipboard.writeText() API (requires HTTPS or localhost)
+  - Format decision needed: tab-delimited? CSV? Include headers?
+- **Custom column resizing is brittle:**
+  - JS drag handlers (mousedown, mousemove, mouseup) conflict with Blazor re-rendering
+  - Resize handles get lost on state changes unless re-attached (fragile)
+  - **Strong recommendation:** Don't custom-build this — use MudDataGrid native
+
+#### CSS Specificity with MudBlazor
+- MudBlazor uses ::deep for nested component styling
+- Custom cell/row selection styles need higher specificity:
+  `css
+  ::deep .mud-table-cell.cell-selected {
+      border: 2px solid blue !important;
+  }
+  `
+- **Better approach:** Use MudDataGrid's Class properties on columns/rows (no ::deep needed)
+
+#### Key Design Questions for User
+1. **MudDataGrid vs MudTable?** (Recommend MudDataGrid)
+2. **Cell, row, or both selection modes?** (Recommend row only for MVP)
+3. **Feature priority?** (Resize > sort > row select > cell select > reorder?)
+4. **Persist column widths/order?** (Impacts state management)
+5. **Clipboard format?** (Tab-delimited with headers recommended)
+6. **Virtualization for large datasets?** (Recommend yes if 1000+ rows common)
+
+#### Frontend Dev Philosophy
+- **Don't reinvent the wheel:** MudDataGrid already has professional-grade features
+- **JS interop is expensive:** Avoid unless necessary (cell selection is necessary, column resize isn't)
+- **Blazor Server latency:** Every click = SignalR round-trip → use ShouldRender() optimizations
+- **Component-first thinking:** If MudBlazor provides it, use it — custom code is technical debt
+
+**Next Steps:**
+1. User decisions on design questions
+2. Prototype MudDataGrid adapter for Dictionary<string, object?> rows
+3. Implement Phase 1: resize + sort + row select (~1 week)
+4. Phase 2: keyboard nav + clipboard (~1 week)
+5. Phase 3: cell selection if requested (~3 days)
+
+**Documentation Created:**
+- .squad/decisions/inbox/eviljosh-results-grid-ui-analysis.md (comprehensive 500+ line analysis)
+
+
+### 2026-03-13 - Enhanced QueryResultGrid with MudDataGrid + SSMS-like Interactivity
+
+**Task:** Migrated QueryResultGrid from MudTable to MudDataGrid with full row/cell selection, sorting, column reordering, clipboard support, and draggable editor/results splitter.
+
+**Files Modified:**
+- src/LinqStudio.Blazor/Components/QueryResultGrid.razor - Migrated to MudDataGrid with TemplateColumn
+- src/LinqStudio.Blazor/Components/QueryResultGrid.razor.cs - Added selection logic, clipboard TSV copy
+- src/LinqStudio.Blazor/Components/Pages/Editor/Editor.razor - Added draggable vertical splitter
+- src/LinqStudio.Blazor/Components/Pages/Editor/Editor.razor.cs - Added JSRuntime injection, splitter init
+- src/LinqStudio.Blazor/Components/Pages/Editor/Editor.razor.css - Splitter + flex layout styling
+- src/LinqStudio.App.WebServer/App.razor - Added queryResultGrid.js script reference
+- src/LinqStudio.Blazor/Components/copilot.md - Updated QueryResultGrid + Editor documentation
+
+**Files Created:**
+- src/LinqStudio.Blazor/Components/QueryResultGrid.razor.css - Cell/row selection styling
+- src/LinqStudio.Blazor/wwwroot/queryResultGrid.js - Splitter drag-drop JS
+- .squad/decisions/inbox/eviljosh-results-grid-implementation.md - Technical decision doc
+
+**Features Implemented:**
+1. **MudDataGrid Migration**: Replaced MudTable with MudDataGrid using TemplateColumn + @foreach dynamic columns
+2. **Row Selection**: Click-to-highlight (no checkboxes), Ctrl+Click multi-select, Shift+Click range
+3. **Cell Selection**: Click individual cells, Ctrl+Click multi, Shift+Click vertical range (same column)
+4. **Sorting**: Client-side via SortBy parameter on each TemplateColumn
+5. **Column Reordering**: Drag-and-drop enabled (DragDropColumnReordering=true)
+6. **Column Resizing**: ResizeMode.Container (resize individual columns)
+7. **Virtualization**: Enabled for large result sets (Virtualize=true, FixedHeader=true)
+8. **NULL Display**: Shows ""NULL"" text for null values (SSMS-style)
+9. **Clipboard Copy (Ctrl+C)**: TSV format with column headers via navigator.clipboard.writeText
+10. **Draggable Splitter**: Vertical splitter between editor (~40%) and results (~60%), resets on page load
+
+**Key Technical Patterns:**
+
+**Selection State (per-tab, non-persisted):**
+`csharp
+private HashSet<int> _selectedRows = new();
+private HashSet<(int RowIndex, string ColumnName)> _selectedCells = new();
+`
+- Cell click uses @onclick:stopPropagation=""true"" to prevent row selection
+- Keyboard tracking: _isShiftDown, _isCtrlDown for modifier keys
+
+**Row Index Lookup (no LINQ):**
+`csharp
+private int GetRowIndex(IReadOnlyDictionary<string, object> row)
+{
+    for (int i = 0; i < Result.Rows.Count; i++)
+        if (ReferenceEquals(Result.Rows[i], row)) return i;
+    return -1;
+}
+`
+- Uses ReferenceEquals for O(1) identity check
+- Avoids .IndexOf() extension (not available on IReadOnlyList<T>)
+
+**Nullable Reference Type Workaround:**
+- Razor file: T=""IReadOnlyDictionary<string, object>"" (no ?)
+- Code-behind: Wraps logic in #nullable enable / #nullable restore
+- Reason: Blazor Razor compiler doesn't support @nullable enable directive
+
+**Splitter JS Interop:**
+`javascript
+window.initSplitter = function(splitterId, topId, bottomId) {
+    // mousedown/mousemove/mouseup handlers
+    // Min height: 80px per panel
+    // Updates top.style.height and bottom.style.height
+}
+`
+Called in Editor.OnAfterRenderAsync(firstRender).
+
+**Clipboard TSV Generation:**
+- Selected cells: column headers for selected columns only + rows with those cells
+- Selected rows: all column headers + full rows
+- Format: tab-separated values with \t and \n
+- Graceful failure if clipboard API unavailable
+
+**data-testid Attributes Added:**
+- column-header-{ColumnName} - Each column header
+- cell-{RowIndex}-{ColumnName} - Each cell (e.g., cell-0-Id)
+- selection-count - Selection count indicator
+- ditor-results-splitter - Draggable splitter
+
+**Build Status:** ✅ Clean build (0 errors, 0 warnings)
+
+**Why MudDataGrid?**
+- MudBlazor 8.15.0 has stable TemplateColumn support
+- Advanced features: sorting, column resize, drag-drop reordering, virtualization
+- Previous decision used MudTable for simplicity; new requirements demand DataGrid capabilities
+
+**Known Issues:**
+- Selection state resets on tab switch (per design - no persistence)
+- Clipboard API may fail in older browsers (gracefully handled)
+
+**Next Steps:**
+- Component tests for selection logic and clipboard
+- E2E tests for full interaction flow
+- Potential: Persist column order in saved query files (future enhancement)

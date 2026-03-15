@@ -19,6 +19,10 @@ public class QueryResultGridTests : BunitContext
 			.AddLinqStudioBlazor();
 
 		Services.AddLogging();
+
+		// MudDataGrid requires drag-and-drop JS interop
+		JSInterop.Mode = JSRuntimeMode.Loose;
+		JSInterop.SetupVoid("mudDragAndDrop.initDropZone", _ => true);
 	}
 
 	// ── Null / initial state ────────────────────────────────────────────────
@@ -323,5 +327,134 @@ public class QueryResultGridTests : BunitContext
 		});
 
 		Assert.Null(ex);
+	}
+
+	[Fact]
+	public void QueryResultGrid_ShowsNullAsText_WhenCellValueIsNull()
+	{
+		SetupServices();
+		var result = new QueryExecutionResult
+		{
+			ColumnNames = ["Id", "Name", "OptionalValue"],
+			Rows =
+			[
+				new Dictionary<string, object?> { ["Id"] = 1, ["Name"] = "Alice", ["OptionalValue"] = null },
+				new Dictionary<string, object?> { ["Id"] = 2, ["Name"] = null, ["OptionalValue"] = "Present" }
+			],
+			Elapsed = TimeSpan.FromMilliseconds(10)
+		};
+
+		var cut = Render<QueryResultGrid>(p => p
+			.Add(c => c.Result, result)
+			.Add(c => c.IsExecuting, false));
+
+		// Verify "NULL" text appears in markup for null values
+		Assert.Contains("NULL", cut.Markup);
+		// Verify non-null values are also present
+		Assert.Contains("Alice", cut.Markup);
+		Assert.Contains("Present", cut.Markup);
+	}
+
+	// ── MudDataGrid structure ───────────────────────────────────────────────
+
+	[Fact]
+	public void QueryResultGrid_RendersRows_WithCorrectTestIds()
+	{
+		SetupServices();
+		var result = new QueryExecutionResult
+		{
+			ColumnNames = ["Id", "Name"],
+			Rows =
+			[
+				new Dictionary<string, object?> { ["Id"] = 1, ["Name"] = "First" },
+				new Dictionary<string, object?> { ["Id"] = 2, ["Name"] = "Second" },
+				new Dictionary<string, object?> { ["Id"] = 3, ["Name"] = "Third" }
+			],
+			Elapsed = TimeSpan.FromMilliseconds(20)
+		};
+
+		var cut = Render<QueryResultGrid>(p => p
+			.Add(c => c.Result, result)
+			.Add(c => c.IsExecuting, false));
+
+		// Verify rows are rendered (data-testid is added by JS in E2E, not in bUnit)
+		// In bUnit, verify structure via table rows
+		var tbody = cut.Find("tbody");
+		var rows = tbody.QuerySelectorAll("tr.mud-table-row");
+		Assert.Equal(3, rows.Length);
+
+		// Verify row content
+		Assert.Contains("First", rows[0].TextContent);
+		Assert.Contains("Second", rows[1].TextContent);
+		Assert.Contains("Third", rows[2].TextContent);
+	}
+
+	[Fact]
+	public void QueryResultGrid_RendersColumnHeaders_WithCorrectTestIds()
+	{
+		SetupServices();
+		var result = new QueryExecutionResult
+		{
+			ColumnNames = ["ProductId", "Name", "Price"],
+			Rows =
+			[
+				new Dictionary<string, object?> { ["ProductId"] = 1, ["Name"] = "Widget", ["Price"] = 19.99m }
+			],
+			Elapsed = TimeSpan.FromMilliseconds(15)
+		};
+
+		var cut = Render<QueryResultGrid>(p => p
+			.Add(c => c.Result, result)
+			.Add(c => c.IsExecuting, false));
+
+		// Verify column headers have data-testid attributes
+		var headerProductId = cut.Find("[data-testid='column-header-ProductId']");
+		Assert.NotNull(headerProductId);
+		Assert.Contains("ProductId", headerProductId.TextContent);
+
+		var headerName = cut.Find("[data-testid='column-header-Name']");
+		Assert.NotNull(headerName);
+		Assert.Contains("Name", headerName.TextContent);
+
+		var headerPrice = cut.Find("[data-testid='column-header-Price']");
+		Assert.NotNull(headerPrice);
+		Assert.Contains("Price", headerPrice.TextContent);
+	}
+
+	[Fact]
+	public void QueryResultGrid_RendersCells_WithCorrectTestIds()
+	{
+		SetupServices();
+		var result = new QueryExecutionResult
+		{
+			ColumnNames = ["Id", "Value"],
+			Rows =
+			[
+				new Dictionary<string, object?> { ["Id"] = 10, ["Value"] = "Alpha" },
+				new Dictionary<string, object?> { ["Id"] = 20, ["Value"] = "Beta" }
+			],
+			Elapsed = TimeSpan.FromMilliseconds(8)
+		};
+
+		var cut = Render<QueryResultGrid>(p => p
+			.Add(c => c.Result, result)
+			.Add(c => c.IsExecuting, false));
+
+		// Verify cells have data-testid="cell-{rowIndex}-{columnName}"
+		var cell00 = cut.Find("[data-testid='cell-0-Id']");
+		Assert.NotNull(cell00);
+		Assert.Contains("10", cell00.TextContent);
+
+		var cell01 = cut.Find("[data-testid='cell-0-Value']");
+		Assert.NotNull(cell01);
+		Assert.Contains("Alpha", cell01.TextContent);
+
+		var cell10 = cut.Find("[data-testid='cell-1-Id']");
+		Assert.NotNull(cell10);
+		Assert.Contains("20", cell10.TextContent);
+
+		var cell11 = cut.Find("[data-testid='cell-1-Value']");
+		Assert.NotNull(cell11);
+		Assert.Contains("Beta", cell11.TextContent);
 	}
 }

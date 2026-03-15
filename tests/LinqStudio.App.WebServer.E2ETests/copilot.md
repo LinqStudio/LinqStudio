@@ -93,7 +93,16 @@ Added `QueryExecutionE2ETests.cs` with 10 tests for the query execution feature.
 // Return an empty result set for a specific test
 _app.MockQueryExecutionService.SetNextResult(QueryExecutionResult.Empty(TimeSpan.FromMilliseconds(10)));
 // SetNextResult is consumed once then resets to the default error result
+
+// Use helper to create multi-column result
+_app.MockQueryExecutionService.SetNextResult(E2ETestHelpers.CreateMultiColumnResult(rows: 5));
 ```
+
+### Helper Method Added
+**E2ETestHelpers.CreateMultiColumnResult(int rows = 3):**
+- Returns QueryExecutionResult with 3 columns: Id, Name, Value
+- Every 3rd row has Value = null (tests NULL display)
+- Used by QueryResultGridInteractiveE2ETests
 
 ### Tab Navigation in Tests
 MudBlazor tabs may reorder in the DOM after selection changes. Use saved URLs for reliable tab switching:
@@ -126,4 +135,64 @@ await page.WaitForURLAsync(tab1Url);
 - **`Execute_Button_IsDisabled_WhenNoQueryOpen`**: Must use SPA navigation (`nav-editor` click), NOT `page.GotoAsync()`. Full page reload resets the Blazor circuit and loses workspace state, causing redirect to home page instead of showing the no-query alert.
 - **Race condition prevention**: `Execute_ShowsEmptyResultSet_WhenQueryReturnsNoRows` calls `SetNextResult()` immediately before `executeBtn.ClickAsync()` (not at the start of the test) to minimize the window for other in-flight executions consuming the configured result.
 - **MudBlazor timeout-select**: The MudSelect is wrapped in `<div data-testid="timeout-select">` in Editor.razor because MudSelect's UserAttributes go on a hidden input, making `GetByTestId` find a non-visible element.
+
+## QueryResultGrid Interactive E2E Tests (NEW - PENDING IMPLEMENTATION)
+
+**Status:** ⏳ Tests written in `QueryResultGridInteractiveE2ETests.cs`, waiting for EvilJosh's MudDataGrid implementation
+
+Added 7 comprehensive E2E tests for QueryResultGrid interactive features:
+
+### Tests Created
+| Test | What it verifies |
+|------|-----------------|
+| `ResultGrid_ShowsColumns_AfterSuccessfulQuery` | MudDataGrid renders with correct column headers using testid selectors |
+| `ResultGrid_ShowsNullText_ForNullCellValues` | NULL cell values display as "NULL" text in live browser |
+| `ResultGrid_SelectsCell_OnClick` | Clicking a cell highlights it and shows selection count |
+| `ResultGrid_SelectsRow_OnClick` | Clicking a row highlights it and shows selection count |
+| `ResultGrid_CopiesTSV_OnCtrlC` | Ctrl+C copies selected cells as TSV to clipboard (grants clipboard permissions) |
+| `ResultGrid_Splitter_IsDraggable` | Splitter element exists and can be dragged to resize editor/results panels |
+| `ResultGrid_PerTab_SelectionIsIndependent` | Each query tab maintains independent grid state (selection doesn't leak) |
+
+### Required `data-testid` Attributes (for EvilJosh):
+- `data-testid="column-header-{ColumnName}"` — column headers
+- `data-testid="cell-{RowIndex}-{ColumnName}"` — cells (0-indexed row)
+- `data-testid="row-{RowIndex}"` — rows
+- `data-testid="selection-count"` — selection indicator (shows "N cells/rows selected")
+- `data-testid="editor-results-splitter"` — draggable splitter div
+- `data-testid="query-result-container"` — (already exists, keep)
+
+### Clipboard Test Permissions
+```csharp
+// Clipboard tests require explicit permissions
+await using var context = await _pw.Browser.NewContextAsync(new()
+{
+    Permissions = ["clipboard-read", "clipboard-write"]
+});
+```
+
+### Splitter Drag Pattern
+```csharp
+// Get splitter bounding box and drag it
+var splitterBox = await splitter.BoundingBoxAsync();
+await page.Mouse.MoveAsync(splitterBox.X + splitterBox.Width / 2, splitterBox.Y + splitterBox.Height / 2);
+await page.Mouse.DownAsync();
+await page.Mouse.MoveAsync(/* ... new position ... */);
+await page.Mouse.UpAsync();
+```
+
+### Selection Verification
+Tests check for `.mud-selected` OR `[aria-selected='true']` to be flexible with MudBlazor implementation:
+```csharp
+var selectedCell = resultContainer.Locator(".mud-selected, [aria-selected='true']");
+var hasSelection = await selectedCell.CountAsync() > 0;
+```
+
+### Implementation Requirements for EvilJosh
+1. NULL values must render as exact string "NULL" (not empty, not blank)
+2. Selection adds `.mud-selected` class or `aria-selected="true"` attribute
+3. Ctrl+C copies as TSV format (tab-separated with header row)
+4. Splitter must respond to mouse drag (mousedown/mousemove/mouseup)
+5. All testid attributes listed above must be present
+
+**See full details in:** `.squad/decisions/inbox/jordan-results-grid-tests.md`
 

@@ -287,3 +287,17 @@ When reviewing database generator classes, distinguish between:
 - Documented architecture learning for future database generator reviews
 - **Recommendation:** Code is production-ready, no changes required
 
+---
+
+### 2026-03-13: QueryResultGrid Rewrite Review
+
+**Task:** Review switch from MudTable to MudDataGrid by EvilJosh.
+
+**Review Findings:**
+1.  **Missing Requirement (Column State):** Per-tab column persistence (order/width) is **missing**. `QueryExecutionState` lacks the properties, and `OnColumnOrderChanged` is ignored.
+2.  **Critical JS Leak:** `initSplitter` attaches global event listeners (`mousemove`, `mouseup`) that are never removed. This will leak memory and cause interaction issues if Editor is closed/reopened.
+3.  **Correctness:** TSV copy, selection logic (Ctrl/Shift), and null handling are correct.
+4.  **Tests:** Tests cover new interactive features well (E2E), but miss the (missing) persistence feature and cleanup verification.
+
+**Status:** ⚠️ Findings (High Severity JS Leak + Missing Feature).
+

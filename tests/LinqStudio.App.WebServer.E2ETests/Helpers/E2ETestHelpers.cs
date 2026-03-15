@@ -1,3 +1,4 @@
+using LinqStudio.Abstractions.Models;
 using LinqStudio.App.WebServer.E2ETests.Fixtures;
 using Microsoft.Playwright;
 using static Microsoft.Playwright.Assertions;
@@ -140,5 +141,30 @@ public static class E2ETestHelpers
 		var refreshBtn = page.GetByTestId("db-tree-refresh");
 		await Expect(refreshBtn).ToBeVisibleAsync();
 		await refreshBtn.ClickAsync();
+	}
+
+	/// <summary>
+	/// Creates a multi-column QueryExecutionResult for testing QueryResultGrid.
+	/// Includes null values to test NULL display functionality.
+	/// </summary>
+	/// <param name="rows">Number of rows to generate (default: 3)</param>
+	public static QueryExecutionResult CreateMultiColumnResult(int rows = 3)
+	{
+		var columnNames = new[] { "Id", "Name", "Value" };
+		var rowData = Enumerable.Range(1, rows).Select(i =>
+			(IReadOnlyDictionary<string, object?>)new Dictionary<string, object?>
+			{
+				["Id"] = i,
+				["Name"] = $"Item{i}",
+				["Value"] = i % 3 == 0 ? null : (object?)$"val{i}"
+			}
+		).ToList();
+
+		return new QueryExecutionResult
+		{
+			ColumnNames = columnNames,
+			Rows = rowData,
+			Elapsed = TimeSpan.FromMilliseconds(15)
+		};
 	}
 }

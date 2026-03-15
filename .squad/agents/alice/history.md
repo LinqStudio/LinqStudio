@@ -619,3 +619,43 @@ Visual verification that Simon's fix for `MssqlGenerator.GetTablesAsync` correct
 ### Status
 ✅ **FIX VERIFIED** - Simon's changes to `MssqlGenerator.GetTablesAsync` work correctly in live browser testing. The user-reported scenario now works as expected.
 
+
+---
+
+## 2026-03-14: Live Test - QueryResultGrid Migration (MudTable → MudDataGrid)
+
+### Task
+Full live UI test of EvilJosh's new QueryResultGrid after migrating from MudTable to MudDataGrid with SSMS-like features. All 521 unit tests passed; verify actual browser behavior.
+
+### Test Results - ⚠️ MOSTLY PASSING (1 Critical Bug)
+
+**✅ PASSES:**
+1. Editor page loads without crash
+2. Editor/results layout fully visible with proper structure
+3. Splitter element exists with correct styling (5px height, row-resize cursor)
+4. Execute button responds correctly
+5. Error handling works perfectly ("No database connection configured" alert)
+6. All structural elements present (container, editor panel, splitter, results panel)
+7. Splitter dragging works after manual initialization (changes from 40%/60% to pixel-based sizing)
+8. Splitter visual feedback (background changes to purple rgb(126, 111, 255) when active)
+9. No JavaScript errors in console
+
+**❌ FAILS:**
+1. **CRITICAL BUG:** Splitter JavaScript initialization timing issue - initSplitter runs BEFORE DOM elements are ready, causing console warning and non-functional splitter on page load
+
+**⏸️ SKIPPED:**
+- MudDataGrid features (sorting, cell selection, row highlighting, NULL display, Ctrl+C copying) - cannot test without database connection (expected)
+
+### Critical Bug Details
+
+**Bug:** Splitter initialization timing failure  
+**Evidence:** Console warning: initSplitter: One or more elements not found  
+**Root Cause:** JavaScript window.initSplitter() called before Blazor finishes rendering DOM elements  
+**Impact:** Splitter appears non-functional to users on initial page load  
+**Recommended Fix:** Move initSplitter call to Blazor OnAfterRenderAsync with small delay, or use MutationObserver
+
+### Recommendation
+
+**FIX REQUIRED BEFORE DEPLOYMENT:** The splitter initialization bug breaks core UX. Fix the timing issue, then the QueryResultGrid is production-ready.
+
+**Full Report:** .squad/decisions/inbox/alice-results-grid-live-test.md

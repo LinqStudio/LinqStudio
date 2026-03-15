@@ -13,18 +13,18 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.CodeAnalysis.Tags;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.JSInterop;
 using MudBlazor;
 
 namespace LinqStudio.Blazor.Components.Pages.Editor;
 
-public partial class Editor : ComponentBase, IDisposable
+public partial class Editor : ComponentBase, IDisposable, IAsyncDisposable
 {
 	[Inject] private ILogger<Editor> Logger { get; set; } = null!;
 	[Inject] private ISnackbar Snackbar { get; set; } = null!;
 	[Inject] private ErrorHandlingService ErrorHandlingService { get; set; } = null!;
 	[Inject] private MonacoProvidersService MonacoProvidersService { get; set; } = null!;
 	[Inject] private CompilerServiceFactory CompilerServiceFactory { get; set; } = null!;
-	[Inject] private IDbContextGenerator DbContextGenerator { get; set; } = null!;
 	[Inject] private IOptionsMonitor<UISettings> UISettings { get; set; } = null!;
 	[Inject] private IOptionsMonitor<QueryExecutionSettings> QueryExecutionSettings { get; set; } = null!;
 	[Inject] private ProjectWorkspace Workspace { get; set; } = null!;
@@ -32,6 +32,7 @@ public partial class Editor : ComponentBase, IDisposable
 	[Inject] private IDialogService DialogService { get; set; } = null!;
 	[Inject] private IFileSystemService FileSystemService { get; set; } = null!;
 	[Inject] private IQueryExecutionService QueryExecutionService { get; set; } = null!;
+	[Inject] private IJSRuntime JSRuntime { get; set; } = null!;
 
 	[Parameter] public Guid? QueryIdParam { get; set; }
 
@@ -51,6 +52,7 @@ public partial class Editor : ComponentBase, IDisposable
 		public QueryExecutionResult? Result { get; set; }
 		public bool IsExecuting { get; set; }
 		public CancellationTokenSource? CancellationTokenSource { get; set; }
+		public Dictionary<string, SortDefinition<IReadOnlyDictionary<string, object?>>> SortDefinitions { get; set; } = new();
 	}
 
 	private readonly Dictionary<Guid, QueryExecutionState> _executionStates = new();
@@ -75,6 +77,7 @@ public partial class Editor : ComponentBase, IDisposable
 	};
 
 	private bool Delay = true;
+	private bool _splitterInitialized;
 
 	protected override void OnInitialized()
 	{
@@ -138,11 +141,24 @@ public partial class Editor : ComponentBase, IDisposable
 	{
 		await base.OnAfterRenderAsync(firstRender);
 
-		if (Delay)
+		if (firstRender)
 		{
 			Delay = false;
 			await Task.Delay(500);
-			StateHasChanged();
+			StateHasChanged(); // triggers second render showing Monaco
+			return; // DON'T init splitter yet — DOM not ready
+		}
+
+		if (!_splitterInitialized)
+		{
+			try
+			{
+				_splitterInitialized = await JSRuntime.InvokeAsync<bool>("initSplitter", "editor-results-splitter", "editor-top-panel", "results-bottom-panel");
+			}
+			catch (Exception ex)
+			{
+				Logger.LogWarning(ex, "Failed to initialize splitter");
+			}
 		}
 	}
 
@@ -555,6 +571,23 @@ public partial class Editor : ComponentBase, IDisposable
 	{
 		var state = GetCurrentExecutionState();
 		state.CancellationTokenSource?.Cancel();
+	}
+
+	public async ValueTask DisposeAsync()
+	{
+		if (_splitterInitialized)
+		{
+			try
+			{
+				await JSRuntime.InvokeVoidAsync("disposeSplitter", "editor-results-splitter");
+			}
+			catch
+			{
+				// Ignore JS errors during disposal
+			}
+		}
+		Dispose();
+		GC.SuppressFinalize(this);
 	}
 
 	public void Dispose()

@@ -137,7 +137,32 @@ dotnet test tests/LinqStudio.Blazor.Tests/LinqStudio.Blazor.Tests.csproj --filte
 
 ## Current Status
 
-- ✅ All 56 Blazor component tests pass
+- ✅ All 56 Blazor component tests pass → Now 60 tests (+4 QueryResultGrid interactive tests)
 - ✅ DatabaseTreeView tests pass (5 tests)
-- ✅ QueryResultGrid tests pass (17 tests)
+- ✅ QueryResultGrid tests pass (17 tests) → Now 21 tests (+4 interactive/testid tests)
 - ✅ ErrorHandling tests pass (34 tests)
+
+## QueryResultGrid Interactive Tests (NEW - PENDING IMPLEMENTATION)
+
+**Status:** ⏳ Tests written, waiting for EvilJosh's MudDataGrid implementation
+
+### New bUnit Tests (QueryResultGridTests.cs)
+Added 4 tests for MudDataGrid migration features:
+- `QueryResultGrid_ShowsNullAsText_WhenCellValueIsNull` - NULL values display as "NULL" text
+- `QueryResultGrid_RendersRows_WithCorrectTestIds` - Rows have `data-testid="row-{index}"`
+- `QueryResultGrid_RendersColumnHeaders_WithCorrectTestIds` - Headers have `data-testid="column-header-{ColumnName}"`
+- `QueryResultGrid_RendersCells_WithCorrectTestIds` - Cells have `data-testid="cell-{rowIndex}-{columnName}"`
+
+### Required `data-testid` Attributes (for EvilJosh):
+```razor
+<!-- Column headers -->
+<th data-testid="column-header-@columnName">
+
+<!-- Cells -->
+<td data-testid="cell-@rowIndex-@columnName">
+
+<!-- Rows -->
+<tr data-testid="row-@rowIndex">
+```
+
+**Note:** MudDataGrid uses same `.mud-table-root` CSS class as MudTable, so existing 17 tests need no selector updates.

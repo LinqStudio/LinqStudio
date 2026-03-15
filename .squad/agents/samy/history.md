@@ -7,6 +7,66 @@
 
 ## Learnings
 
+### 2026-03-14 - QueryResultGrid Dynamic Grid Enhancement Analysis
+
+**Task:** Analyze architecture for adding SSMS-like grid features (column resize, reorder, cell/row selection, sorting) to QueryResultGrid  
+**Requested by:** snakex64  
+**Deliverable:** `.squad/decisions/inbox/samy-results-table-analysis.md`
+
+#### Current State Findings
+
+**QueryResultGrid Implementation:**
+- Simple MudTable with dynamic columns via foreach loop
+- Dictionary-based rows: `IReadOnlyDictionary<string, object?>`
+- Pure display component — no interaction state
+- 16 existing unit tests covering all states (loading, error, empty, success)
+
+**Key Constraint Documented:**
+- copilot.md notes "MudDataGrid with TemplateColumn in foreach loops has column ordering issues in Blazor Server (MudBlazor 8.x)"
+- **Needs re-evaluation:** May be resolved in MudBlazor 8.15.0
+
+**MudBlazor 8.15.0 Feature Analysis:**
+| Feature | MudDataGrid | MudTable |
+|---------|-------------|----------|
+| Column Resizing | ✅ `ResizeMode` | ❌ None |
+| Column Reordering | ✅ `DragDropColumnReordering` | ❌ None |
+| Row Selection | ✅ Native | ✅ Native |
+| Cell Selection | ⚠️ Custom needed | ❌ None |
+| Virtualization | ✅ Built-in | ❌ None |
+
+#### Architecture Decisions
+
+**Where grid state should live:**
+- Column order: Component state (transient UI preference)
+- Column widths: Option to extend Editor's `QueryExecutionState` per-tab
+- Selection state: Component state (ephemeral, consumed by copy operations)
+
+**Layer impact:** Changes confined to Blazor layer only. `QueryExecutionResult` model unchanged.
+
+**Files that need changes:**
+- `QueryResultGrid.razor` — major rewrite (MudTable → MudDataGrid)
+- `QueryResultGrid.razor.cs` — add state management
+- `Editor.razor.cs` — optional extend QueryExecutionState
+- `QueryResultGridTests.cs` — update 16 tests + add new tests
+
+#### Recommendation
+
+**Migrate to MudDataGrid** with spike to verify dynamic column behavior first. Built-in resize/reorder/row selection > hand-rolling with MudTable.
+
+**Key Risks:**
+1. 🔴 Dynamic column issue (needs spike confirmation)
+2. 🟠 Cell selection requires custom implementation
+3. 🟠 State preservation across tab switches
+
+#### Questions for User
+
+1. Is cell selection must-have or is row selection sufficient for MVP?
+2. Should column widths persist per-session, per-tab, or globally?
+3. Should sorting be client-side or re-execute query?
+4. Should we spike MudDataGrid dynamic columns first?
+
+---
+
 ### 2026-03-14 - Composite Primary Key Options Analysis & Architecture Recommendation
 
 **Task:** Analyze four fix options for EF Core composite key generation error and recommend best approach.
