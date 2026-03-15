@@ -1,9 +1,9 @@
 #nullable enable
 
 using LinqStudio.Abstractions.Models;
+using LinqStudio.Blazor.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
-using Microsoft.JSInterop;
 using MudBlazor;
 
 namespace LinqStudio.Blazor.Components;
@@ -23,7 +23,7 @@ public partial class QueryResultGrid : ComponentBase
 	public EventCallback<Dictionary<string, SortDefinition<IReadOnlyDictionary<string, object?>>>> OnSortDefinitionsChanged { get; set; }
 
 	[Inject]
-	private IJSRuntime JSRuntime { get; set; } = null!;
+	private IClipboardService ClipboardService { get; set; } = null!;
 
 	private MudDataGrid<IReadOnlyDictionary<string, object?>>? _dataGrid;
 	private HashSet<int> _selectedRows = new();
@@ -169,14 +169,7 @@ public partial class QueryResultGrid : ComponentBase
 			tsv.AppendLine(string.Join("\t", values));
 		}
 
-		try
-		{
-			await JSRuntime.InvokeAsync<bool>("copyToClipboard", tsv.ToString());
-		}
-		catch
-		{
-			// Clipboard API might fail in some browsers/contexts
-		}
+		await ClipboardService.CopyToClipboardAsync(tsv.ToString());
 	}
 }
 

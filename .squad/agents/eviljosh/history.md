@@ -1159,3 +1159,6 @@ Called in Editor.OnAfterRenderAsync(firstRender).
 - E2E Tests: 33/33 ✅
 - Zero regressions, ready for production
 
+
+### 2026-03-15: Clipboard Service Abstraction
+Created IClipboardService in src/LinqStudio.Blazor/Services/ClipboardService.cs to wrap the copyToClipboard JavaScript function. The service follows project patterns: sealed internal implementation class with public interface, registered as scoped in AddLinqStudioBlazor(), and uses file-scoped namespace. Updated QueryResultGrid to inject IClipboardService instead of IJSRuntime directly. This enables testability and reduces direct JS interop in components.

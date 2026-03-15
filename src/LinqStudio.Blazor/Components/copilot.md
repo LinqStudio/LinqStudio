@@ -181,7 +181,7 @@ Value4\tValue5\tValue6
 **Implementation:**
 - Container div has `tabindex="0"` to receive keyboard events
 - `@onkeydown` handler detects Ctrl+C
-- JS interop: `navigator.clipboard.writeText(tsvString)`
+- IClipboardService: Wraps `navigator.clipboard.writeText()` via JS interop (see `src/LinqStudio.Blazor/Services/ClipboardService.cs`)
 - Handles cell selection (sparse) and row selection (full rows)
 - Graceful failure if clipboard API unavailable
 

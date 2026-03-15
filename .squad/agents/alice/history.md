@@ -603,6 +603,39 @@ Visual verification that Simon's fix for `MssqlGenerator.GetTablesAsync` correct
 2. `03-connection-string-entered.png` - Edit Project dialog with connection string (NO Database=)
 3. Snapshot shows tree view with 4 tables loaded (Database Explorer visible in left sidebar)
 
+### 2025-01-13: IClipboardService Implementation Test Failure
+
+**Test Run:** Full test suite verification after IClipboardService changes
+- **Total Tests:** 525 tests (520 passed, 4 skipped, 1 failed)
+- **Duration:** ~87-90 seconds
+- **Skipped Tests:** Database tests (expected - require Docker setup)
+
+**FAILURE IDENTIFIED:**
+`QueryResultGridInteractiveE2ETests.ResultGrid_CopiesTSV_OnCtrlC` - CONSISTENTLY FAILS (tested twice)
+
+**Error Details:**
+```
+Assert.Contains() Failure: Sub-string not found
+String:    "copyToClipboard"
+Not found: "Id"
+```
+
+**Root Cause Analysis:**
+The E2E test reads clipboard using Playwright's `navigator.clipboard.readText()` and receives the literal string "copyToClipboard" instead of the actual TSV data. This indicates a critical bug in the clipboard implementation.
+
+**Components Involved:**
+- `ClipboardService.cs` - New service that calls `jsRuntime.InvokeAsync<bool>("copyToClipboard", text)`
+- `queryResultGrid.js` - Contains the JavaScript function `window.copyToClipboard()`
+- `QueryResultGrid.razor.cs` - Injects `IClipboardService` and calls `CopyToClipboardAsync()`
+
+**Key Observations:**
+1. The JavaScript function `copyToClipboard` exists in `queryResultGrid.js` and is properly referenced in `App.razor`
+2. The ClipboardService is properly registered in DI via `ServiceCollectionExtensions`
+3. The old implementation directly used `IJSRuntime` and called the same JS function
+4. Test is deterministic - fails consistently on both runs, not a flaky test
+
+**Status:** TEST FAILURE - IClipboardService changes break clipboard functionality. The refactoring from direct IJSRuntime usage to the new service layer has introduced a regression.
+
 ### Technical Validation
 - **Before Fix:** Connection strings without `Database=` would fail to load tables
 - **After Fix:** Auto-discovery correctly identifies user databases and loads tables
@@ -742,3 +775,34 @@ When working with static web assets (wwwroot/*.js, *.css), always include `dotne
 - E2E Tests: 33/33 ✅
 - Zero regressions, ready for production
 
+
+
+## 2026-05-24 - E2E Test Failure: Stale Build Cache
+
+**Issue:** ResultGrid_CopiesTSV_OnCtrlC test was failing with clipboard containing "copyToClipboard" (the JS function name) instead of TSV data, even after clean rebuild during previous session.
+
+**Resolution:** Performed a full clean rebuild sequence:
+1. dotnet clean LinqStudio.slnx - Removed all build artifacts
+2. dotnet build LinqStudio.slnx - Rebuilt from clean state  
+3. dotnet test LinqStudio.slnx - All 525 tests passed, including the previously failing clipboard test
+
+**Result:** Test now passes successfully. The issue was stale DLLs in the E2E app server build output that weren't getting refreshed by incremental builds.
+
+### Critical Pattern Discovered: Stale Build Cache in E2E Tests
+
+**ALWAYS run dotnet clean before E2E testing when:**
+- Changes made to wwwroot/*.js files (JavaScript)
+- Changes made to Blazor Razor components (.razor, .razor.cs)
+- Changes made to static web assets
+- E2E tests fail with symptoms suggesting old code is running
+
+**Why:** The E2E app server runs from in/ build output. When static files or Blazor components change, incremental builds may not properly flush cached DLLs, causing the test app to serve stale code even though source files are updated.
+
+**Standard E2E Testing Workflow:**
+`ash
+dotnet clean LinqStudio.slnx
+dotnet build LinqStudio.slnx
+dotnet test LinqStudio.slnx
+`
+
+This ensures E2E tests always run against the latest code.

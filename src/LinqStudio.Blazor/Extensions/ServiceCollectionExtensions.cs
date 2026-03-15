@@ -12,6 +12,7 @@ public static class ServiceCollectionExtensions
 
 		services.AddScoped<MonacoProvidersService>();
 		services.AddScoped<ErrorHandlingService>();
+		services.AddScoped<IClipboardService, ClipboardService>();
 
 		services.AddScoped<QueriesWorkspace>();
 		services.AddScoped<ProjectWorkspace>();
