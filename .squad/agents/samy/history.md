@@ -1653,3 +1653,157 @@ UserSession
 
 **Analysis complete. Decision document written to .squad/decisions/inbox/samy-project-context-gap.md**
 
+
+---
+
+### 2026-06-XX - Sort Definitions Architecture Investigation
+
+**Task:** Broad architectural investigation of sort definitions in the query result grid.  
+**Requested by:** snakex64  
+**Deliverable:** .squad/decisions/inbox/samy-sort-architecture.md
+
+#### Key Findings
+
+**Data Model — What is a SortDefinition?**
+- Type: Dictionary<string, SortDefinition<IReadOnlyDictionary<string, object?>>>
+- SortDefinition<T> is a **MudBlazor** type (not a custom model). There is no domain-level sort model in Abstractions or Core.
+- Dictionary key = column name. Value contains Descending (bool) and Index (int, for multi-column sort priority ordering).
+- Sort is purely a UI/grid concern — it never reaches QueryExecutionService, QueryExecutionResult, or SavedQuery.
+
+**Where Sort State Lives:**
+- Private nested class QueryExecutionState in Editor.razor.cs holds: Result, IsExecuting, CancellationTokenSource, and SortDefinitions.
+- _executionStates: Dictionary<Guid, QueryExecutionState> maps query tab ID → its execution state.
+- Sort state is scoped per query tab. Tab-switching is the primary reason it is in the parent.
+
+**Full Flow:**
+1. User clicks a column header in MudDataGrid (inside QueryResultGrid.razor)
+2. MudDataGrid updates its internal SortDefinitions dictionary client-side (no server round-trip, no re-query)
+3. QueryResultGrid.OnAfterRenderAsync() POLLS _dataGrid.SortDefinitions each render cycle, compares to _lastKnownSortDefinitions via AreSortDefinitionsEqual()
+4. On change, fires OnSortDefinitionsChanged EventCallback with the new definitions
+5. Editor's lambda (defs) => { execState.SortDefinitions = defs; } updates the per-tab state
+6. On next render, SortDefinitions="@execState.SortDefinitions" re-feeds the value back to QueryResultGrid
+
+**Why Propagation to Parent?**
+- **Tab preservation**: When user switches between open queries, GetCurrentExecutionState() looks up by CurrentQueryId. Each tab has its own QueryExecutionState, so sort order is preserved independently per tab. Without parent ownership, navigating away and back would reset the sort.
+- It is NOT for re-execution or persistence. Sort is in-memory only, lost on page reload.
+
+**Design Issues Identified:**
+
+1. **Polling anti-pattern in OnAfterRenderAsync**: Sort change detection is done by polling on every render cycle rather than an event. MudBlazor's MudDataGrid does have a SortChanged callback; using it would be cleaner and event-driven. The current approach works but is fragile — it runs on every single render.
+
+2. **No persistence**: Sort state is ephemeral. SavedQuery does not include sort definitions, so reloading the page resets sort. This is probably fine for now but worth noting.
+
+3. **MudBlazor type leak into domain boundary**: SortDefinition<T> (a MudBlazor UI type) appears directly in Editor.razor.cs's QueryExecutionState. Since QueryExecutionState is a private nested class, this is acceptable but means the Editor is tightly coupled to MudBlazor's grid API.
+
+4. **Circular parameter flow**: The pattern of parent → child → OnAfterRender → callback → parent update is an unusual Blazor pattern. It works but could cause subtle render loops if not carefully guarded (the AreSortDefinitionsEqual check is the guard).
+
+**Recommendation:**
+- Consider replacing the OnAfterRenderAsync poll with MudDataGrid's SortChanged EventCallback for cleaner event-driven propagation.
+- Current design is functionally sound for its purpose (tab-scoped sort preservation). No urgency to refactor.
+- If sort persistence across sessions becomes a requirement, a lightweight sort state model would need to be added to SavedQuery or a separate settings/state layer.
+
+
+---
+
+### 2026-06-XX - KeepPanelsAlive Architectural Analysis
+
+**Task:** Analyze the feasibility of using MudTabs' KeepPanelsAlive="true" to eliminate the sort propagation machinery.
+**Requested by:** snakex64  
+**Deliverable:** .squad/decisions/inbox/samy-keepalive-analysis.md
+
+#### Key Finding: Proposal is Architecturally Inapplicable
+
+After reading the actual Editor source, the fundamental premise of the proposal does not match the code's architecture.
+
+**How MudTabs is actually used in Editor.razor:**
+
+`azor
+<MudTabs Rounded="true" ApplyEffectsToContainer="true">
+    @foreach (var q in GetOpenQueriesInOrder())
+    {
+        <MudTabPanel 
+            Text="@tabName" 
+            OnClick="@(() => NavigateToQuery(q.Id))" />
+    }
+</MudTabs>
+`
+
+Each MudTabPanel contains **no content** — only Text and OnClick. The actual query content (Monaco editor, QueryResultGrid, execution bar) lives **outside** the MudTabs component entirely, in the same div below the tabs. There is a single Monaco editor instance and a single QueryResultGrid instance on the page at all times.
+
+**Tab switching is URL navigation, not panel switching:**
+
+Clicking a tab calls NavigationManager.NavigateTo($"/editor/{queryId}", replace: true). This triggers OnParametersSet, which updates Workspace.Queries.CurrentQueryId. The single Monaco and single Grid instance then re-render with different data sourced from _executionStates[CurrentQueryId].
+
+**Why KeepPanelsAlive has zero effect here:**
+
+KeepPanelsAlive keeps MudTabPanel children mounted in a hidden div between tab switches. Since the panels have no children (no content), enabling it changes nothing observable. The sort problem would remain entirely unaffected.
+
+#### What KeepPanelsAlive Would Actually Require
+
+To benefit from KeepPanelsAlive, the architecture would need to be restructured so each query tab's content (Monaco + QueryResultGrid + splitter) lives inside its own MudTabPanel. This is a major redesign with significant risks:
+- Multiple Monaco editor instances (heavy JS objects, one per open tab)
+- Multiple Roslyn compiler instances (memory)
+- Multiple splitter JS instances
+- Monaco OnInitialized called once per tab — lifecycle already fragile (known 500ms delay workaround)
+- Memory scales linearly with number of open tabs
+
+#### Recommendation
+
+The KeepPanelsAlive approach is not viable without a structural redesign that would introduce more complexity than it solves. The correct fix for the sort propagation problem — if desired — remains what was previously identified: replace the OnAfterRenderAsync polling with MudDataGrid's SortChanged event callback.
+
+---
+
+### 2026-06-XX - Full KeepPanelsAlive Redesign Plan
+
+**Task:** Deep architectural investigation to produce a complete redesign plan for moving all tab content inside MudTabPanels and enabling KeepPanelsAlive.  
+**Requested by:** snakex64  
+**Deliverable:** .squad/decisions/inbox/samy-redesign-plan.md
+
+#### Decision Context
+
+This supersedes samy-keepalive-analysis.md (which correctly identified the architectural mismatch). The user has DECIDED to pursue the full redesign despite the complexity. This plan is the implementation spec.
+
+#### Key Architectural Findings
+
+**Current structure (confirmed):**
+- MudTabPanel elements have NO child content — nav buttons only
+- ONE Monaco editor, ONE QueryResultGrid, ONE splitter below the tab strip
+- Tab switching = NavigationManager.NavigateTo() = URL navigation = OnParametersSet
+- QueryExecutionState holds: Result, IsExecuting, CancellationTokenSource, SortDefinitions — keyed by Guid
+- CompilerService: ONE per Editor component (not per-tab), thread-safe via SemaphoreSlim(1,1)
+- MonacoProvidersService: Already multi-editor-safe via ConcurrentDictionary keyed by model URI
+
+**The new design:**
+- Create QueryTabPanel.razor (new component) containing all per-tab content
+- Each MudTabPanel contains one QueryTabPanel instance
+- KeepPanelsAlive="true" on MudTabs (mechanism: display:none, not DOM detach)
+- Tab activation via @bind-ActivePanelIndex — NO URL navigation on tab click
+- Deep-linking via URL preserved for initial page load only
+
+**Monaco layout risk (HIGH) — mitigated by:**
+- AutomaticLayout: true on each editor
+- Explicit ditor.Layout() call via OnTabActivatedAsync() hooked to ActivePanelIndexChanged
+- Each editor gets unique Id="editor-{queryId:N}"
+
+**Compiler service: SHARED across tabs** — ONE CompilerService passed to all QueryTabPanel instances via parameter. Avoids N Roslyn workspace initializations. Already thread-safe.
+
+**Delete list summary:**
+- All sort propagation machinery in QueryResultGrid (~50 lines)
+- SortDefinitions field from QueryExecutionState
+- NavigateToQuery(Guid) URL navigation
+- Single-instance _editor, _compiler, _executionStates, Delay, _splitterInitialized from Editor.razor.cs
+- Everything moves to QueryTabPanel.razor.cs
+
+**Implementation sequencing:**
+1. Create QueryTabPanel component
+2. Restructure Editor.razor (MudTabs + KeepPanelsAlive)
+3. Monaco per-tab init + layout-on-activate
+4. Delete sort machinery
+5. Clean up
+
+**Risks:**
+- 🔴 Monaco 0x0 in hidden panels → mitigated by Layout() on activation
+- 🟠 Splitter JS must use unique IDs per tab
+- 🟠 Memory scales with open tabs (~10–20MB JS heap per Monaco instance)
+- 🟡 @key="q.Id" on MudTabPanel is MANDATORY for stable identity
+- 🟡 URL navigation removed from tab clicks (deep-link only)

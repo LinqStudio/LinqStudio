@@ -1162,3 +1162,143 @@ Called in Editor.OnAfterRenderAsync(firstRender).
 
 ### 2026-03-15: Clipboard Service Abstraction
 Created IClipboardService in src/LinqStudio.Blazor/Services/ClipboardService.cs to wrap the copyToClipboard JavaScript function. The service follows project patterns: sealed internal implementation class with public interface, registered as scoped in AddLinqStudioBlazor(), and uses file-scoped namespace. Updated QueryResultGrid to inject IClipboardService instead of IJSRuntime directly. This enables testability and reduces direct JS interop in components.
+
+
+### 2026-03-18: Sort Definitions Propagation Investigation
+
+**Task:** Investigated how sort definitions flow from MudDataGrid in QueryResultGrid up to the parent Editor component.
+
+**Components Involved:**
+- src/LinqStudio.Blazor/Components/QueryResultGrid.razor + .razor.cs
+- src/LinqStudio.Blazor/Components/Pages/Editor/Editor.razor + .razor.cs
+
+**Full Data Flow (step by step):**
+1. User clicks a column header in MudDataGrid inside QueryResultGrid
+2. MudDataGrid internally updates its own SortDefinitions dictionary (keyed by column title, SortDefinition<IReadOnlyDictionary<string,object?>>)
+3. Blazor re-renders the component tree, triggering OnAfterRenderAsync in QueryResultGrid
+4. In OnAfterRenderAsync, code POLLS _dataGrid.SortDefinitions (the internal MudDataGrid state) and compares it to _lastKnownSortDefinitions using AreSortDefinitionsEqual() (checks Count, Descending, Index per key)
+5. If a difference is detected, OnSortDefinitionsChangedInternal is called, which: (a) updates local SortDefinitions parameter field, (b) invokes the OnSortDefinitionsChanged EventCallback upward
+6. In Editor.razor, the callback is a lambda: @((defs) => { execState.SortDefinitions = defs; })
+7. xecState is a QueryExecutionState object stored in _executionStates (Dictionary keyed by query GUID), which persists sort state per tab
+
+**Why Sort Is Propagated Upward:**
+- _executionStates is the per-tab state store in the parent Editor; sort state must live there so it survives tab switches and is re-supplied as a parameter on re-render
+- Without propagation, switching tabs would reset the user's sort — a bad UX regression
+- The sort definitions are passed DOWN as a parameter (SortDefinitions="@execState.SortDefinitions") on each render, so the grid restores sort correctly after tab navigation
+
+**Code Smell / Design Issue — Polling in OnAfterRenderAsync:**
+- MudDataGrid does not expose a sort-changed EventCallback or event. There's no OnSortChanged callback to bind to.
+- The team worked around this with a polling approach: after every render, diff the current vs. last-known sort state.
+- This means every render cycle (including unrelated re-renders like hover effects) runs the comparison. It's benign in practice (the comparison is cheap and O(N) columns), but it's a side-effect in a lifecycle method.
+- The mutation SortDefinitions = defs; inside the component (setting a [Parameter] field directly) is also technically an anti-pattern in Blazor — parameters should be controlled by the parent, not mutated locally. But it's necessary here because MudDataGrid owns its sort state internally.
+- **No official MudBlazor API exists to observe sort changes externally** — this is the pragmatic solution for the constraint.
+
+**Summary:** Sort propagation is a render-cycle polling pattern forced by MudDataGrid's opaque internal sort management. It works correctly for the per-tab state persistence use case but is a controlled workaround, not a clean event-driven design.
+
+
+## Learnings
+
+### 2026-06-XX — KeepPanelsAlive Investigation (requested by snakex64)
+
+**Finding: KeepPanelsAlive cannot be applied as a drop-in fix.**
+
+The current MudTabs in Editor.razor uses *empty* MudTabPanel elements as a pure navigation strip. Content (Monaco editor, execution bar, QueryResultGrid) lives **outside** the tab panels entirely — below the <MudPaper> that wraps the tabs. Tab switching is URL-based (NavigationManager.NavigateTo), not panel show/hide.
+
+Because the panels contain no content, adding KeepPanelsAlive="true" to the current MudTabs would have **zero effect**. The approach first requires moving per-query content *into* each MudTabPanel, which is a significant architectural refactor.
+
+**Sort machinery summary (confirmed by reading source):**
+- QueryResultGrid.razor.cs: OnAfterRenderAsync polls _dataGrid.SortDefinitions every render, diffs via AreSortDefinitionsEqual, fires OnSortDefinitionsChanged callback
+- Editor.razor.cs: QueryExecutionState stores SortDefinitions per tab; lambda (defs) => { execState.SortDefinitions = defs; } wires the callback
+- Editor.razor line 158-159: passes SortDefinitions="@execState.SortDefinitions" and OnSortDefinitionsChanged back down
+- The entire machinery exists solely because switching tabs would otherwise lose sort state
+
+**Monaco editor is outside tab panels** — it's a singleton <StandaloneCodeEditor> at line 71-78 of Editor.razor, always rendered (after the Delay flag clears). It is NOT affected by MudTabs.
+
+**For KeepPanelsAlive to be the actual fix**, the refactor must:
+1. Restructure MudTabPanels to each contain Monaco + execution bar + QueryResultGrid
+2. Switch from URL-navigation tabs to MudBlazor's built-in panel activation model
+3. Remove the sort polling machinery, sort storage, and sort parameters
+4. Handle N Monaco editor instances (init delay per editor, splitter per panel, providers per editor)
+
+### 2026-06-XX - KeepPanelsAlive Redesign Spec
+
+QueryResultGrid is at Components/QueryResultGrid.razor (not in Editor folder). Sort polling in OnAfterRenderAsync every cycle. MonacoProvidersService already supports N editors via URI routing. @ref inside @foreach cannot target a dict - recommend QueryEditorPanel child component. KeepPanelsAlive renders panels lazily on first activation. Monaco fix: AutomaticLayout=true + explicit layout() after 50ms on tab activation. Splitters become per-tab with GUID-suffixed IDs. URL navigation preserved via GetActivePanelIndex() computed from CurrentQueryId. OnParametersSet _editor.SetValue block must be removed. SortDefinitions and OnSortDefinitionsChanged parameters on QueryResultGrid can be deleted (sort preserved by KeepPanelsAlive). Spec: .squad/decisions/inbox/eviljosh-redesign-spec.md
+### 2026-XX-XX - KeepPanelsAlive Full Redesign (Major Refactor)
+
+**Task:** Implement full MudTabPanel KeepPanelsAlive redesign for the Editor per spec from snakex64.
+
+**Files Created:**
+- src/LinqStudio.Blazor/Components/Pages/Editor/QueryEditorPanel.razor - New per-tab component containing Monaco editor, splitter, execution bar, QueryResultGrid
+- src/LinqStudio.Blazor/Components/Pages/Editor/QueryEditorPanel.razor.cs - Code-behind with all per-tab logic
+- src/LinqStudio.Blazor/Components/Pages/Editor/QueryEditorPanel.razor.css - Scoped CSS for per-tab layout
+
+**Files Modified:**
+- src/LinqStudio.Blazor/Components/Pages/Editor/Editor.razor - Replaced singleton content with KeepPanelsAlive MudTabs structure
+- src/LinqStudio.Blazor/Components/Pages/Editor/Editor.razor.cs - Removed all per-tab logic, now manages compiler + tab refs + navigation
+- src/LinqStudio.Blazor/Components/Pages/Editor/Editor.razor.css - MudTabs flex height CSS
+- src/LinqStudio.Blazor/Components/Pages/Editor/copilot.md - Updated notes
+- src/LinqStudio.Blazor/Components/QueryResultGrid.razor - Removed SortDefinitions binding
+- src/LinqStudio.Blazor/Components/QueryResultGrid.razor.cs - Deleted sort propagation machinery
+- 	ests/LinqStudio.App.WebServer.E2ETests/Helpers/E2ETestHelpers.cs - Added GetActivePanel(), fixed Monaco locators for multi-tab
+- 	ests/LinqStudio.App.WebServer.E2ETests/QueryResultGridInteractiveE2ETests.cs - Scoped per-tab test assertions to active panel
+- 	ests/LinqStudio.App.WebServer.E2ETests/QueryExecutionE2ETests.cs - Scoped per-tab test assertions to active panel
+- 	ests/LinqStudio.App.WebServer.E2ETests/NavMenuE2ETests.cs - Scoped multi-tab test assertions to active panel
+
+**Architecture Changes:**
+- QueryEditorPanel is a new self-contained per-tab component (Monaco + splitter + results)
+- Editor reduced to: compiler management, tab ref tracking, navigation, RefreshSchema
+- QueryResultGrid sort propagation machinery fully deleted (4 methods, 2 parameters, 1 field)
+- KeepPanelsAlive="true" preserves MudDataGrid sort state, selection, scroll naturally
+
+**Critical Learnings:**
+- **Compiler race condition**: Editor.OnInitializedAsync creates shared compiler but Monaco panels may init before it's ready. Fix: panels create a _localCompiler fallback in OnEditorInitialized and use Compiler ?? _localCompiler in provider callbacks.
+- **overflow:hidden on MudTabPanel breaks Monaco pointer events**: CSS overflow:hidden on the tab panel container prevents Playwright from hovering Monaco spans (elementFromPoint returns the container instead of the span). Fix: remove overflow:hidden from ::deep .mud-tab-panel.
+- **KeepPanelsAlive + E2E tests**: With all panels mounted, data-testid elements appear once per open tab in DOM. Playwright strict mode counts hidden elements too. Fix: added GetActivePanel() helper scoping to [role='tabpanel']:visible. All multi-tab E2E tests updated.
+- **Monaco layout after tab show**: Must call ditor.Layout() after tab becomes visible (after display:none removed). Add 50ms delay to let browser complete the CSS change.
+- **@ref in foreach + Dictionary**: @ref="_tabPanelRefs[capturedQ.Id]" works correctly in Blazor; indexer setter adds keys dynamically. Use Dictionary<Guid, QueryEditorPanel?> for nullable safety.
+
+**Test Results:** All 521 tests pass (119 Core, 60 Blazor, 309 Databases, 33 E2E passed, 4 E2E skipped).
+
+### 2026-03-19 - Monaco Blank on Tab Switch Fix
+
+**Task:** Fixed Monaco editor collapsing to 5×5px on every tab switch (Bug 1 from Alice's live test report).
+
+**Root Cause:** OnTabActivatedAsync() called _editor.Layout(new Dimension { Width = 0, Height = 0 }) — passing EXPLICIT zero dimensions to Monaco. This instructed Monaco to be 0×0 rather than auto-measuring the container. Combined with a too-short 50ms delay (MudBlazor may not have removed display:none yet), the editor collapsed on every tab switch.
+
+**Fix Applied:**
+- Added window.monacoRelayout(editorContainerId) JS function in src/LinqStudio.Blazor/wwwroot/queryResultGrid.js
+  - Finds the Monaco editor instance whose DOM node is inside the given container
+  - Calls ditor.layout() with NO arguments → Monaco auto-reads container size
+- Updated OnTabActivatedAsync in QueryEditorPanel.razor.cs to:
+  - Use 100ms delay (was 50ms) to ensure MudBlazor CSS visibility change completes
+  - Call JSRuntime.InvokeVoidAsync("monacoRelayout", EditorId) instead of _editor.Layout(new Dimension{...})
+
+**Key Learnings:**
+- monaco.editor.layout() with no args = auto-measure container. With {width:0,height:0} = set to 0×0. These are opposite behaviors.
+- AutomaticLayout = true uses ResizeObserver which may not reliably fire when going from display:none to visible; explicit relayout call is needed.
+- Monaco ditor.layout() must be called WITHOUT dimensions to trigger auto-measurement.
+
+**Tab Bar Scroll Bug (Bug 2 from Alice):** Investigated. Intermittent scrollTop:52 on div.mud-tabs. Requires deep investigation — no simple MudTabs prop available to fix. Left as-is per task instruction.
+
+**Test Results:** All 527 tests pass (119 Core, 61 Blazor, 309 Databases, 38 E2E passed, 4 E2E skipped).
+
+
+### 2026-03-18 - Alex's Code Review Fixes
+
+**Task:** Applied 3 low-severity findings from Alex's code review.
+
+**Fix 1 - Dead field _activePanelIndex in Editor.razor.cs:**
+- Removed private int _activePanelIndex = 0; field declaration.
+- Removed _activePanelIndex = newIndex; assignment in OnActivePanelIndexChanged.
+- The active index was always computed via GetActivePanelIndex() — the field was never read.
+
+**Fix 2 - Silent no-op in ExecuteQueryAsync in QueryEditorPanel.razor.cs:**
+- The old guard if (_editor is null || !Workspace.IsProjectOpen || Workspace.CurrentProject is null) only showed a snackbar for the project-closed case, silently returning if _editor was null while project was open.
+- Split into two separate guards: project-closed check first (with "No project is open." snackbar), then _editor == null check (with "Editor not ready. Please try again." snackbar).
+- ISnackbar was already injected — no new injection needed.
+
+**Fix 3 - Redundant GC.SuppressFinalize in Dispose() in QueryEditorPanel.razor.cs:**
+- Removed GC.SuppressFinalize(this) from Dispose() — it was called redundantly since DisposeAsync() already calls it after Dispose().
+- No finalizer exists on the class; the call in DisposeAsync is the correct single location.
+
+**Test Results:** All 527 tests pass (119 Core, 61 Blazor, 309 Databases, 38 E2E passed, 4 E2E skipped). One E2E test (TabClose_RemovesTab_AndRemainingTabsWork) was flaky on first run but passed on retry — pre-existing flakiness, not caused by these changes.

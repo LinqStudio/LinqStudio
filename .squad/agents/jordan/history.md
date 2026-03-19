@@ -2926,3 +2926,96 @@ Simon is fixing a bug in `DbContextGenerator.cs` where composite primary keys we
 - E2E Tests: 33/33 ✅
 - Zero regressions, ready for production
 
+---
+
+### 2026-06-XX - KeepPanelsAlive Redesign Test Impact Investigation
+
+**Task:** Investigate test impact of the Editor structural refactor (KeepPanelsAlive + QueryEditorPanel).
+
+**Baseline Build:** 0 errors, 0 warnings (verified via dotnet build)
+
+**Key Findings:**
+
+#### SortDefinitions Deletion - Zero Test Impact
+- SortDefinitions and OnSortDefinitionsChanged parameters on QueryResultGrid are being deleted
+- No test passes these parameters - none of the 27 QueryResultGridTests.cs bUnit tests use them
+- QueryExecutionState.SortDefinitions field is private inner class - not accessible from tests
+- Verdict: All bUnit tests safe, zero changes needed for this part
+
+#### editor-top Locator - Blast Radius: ALL E2E Tests
+- E2ETestHelpers.WaitEditorAndFocusAsync uses page.Locator('#editor-top .monaco-editor')
+- After redesign, Monaco ID becomes editor-{queryId} (per-tab), #editor-top disappears
+- ALL 33 active E2E tests depend on SetupEditorAsync -> WaitEditorAndFocusAsync
+- Fix: Replace with [data-testid='monaco-editor-container'] .monaco-editor
+- ResultGrid_Splitter_IsDraggable also uses #editor-top for height measurement
+
+#### URL-based Tab Navigation - 2 Tests at Risk
+- Execute_PerTabState_SwitchingTabsPreservesIndependentResults uses pushState+popstate
+- ResultGrid_PerTab_SelectionIsIndependent same pattern
+- If EvilJosh removes URL-navigation from tab click, these break
+- Fix: Replace with MudTabs tab click interaction
+
+**Test Plan Written:** .squad/decisions/inbox/jordan-test-plan.md
+- 4 tests to UPDATE (2 in helpers + 2 tab-switch tests)
+- 5 new E2E tests to ADD (tab state preservation, multi-editor independence, etc.)
+- 1 new bUnit test to ADD (verify sort params removed)
+
+**Data-testid Contract Established:**
+The following testids MUST be preserved by EvilJosh in the new per-tab structure:
+monaco-editor-container, editor-results-splitter, query-result-container,
+execute-query-btn, query-unsaved-indicator, query-close-btn
+
+## Learnings — KeepPanelsAlive Tab Tests (Session: snakex64 request)
+
+**Date:** 2026-06-XX  
+**Task:** Write 6 new tests for the KeepPanelsAlive Editor redesign
+
+### What Was Done
+
+Implemented 6 new tests (5 E2E + 1 bUnit):
+
+**New file:** 	ests/LinqStudio.App.WebServer.E2ETests/TabBehaviorE2ETests.cs
+1. TabSwitch_PreservesQueryResult_AcrossTabActivations — KeepPanelsAlive keeps result DOM alive when switching back
+2. TabSwitch_PreservesEditorContent_AcrossTabActivations — Monaco content is preserved per-tab across switches
+3. MultiTab_MonacoEditors_AreIndependent — 3 tabs, each has its own content, no cross-contamination
+4. TabClose_RemovesTab_AndRemainingTabsWork — Closing middle tab reduces strip to 2, remaining tabs functional
+5. TabActivation_MonacoEditor_IsVisibleAfterTabSwitch — Monaco has height > 0 after every tab switch (validates OnTabActivatedAsync layout() call)
+
+**Modified:** 	ests/LinqStudio.Blazor.Tests/QueryResultGridTests.cs
+6. QueryResultGrid_DoesNotHave_SortDefinitionsParameter — Reflection-based contract test ensuring deleted API doesn't return
+
+### Key Learnings
+
+**Tab switching does NOT change URL:** OnActivePanelIndexChanged does not call NavigationManager.NavigateTo. Only creating/closing queries updates the URL. Tests that switch tabs must click .mud-tab Nth selectors, not use pushState.
+
+**GetActivePanel(page) is lazy:** E2ETestHelpers.GetActivePanel(page) returns a lazy Playwright locator. Each time an action is performed on it, it re-evaluates which tabpanel is currently visible. Do NOT capture it before a tab switch and use it after.
+
+**Monaco content in .view-lines:** GetActivePanel(page).Locator(".view-lines") reliably contains the typed text for short queries. Monaco renders its content in view-lines which is scoped to the visible panel.
+
+**Tab click helper pattern:**
+`csharp
+await page.Locator(".mud-tab").Nth(index).ClickAsync();
+await Task.Delay(500); // Allow MudTabs + Blazor to process + Monaco layout()
+`
+
+**OnTabActivatedAsync:** Called when a tab is activated, does Task.Delay(50) + _editor.Layout(...). This 50ms delay is why 500ms after click is a safe buffer.
+
+**KeepPanelsAlive hides panels but keeps DOM:** MudBlazor hides non-active panels (making them not visible to Playwright). GetActivePanel uses Filter(new() { Visible: true }) to find the visible one.
+
+### Final Test Count
+
+| Project | Before | After | Delta |
+|---------|--------|-------|-------|
+| LinqStudio.Core.Tests | 119 | 119 | 0 |
+| LinqStudio.Blazor.Tests | 60 | 61 | +1 |
+| LinqStudio.Databases.Tests | 309 | 309 | 0 |
+| LinqStudio.App.WebServer.E2ETests | 33 pass / 4 skip | 38 pass / 4 skip | +5 |
+| **Total Passing** | **521** | **527** | **+6** |
+
+## Learnings
+
+### 2025 - Playwright IsVisibleAsync timing caveat (TabClose fix)
+- **Issue:** `IsVisibleAsync()` is a snapshot check - returns false if element hasn't rendered yet at the exact call moment.
+- **Pattern:** Add `WaitForTimeoutAsync(500)` before `IsVisibleAsync()` when checking for a dialog that may appear shortly after a user action. Avoids both the try/catch antipattern and false-negatives.
+- **Rule:** Never use bare `try { await Expect(...).ToBeVisibleAsync(); } catch { }` - it swallows all exceptions including broken selectors.
+- **Fix applied in:** `TabBehaviorE2ETests.TabClose_RemovesTab_AndRemainingTabsWork`

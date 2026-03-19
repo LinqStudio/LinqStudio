@@ -1537,6 +1537,72 @@ When adding new query execution paths or modifying DbContext generation:
 
 ---
 
+# Editor KeepPanelsAlive Redesign Decisions
+
+## Alex Review
+- QueryEditorPanel IAsyncDisposable pattern correct
+- CTS lifecycle safe
+- Compiler null handling correct
+- _localCompiler fallback scope correct
+- @key on MudTabPanel correct
+- @ref in foreach correct
+- OnActivePanelIndexChanged null safety correct
+- _tabPanelRefs cleanup correct
+- Sort code removal complete
+- MudBlazor using correct
+- E2E test fixture usage correct
+- GetActivePanel helper correct
+- copilot.md updated
+
+### Findings
+- Dead field _activePanelIndex removed
+- Silent no-op replaced with Snackbar warning
+- Redundant GC.SuppressFinalize removed
+- Playwright try/catch antipattern fixed
+
+### Missing Tests
+- No test for _localCompiler fallback path
+- No test for OnTabActivatedAsync call path
+
+### Cleanup
+- Remove _activePanelIndex field
+- Editor.razor.css file correct
+
+### Summary
+Redesign well-executed, architecture sound, sort machinery fully gone, provider lifecycle handled, test suite expanded. Only actionable fixes: remove dead _activePanelIndex, add Snackbar warning, replace try/catch Playwright antipattern. Grade: B+.
+
+## Alice Results Grid Retest V3
+- Splitter auto-initializes on page load
+- No "Elements Not Found" warning
+- Purple highlight clears after drag
+- Drag functionality works both directions
+- Cursor style correct
+- Global functions exist
+- Monaco editor loads
+- Execute query results display
+- Overall layout correct
+- DOM elements verified
+- JavaScript initialization status correct
+- CSS states tested
+- Comparison with previous test passes: all issues fixed
+- Root cause confirmed fixed
+- Recommendations: keyboard accessibility, double-click to reset, persist splitter position, min/max constraints, cleanup alerts, favicon.png
+- Conclusion: All critical checks passed, fix resolved splitter initialization race condition, component works reliably, approved for release
+
+## EvilJosh Monaco Fix
+- OnTabActivatedAsync now uses JS interop monacoRelayout
+- 50ms delay increased to 100ms for MudBlazor display:none removal
+- monacoRelayout guarantees relayout after display:none removed
+- Tab bar scroll bug left for deeper investigation
+- All 527 tests pass
+
+## EvilJosh Review Fixes
+- Dead field _activePanelIndex removed
+- Silent no-op replaced with Snackbar warning
+- Redundant GC.SuppressFinalize removed
+- All 527 tests pass
+
+
 ## 2026-03-15: Removed addDataTestIdsToRows JS Function — Complete Implementation
 
 **Status:** ✅ APPROVED & IMPLEMENTED  

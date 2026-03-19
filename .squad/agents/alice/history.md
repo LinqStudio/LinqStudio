@@ -187,6 +187,78 @@
 - **Editor**: monaco-editor-container, query-info-bar, query-name-display, query-unsaved-indicator, query-save-btn, query-close-btn, editor-info-bar
 - **Dialogs**: unsaved-changes-dialog, unsaved-changes-message, unsaved-changes-cancel-btn, unsaved-changes-confirm-btn, edit-project-dialog, project-name-field, database-type-select, project-connection-string-field, timeout-select, validate-button, edit-project-cancel-btn, edit-project-save-btn, editor-menu-dialog, editor-menu-new, editor-menu-open, editor-menu-cancel
 
+## Live Test: Multi-Tab Editor Redesign (2026-03-19)
+
+### Context
+Major editor redesign: each query tab now has its own `QueryEditorPanel` (Monaco + splitter + execution bar + QueryResultGrid) inside `MudTabPanel` with `KeepPanelsAlive="true"`. Tab switching is index-based via MudTabs; Monaco IDs are now per-tab (`editor-{guid-no-dashes}`).
+
+### Critical Bug Found: Monaco Collapses to 5×5 on Every Tab Switch
+- **Symptom**: After switching to any previously-hidden tab, Monaco editor renders blank. Container is correctly 953×432px but Monaco widget inside is 5×5px.
+- **Reproducibility**: 100% consistent on clean server — reproduced every single tab switch in both test sessions.
+- **Root Cause**: Monaco `Layout()` not called when `KeepPanelsAlive` panel becomes visible again. The 500ms delay workaround in `OnAfterRenderAsync` fires only on initial render, not when panel is re-shown.
+- **Evidence**: `container=953×432`, `monaco-editor=5×5`, text IS in DOM (accessibility tree confirms) but invisible.
+- **Fix direction**: Hook into `MudTabs.ActivePanelIndexChanged` and call JS `layout()` on the newly active Monaco instance, or use a `ResizeObserver`/`IntersectionObserver` on the editor container div.
+
+### Intermittent Bug: Tab Bar Scrolls Behind App Bar
+- `div.mud-tabs` sometimes gets `scrollTop: 52`, pushing the 48px tab bar 52px above its natural position into the 64px fixed app bar (invisible due to `overflow: hidden`)
+- Observed once with 3 tabs active during a Blazor circuit drop; not reproduced on clean server with 2 tabs
+- May be MudBlazor's internal scroll-to-active-panel behavior interacting with large `KeepPanelsAlive` panels
+
+### What Works in the Redesign
+- Tab bar renders correctly with tab names and unsaved indicators ✅
+- KeepPanelsAlive: content preserved in DOM across tab switches ✅  
+- Tab close: unsaved changes dialog, confirmation, proper removal ✅
+- Monaco initial render (first load): 953×432, correct content ✅
+- Splitter present per-tab: `div.resize-splitter` at correct position ✅
+- No duplicate editor ID errors in console ✅
+- No JS errors from provider registration ✅
+
+### Monaco Editor ID Pattern (Post-Redesign)
+- Container: `#editor-{guid-without-dashes}` (e.g., `editor-b4ee2e2e88e54dd39f42067b34816c45`)
+- Top panel: `#editor-top-panel-{guid-without-dashes}`
+- Both tab panels are mounted in DOM simultaneously; hidden ones have 0×0 dimensions
+
+### Interaction Pattern for Playwright Testing Monaco
+- `.view-lines.monaco-mouse-cursor-text` — find visible one to click (multiple exist, one per tab)
+- `await page.$$('.view-lines.monaco-mouse-cursor-text')` then filter by `isVisible()`
+- Clicking `.overflow-guard` often fails (intercepted by Monaco editor container)
+- Direct `page.click('.view-lines')` fails when first match is hidden — must find visible one explicitly
+
+### Server Note
+- Pre-existing server crashed mid-session (51 SignalR ERR_CONNECTION_REFUSED)
+- `dotnet run --no-build` on port 5077 works; restart cleanly reproduces all bugs
+- Bug 1 (Monaco 5×5) confirmed on clean server — not a circuit-drop artifact
+
+## Learnings
+
+### Monaco Fix Verified (2026-03-19) — monacoRelayout JS Interop
+
+**Fix:** `OnTabActivatedAsync` now calls `JSRuntime.InvokeVoidAsync("monacoRelayout", EditorId)` — finds the Monaco instance and calls `editor.layout()` with no arguments (auto-measure), after 100ms delay.
+
+**Verification results (post-fix):**
+- Monaco dimensions after EVERY tab switch: **953×432** ✅ (was 5×5 before)
+- Tested 6 rapid switches (3 rounds × 2 tabs): all 953×432 — fix is robust
+- Immediate typing after switch works without waiting ✅
+- Content preserved across switches ✅
+- Zero JS console errors throughout entire session ✅
+- Bug 2 (tab bar scroll): NOT reproduced with 3 tabs + middle tab active (scrollTop=0, y=76)
+- Tab close (unsaved dialog + confirm) still works correctly ✅
+
+**Key measurement method:**
+```js
+// Find active Monaco editor and measure
+Array.from(document.querySelectorAll('.monaco-editor'))
+  .find(ed => ed.getBoundingClientRect().width > 0)
+  .getBoundingClientRect() // → { width: 953, height: 432 }
+```
+
+**Playwright pattern for multi-editor pages:**
+- When clicking view-lines, must filter to visible one:
+  ```js
+  const vl = (await page.$$('.monaco-editor .view-lines')).find(async el => (await el.boundingBox())?.width > 0);
+  await vl.click();
+  ```
+
 ### Priority Testing Insights
 1. **Monaco editor tests are critical** - This is the core feature, needs extensive live browser testing
 2. **Project/query lifecycle tests exist** - Good coverage of CRUD operations

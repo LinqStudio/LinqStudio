@@ -374,3 +374,31 @@ When reviewing database generator classes, distinguish between:
 **Grade:** A — Exemplary implementation. Zero issues. Ready to merge.
 
 **Outcome:** Wrote review to `.squad/decisions/inbox/alex-review-clipboard-service.md` with APPROVED status.
+
+
+## Learnings
+
+### 2026-06-XX — KeepPanelsAlive Redesign Review
+
+**Context:** Reviewed full KeepPanelsAlive Editor redesign (QueryEditorPanel, Editor restructure, sort deletion, 6 new tests).
+
+**Key patterns confirmed correct for this codebase:**
+- @ref="_dict[capturedQ.Id]" inside @foreach is valid in Blazor when the dict is pre-seeded in OnParametersSet; keys are never missing at render time.
+- IAsyncDisposable.DisposeAsync() calling Dispose() then GC.SuppressFinalize(this) is the correct pattern even when the class also implements IDisposable directly.
+- Fire-and-forget Task.Run with a CTS token capture before Cancel()/Dispose(): safe pattern as long as TaskCanceledException is caught and the token is checked before any mutable side-effects.
+- ActivePanelIndex="@GetActivePanelIndex()" (computed) + ActivePanelIndexChanged handler that updates the underlying state source is the correct MudTabs non-URL-navigation pattern — avoids @bind-ActivePanelIndex while keeping the index reactive.
+
+**Flags raised:**
+- Dead field _activePanelIndex written but never read in Editor.razor.cs — should be removed.
+- ExecuteQueryAsync silent return when _editor is null but project is open — missing user feedback snackbar.
+- 	ry/catch around Playwright ToBeVisibleAsync assertion is an antipattern; prefer IsVisibleAsync() conditional.
+- GC.SuppressFinalize redundantly called in both DisposeAsync and Dispose — harmless but noisy.
+
+**Missing test coverage noted:**
+- _localCompiler fallback path (Compiler param null at OnEditorInitialized time) has no unit test.
+- OnTabActivatedAsync wiring is only covered by full E2E, not a focused bUnit contract test.
+
+**E2E test patterns observed:**
+- GetActivePanel(page) lazy locator must not be captured before a tab switch; re-evaluate after switch.
+- Task.Delay(500) after tab click is the safe buffer for MudTabs + 50ms Monaco layout() call.
+- [Collection("E2E")] + NewContextAsync() per test is the correct isolation pattern for this project.
