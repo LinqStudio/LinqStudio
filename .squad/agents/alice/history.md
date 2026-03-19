@@ -7,6 +7,11 @@
 
 ## Learnings
 
+### 2026-03-18T22:43:55Z URL Sync + JS Rename (EvilJosh)
+- URL sync on tab switch (NavigateTo replace:true) improves navigation reliability in Editor page
+- JS file rename: queryResultGrid.js → editor-utils.js, references updated
+- 527 tests passing
+
 ### Pages and Routes (All routable pages discovered)
 1. **Home page (`/`)** - Welcome landing page with title and description
 2. **Editor page (`/editor`, `/editor/{QueryIdParam:guid}`, `/editor/new`)** - Main LINQ query editing interface with Monaco editor

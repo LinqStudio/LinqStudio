@@ -9,6 +9,11 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-03-18T22:43:55Z URL Sync + JS Rename
+- Added URL sync on tab switch (NavigateTo replace:true) in Editor.razor.cs
+- Renamed queryResultGrid.js → editor-utils.js for clarity; updated references in App.razor and copilot.md files
+- All 527 tests passing
+
 ### 2026-06-XXT00:00:00Z Editor KeepPanelsAlive
 Medium-large refactor required, sort machinery deletion, Monaco/splitter multi-instance management.
 
@@ -1310,3 +1315,22 @@ QueryResultGrid is at Components/QueryResultGrid.razor (not in Editor folder). S
 ### 2026 - Code Review Fixes (Cleanup Pass)
 
 4 files changed. 527 tests passing. See .squad/decisions/inbox/eviljosh-cleanup.md for full detail.
+
+
+## Learnings
+
+### 2026 - URL Sync on Tab Switch + queryResultGrid.js → editor-utils.js
+
+**FIX 1 — URL sync in OnActivePanelIndexChanged (Editor.razor.cs):**
+- Added NavigationManager.NavigateTo($"/editor/{query.Id}", replace: true) after Workspace.Queries.OpenQuery(query.Id) in OnActivePanelIndexChanged.
+- Uses eplace: true so tab switching doesn't spam browser history. Only deep-link navigation (opening the page for the first time via OnParametersSet) creates history entries.
+- F5 now reloads the correct tab.
+
+**FIX 2 — Renamed queryResultGrid.js → editor-utils.js:**
+- The file at src/LinqStudio.Blazor/wwwroot/queryResultGrid.js was renamed to ditor-utils.js — it contains Monaco relayout, splitter init/dispose, and clipboard utilities, not just result grid code.
+- Updated <script> reference in src/LinqStudio.App.WebServer/App.razor.
+- Updated all copilot.md references: src/LinqStudio.Blazor/Components/copilot.md (3 occurrences) and src/LinqStudio.Blazor/Components/Pages/Editor/copilot.md (2 occurrences).
+
+**Test Results:** All 527 tests pass (119 Core, 61 Blazor, 309 Databases, 38 E2E passed, 4 E2E skipped).
+
+5 files changed. See .squad/decisions/inbox/eviljosh-url-and-rename.md for full detail.

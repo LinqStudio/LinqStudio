@@ -1,5 +1,61 @@
 # LinqStudio Team Decisions
 
+---
+# EvilJosh — URL Sync + editor-utils.js Rename
+
+**Requested by:** snakex64  
+**Date:** 2026-03-18T22-43-55Z
+
+## FIX 1: URL Sync on Tab Switch
+
+**File changed:** `src/LinqStudio.Blazor/Components/Pages/Editor/Editor.razor.cs`
+
+Added `NavigationManager.NavigateTo($"/editor/{query.Id}", replace: true)` inside `OnActivePanelIndexChanged` after `Workspace.Queries.OpenQuery(query.Id)`.
+
+- `replace: true` prevents tab switching from polluting browser history
+- F5 now reloads the correct tab after switching
+- Deep-link navigation (from `OnParametersSet`) still creates a history entry as before
+
+```csharp
+private async Task OnActivePanelIndexChanged(int newIndex)
+{
+    var queries = GetOpenQueriesInOrder().ToList();
+    if (newIndex >= 0 && newIndex < queries.Count)
+    {
+        var query = queries[newIndex];
+        Workspace.Queries.OpenQuery(query.Id);
+        NavigationManager.NavigateTo($"/editor/{query.Id}", replace: true); // ← ADDED
+        if (_tabPanelRefs.TryGetValue(query.Id, out var panel) && panel != null)
+            await panel.OnTabActivatedAsync();
+    }
+}
+```
+
+## FIX 2: Rename queryResultGrid.js → editor-utils.js
+
+**Reason:** The file contains Monaco relayout, splitter init/dispose, and clipboard utilities — not just result grid code. The name `queryResultGrid.js` was misleading.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/LinqStudio.Blazor/wwwroot/queryResultGrid.js` | Renamed to `editor-utils.js` |
+| `src/LinqStudio.App.WebServer/App.razor` | Updated `<script>` tag reference |
+| `src/LinqStudio.Blazor/Components/copilot.md` | Updated 3 references |
+| `src/LinqStudio.Blazor/Components/Pages/Editor/copilot.md` | Updated 2 references |
+
+## Test Results
+
+All 527 tests pass:
+- LinqStudio.Core.Tests: 119 passed
+- LinqStudio.Blazor.Tests: 61 passed
+- LinqStudio.Databases.Tests: 309 passed
+- LinqStudio.App.WebServer.E2ETests: 38 passed, 4 skipped
+
+Build: 0 errors, 0 warnings.
+
+---
+
 ## E2E Monaco Widget Testing Pattern (2026-03-11)
 
 **Status:** ✅ Established  
