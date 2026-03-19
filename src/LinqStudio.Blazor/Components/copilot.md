@@ -2,7 +2,7 @@
 
 ## Splitter Lifecycle (Editor Page)
 
-The editor/results draggable splitter (`initSplitter` in `queryResultGrid.js`) is initialized on the **second render** of the Editor component, not `firstRender`. This is because the splitter DOM elements are guarded by `@if (Workspace.IsProjectOpen)` and `@if (Workspace.Queries.CurrentQueryId is not null)` — the first render schedules a 500ms delay and re-render (Monaco timing workaround), the second render is when the elements actually exist.
+The editor/results draggable splitter (`initSplitter` in `editor-utils.js`) is initialized on the **second render** of the Editor component, not `firstRender`. This is because the splitter DOM elements are guarded by `@if (Workspace.IsProjectOpen)` and `@if (Workspace.Queries.CurrentQueryId is not null)` — the first render schedules a 500ms delay and re-render (Monaco timing workaround), the second render is when the elements actually exist.
 
 Guard: `_splitterInitialized` bool prevents double-initialization across subsequent renders.
 
@@ -244,7 +244,7 @@ private int GetRowIndex(IReadOnlyDictionary<string, object> row)
 - `src/LinqStudio.Blazor/Components/QueryResultGrid.razor` - Razor markup with MudDataGrid
 - `src/LinqStudio.Blazor/Components/QueryResultGrid.razor.cs` - Code-behind with selection logic
 - `src/LinqStudio.Blazor/Components/QueryResultGrid.razor.css` - Scoped CSS for selection styling
-- `src/LinqStudio.Blazor/wwwroot/queryResultGrid.js` - (not used by QueryResultGrid directly, but contains splitter JS)
+- `src/LinqStudio.Blazor/wwwroot/editor-utils.js` - (not used by QueryResultGrid directly, but contains splitter JS)
 
 ### data-testid Attributes (for E2E tests)
 - `query-result-grid` - MudDataGrid component
@@ -448,7 +448,7 @@ private readonly Dictionary<Guid, QueryExecutionState> _executionStates = new();
 - `src/LinqStudio.Blazor/Components/Pages/Editor/Editor.razor` - Razor markup
 - `src/LinqStudio.Blazor/Components/Pages/Editor/Editor.razor.cs` - Code-behind logic
 - `src/LinqStudio.Blazor/Components/Pages/Editor/Editor.razor.css` - Scoped CSS (splitter + layout - 2026-03-13)
-- `src/LinqStudio.Blazor/wwwroot/queryResultGrid.js` - JS interop for splitter (2026-03-13)
+- `src/LinqStudio.Blazor/wwwroot/editor-utils.js` - JS interop for splitter (2026-03-13)
 
 ### Testing
 - Component tests: `tests/LinqStudio.Blazor.Tests/EditorComponentTests.cs`

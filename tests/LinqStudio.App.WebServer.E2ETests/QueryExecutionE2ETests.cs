@@ -338,11 +338,7 @@ public class QueryExecutionE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		var tab1Url = page.Url;  // Save Tab 1's editor URL for later navigation
 
 		// Create a second query (Tab 2) via SPA navigation
-		await page.GetByTestId("nav-editor").ClickAsync();
-		await Task.Delay(100);
-		await page.GetByTestId("nav-editor-new").ClickAsync();
-		await page.WaitForURLAsync($"{_app.BaseUrl}editor/*");
-		await E2ETestHelpers.WaitEditorAndFocusAsync(page);
+		await E2ETestHelpers.CreateAdditionalTabAsync(page, _app);
 		var tab2Url = page.Url;  // Save Tab 2's editor URL
 
 		// Ensure both URLs are different (we have 2 distinct query tabs)
@@ -350,30 +346,35 @@ public class QueryExecutionE2ETests(AppServerFixture app, PlaywrightFixture pw)
 
 		// Write a query and start execution on Tab 2
 		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "context.People.ToList()");
-		var executeBtn = page.GetByTestId("execute-query-btn");
+		// Scope to the active panel (Tab 2) to avoid strict mode violations with 2 tabs
+		var tab2Panel = E2ETestHelpers.GetActivePanel(page);
+		var executeBtn = tab2Panel.GetByTestId("execute-query-btn");
 		await executeBtn.ClickAsync();
 
 		// Assert Tab 2 entered executing state (stop button appears)
-		var stopBtn = page.GetByTestId("stop-query-btn");
+		var stopBtn = tab2Panel.GetByTestId("stop-query-btn");
 		await Expect(stopBtn).ToBeVisibleAsync(new() { Timeout = 5000 });
 
 		// Switch to Tab 1 by navigating to its URL (SPA navigation via Blazor).
-		// We use page.GotoAsync only if it doesn't reset the circuit; for Blazor SPA navigation
-		// within the same circuit, evaluate history navigation.
+		// Uses URL navigation (not tab clicks) because this test specifically verifies
+		// that URL-based deep-linking correctly activates the right tab, independent
+		// of OnTabActivatedAsync (which only fires on click-based switching).
 		await page.EvaluateAsync($"window.history.pushState(null, '', '{tab1Url}')");
 		await page.EvaluateAsync("window.dispatchEvent(new PopStateEvent('popstate'))");
 		await page.WaitForURLAsync(tab1Url);
 		await Task.Delay(300);  // Allow Blazor to process the navigation
 
+		// Scope to the now-active Tab 1 panel
+		var tab1Panel = E2ETestHelpers.GetActivePanel(page);
+
 		// Tab 1 should NOT be in executing state — its result container is empty (pristine)
-		var resultContainer = page.GetByTestId("query-result-container");
-		var executingText = resultContainer.Locator("text=Executing query...");
+		var executingText = tab1Panel.GetByTestId("query-result-container").Locator("text=Executing query...");
 		await Expect(executingText).Not.ToBeVisibleAsync();
 
 		// Execute button should be visible (not stop button) on Tab 1
-		var tab1ExecuteBtn = page.GetByTestId("execute-query-btn");
+		var tab1ExecuteBtn = tab1Panel.GetByTestId("execute-query-btn");
 		await Expect(tab1ExecuteBtn).ToBeVisibleAsync();
-		var tab1StopBtn = page.GetByTestId("stop-query-btn");
+		var tab1StopBtn = tab1Panel.GetByTestId("stop-query-btn");
 		await Expect(tab1StopBtn).Not.ToBeVisibleAsync();
 
 		// Wait for the mock execution on Tab 2 to FULLY COMPLETE (>600ms mock delay)
@@ -381,14 +382,17 @@ public class QueryExecutionE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await Task.Delay(800);
 
 		// Switch back to Tab 2 using its saved URL
+		// Uses URL navigation (not tab clicks) because this test specifically verifies
+		// that URL-based deep-linking correctly activates the right tab, independent
+		// of OnTabActivatedAsync (which only fires on click-based switching).
 		await page.EvaluateAsync($"window.history.pushState(null, '', '{tab2Url}')");
 		await page.EvaluateAsync("window.dispatchEvent(new PopStateEvent('popstate'))");
 		await page.WaitForURLAsync(tab2Url);
 		await Task.Delay(300);  // Allow Blazor to process the navigation
 
 		// Tab 2 should have execution results — either an alert (error/info) or a table
-		var tab2ResultContainer = page.GetByTestId("query-result-container");
-		var tab2ResultOrError = tab2ResultContainer.Locator(".mud-alert, .mud-table");
+		var tab2ActivePanel = E2ETestHelpers.GetActivePanel(page);
+		var tab2ResultOrError = tab2ActivePanel.GetByTestId("query-result-container").Locator(".mud-alert, .mud-table");
 		await Expect(tab2ResultOrError).ToBeVisibleAsync(new() { Timeout = 3000 });
 	}
 

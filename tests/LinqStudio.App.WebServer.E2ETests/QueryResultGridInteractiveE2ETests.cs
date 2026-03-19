@@ -296,7 +296,7 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 		await Expect(splitter).ToBeVisibleAsync();
 
 		// Get initial editor height
-		var editorTop = page.Locator("#editor-top");
+		var editorTop = page.GetByTestId("monaco-editor-container");
 		var initialHeight = await editorTop.EvaluateAsync<int>("el => el.offsetHeight");
 
 		// Drag splitter down by 100px
@@ -333,12 +333,13 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 			E2ETestHelpers.CreateMultiColumnResult(rows: 3));
 
 		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "context.Items.Take(3)");
-		var executeBtn = page.GetByTestId("execute-query-btn");
+		// With KeepPanelsAlive, scope to active panel to avoid strict mode violations
+		var activePanel = E2ETestHelpers.GetActivePanel(page);
+		var executeBtn = activePanel.GetByTestId("execute-query-btn");
 		await executeBtn.ClickAsync();
 
 		// Wait for Tab 1 results
-		var resultContainer = page.GetByTestId("query-result-container");
-		var resultTable = resultContainer.Locator(".mud-table-root");
+		var resultTable = activePanel.GetByTestId("query-result-container").Locator(".mud-table-root");
 		await Expect(resultTable).ToBeVisibleAsync(new() { Timeout = 10000 });
 
 		// Select a row in Tab 1
@@ -347,15 +348,11 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 		await firstRowCell.ClickAsync();
 
 		// Verify selection in Tab 1
-		var selectionCount = page.GetByTestId("selection-count");
+		var selectionCount = activePanel.GetByTestId("selection-count");
 		await Expect(selectionCount).ToBeVisibleAsync(new() { Timeout = 3000 });
 
 		// Create second query tab (Tab 2)
-		await page.GetByTestId("nav-editor").ClickAsync();
-		await Task.Delay(100);
-		await page.GetByTestId("nav-editor-new").ClickAsync();
-		await page.WaitForURLAsync($"{_app.BaseUrl}editor/*");
-		await E2ETestHelpers.WaitEditorAndFocusAsync(page);
+		await E2ETestHelpers.CreateAdditionalTabAsync(page, _app);
 		var tab2Url = page.Url;
 
 		Assert.NotEqual(tab1Url, tab2Url);
@@ -365,29 +362,36 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 			E2ETestHelpers.CreateMultiColumnResult(rows: 2));
 
 		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "context.Items.Take(2)");
-		var executeBtn2 = page.GetByTestId("execute-query-btn");
+		// Scope to the now-active Tab 2 panel
+		var tab2Panel = E2ETestHelpers.GetActivePanel(page);
+		var executeBtn2 = tab2Panel.GetByTestId("execute-query-btn");
 		await executeBtn2.ClickAsync();
 
 		// Wait for Tab 2 results
-		var tab2ResultContainer = page.GetByTestId("query-result-container");
-		var tab2ResultTable = tab2ResultContainer.Locator(".mud-table-root");
+		var tab2ResultTable = tab2Panel.GetByTestId("query-result-container").Locator(".mud-table-root");
 		await Expect(tab2ResultTable).ToBeVisibleAsync(new() { Timeout = 10000 });
 
 		// Tab 2 should NOT have any selection (independent state)
-		var tab2SelectionCount = page.GetByTestId("selection-count");
+		var tab2SelectionCount = tab2Panel.GetByTestId("selection-count");
 		await Expect(tab2SelectionCount).Not.ToBeVisibleAsync();
 
-		// Switch back to Tab 1 (grid resets on new query, so selection is cleared)
+		// Switch back to Tab 1 via URL history navigation
+		// Uses URL navigation (not tab clicks) because this test specifically verifies
+		// that URL-based deep-linking correctly activates the right tab, independent
+		// of OnTabActivatedAsync (which only fires on click-based switching).
 		await page.EvaluateAsync($"window.history.pushState(null, '', '{tab1Url}')");
 		await page.EvaluateAsync("window.dispatchEvent(new PopStateEvent('popstate'))");
 		await page.WaitForURLAsync(tab1Url);
 		await Task.Delay(300);
 
-		// Selection is cleared when switching tabs (new query execution resets state)
-		// The key test is that Tab 2 had independent empty state
-		// So we just verify Tab 1 results are still visible
-		var tab1ResultContainer = page.GetByTestId("query-result-container");
-		var tab1ResultTable = tab1ResultContainer.Locator(".mud-table-root");
+		// With KeepPanelsAlive, Tab 1's state (results + selection) is preserved
+		// Scope to the now-active Tab 1 panel
+		var tab1Panel = E2ETestHelpers.GetActivePanel(page);
+		var tab1ResultTable = tab1Panel.GetByTestId("query-result-container").Locator(".mud-table-root");
 		await Expect(tab1ResultTable).ToBeVisibleAsync();
+
+		// Assert Tab 1's selection is still visible (survived the tab switch)
+		var tab1SelectionCount = tab1Panel.GetByTestId("selection-count");
+		await Expect(tab1SelectionCount).ToBeVisibleAsync();
 	}
 }

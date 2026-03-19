@@ -68,6 +68,40 @@ window.disposeSplitter = function(splitterId) {
     }
 };
 
+// Force Monaco editor to re-measure and re-layout its container.
+// Called after a tab panel becomes visible again (KeepPanelsAlive hides via display:none).
+// Passing no dimension to layout() causes Monaco to auto-read the container size.
+window.monacoRelayout = function(editorId) {
+    const container = document.getElementById(editorId);
+    if (!container) return false;
+
+    try {
+        const editors = monaco.editor.getEditors();
+        const editor = editors.find(e => {
+            const node = e.getDomNode();
+            return node && container.contains(node);
+        });
+
+        if (editor) {
+            editor.layout();
+            return true;
+        }
+    } catch (e) {
+        console.warn('monacoRelayout: could not relayout editor for', editorId, e);
+    }
+    return false;
+};
+
+// Reset vertical scroll on .mud-tabs to prevent the tab header bar from being pushed
+// behind the fixed app bar. MudBlazor may set scrollTop > 0 when switching panels
+// (via scrollIntoView on the newly-active panel). The sticky CSS fix keeps the
+// toolbar visible regardless, but this cleans up the scroll offset so panel content
+// is not shifted.
+window.resetMudTabsScroll = function() {
+    const mudTabs = document.querySelector('.mud-tabs');
+    if (mudTabs) mudTabs.scrollTop = 0;
+};
+
 // Copy text to clipboard using Clipboard API
 window.copyToClipboard = function(text) {
     // Fallback if clipboard API not available

@@ -16,12 +16,6 @@ public partial class QueryResultGrid : ComponentBase
 	[Parameter]
 	public bool IsExecuting { get; set; }
 
-	[Parameter]
-	public Dictionary<string, SortDefinition<IReadOnlyDictionary<string, object?>>> SortDefinitions { get; set; } = new();
-
-	[Parameter]
-	public EventCallback<Dictionary<string, SortDefinition<IReadOnlyDictionary<string, object?>>>> OnSortDefinitionsChanged { get; set; }
-
 	[Inject]
 	private IClipboardService ClipboardService { get; set; } = null!;
 
@@ -29,7 +23,6 @@ public partial class QueryResultGrid : ComponentBase
 	private HashSet<int> _selectedRows = new();
 	private int _lastClickedRowIndex = -1;
 	private QueryExecutionResult? _previousResult;
-	private Dictionary<string, SortDefinition<IReadOnlyDictionary<string, object?>>>? _lastKnownSortDefinitions;
 
 	protected override void OnParametersSet()
 	{
@@ -42,43 +35,6 @@ public partial class QueryResultGrid : ComponentBase
 			_lastClickedRowIndex = -1;
 			_previousResult = Result;
 		}
-	}
-
-	protected override async Task OnAfterRenderAsync(bool firstRender)
-	{
-		await base.OnAfterRenderAsync(firstRender);
-
-		// Snapshot current sort state from grid and propagate changes to parent
-		if (_dataGrid is not null && OnSortDefinitionsChanged.HasDelegate)
-		{
-			var currentSort = _dataGrid.SortDefinitions;
-			if (currentSort is not null && !AreSortDefinitionsEqual(currentSort, _lastKnownSortDefinitions))
-			{
-				_lastKnownSortDefinitions = new Dictionary<string, SortDefinition<IReadOnlyDictionary<string, object?>>>(currentSort);
-				await OnSortDefinitionsChangedInternal(currentSort);
-			}
-		}
-	}
-
-	private async Task OnSortDefinitionsChangedInternal(Dictionary<string, SortDefinition<IReadOnlyDictionary<string, object?>>> defs)
-	{
-		SortDefinitions = defs;
-		await OnSortDefinitionsChanged.InvokeAsync(defs);
-	}
-
-	private static bool AreSortDefinitionsEqual(
-		Dictionary<string, SortDefinition<IReadOnlyDictionary<string, object?>>> a,
-		Dictionary<string, SortDefinition<IReadOnlyDictionary<string, object?>>>? b)
-	{
-		if (b is null) return false;
-		if (a.Count != b.Count) return false;
-		foreach (var key in a.Keys)
-		{
-			if (!b.TryGetValue(key, out var bDef)) return false;
-			var aDef = a[key];
-			if (aDef.Descending != bDef.Descending || aDef.Index != bDef.Index) return false;
-		}
-		return true;
 	}
 
 	private string FormatElapsedTime(TimeSpan elapsed)

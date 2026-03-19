@@ -1,3 +1,4 @@
+using System.Reflection;
 using Bunit;
 using Xunit;
 using LinqStudio.Blazor.Components;
@@ -456,5 +457,20 @@ public class QueryResultGridTests : BunitContext
 		var cell11 = cut.Find("[data-testid='cell-1-Value']");
 		Assert.NotNull(cell11);
 		Assert.Contains("Beta", cell11.TextContent);
+	}
+
+	// ── API contract: deleted sort parameters must not return ────────────────
+
+	[Fact]
+	public void QueryResultGrid_DoesNotHave_SortDefinitionsParameter()
+	{
+		// Reflection-based contract test: the SortDefinitions and OnSortDefinitionsChanged
+		// parameters were deleted as part of the KeepPanelsAlive redesign. This test
+		// guarantees they do not silently creep back into the public API.
+		var props = typeof(QueryResultGrid)
+			.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+
+		Assert.DoesNotContain(props, p => p.Name == "SortDefinitions");
+		Assert.DoesNotContain(props, p => p.Name == "OnSortDefinitionsChanged");
 	}
 }

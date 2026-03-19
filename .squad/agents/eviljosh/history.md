@@ -1334,3 +1334,46 @@ QueryResultGrid is at Components/QueryResultGrid.razor (not in Editor folder). S
 **Test Results:** All 527 tests pass (119 Core, 61 Blazor, 309 Databases, 38 E2E passed, 4 E2E skipped).
 
 5 files changed. See .squad/decisions/inbox/eviljosh-url-and-rename.md for full detail.
+
+
+### 2026-06-XX — Tab Bar Scroll Fix (Bug 2 from Alice)
+
+**Bug:** With 3+ tabs, div.mud-tabs intermittently got scrollTop: 52. The 48px tab header bar scrolled behind the 64px fixed app bar and disappeared.
+
+**Root cause:** MudBlazor activates a panel by removing display:none. The browser triggers scrollIntoView() on the newly-visible panel, which propagates to .mud-tabs (the nearest scrollable ancestor). Since .mud-tabs had no overflow guard, scrollTop = ~52px (≈ toolbar height), scrolling the toolbar out of view.
+
+**Fix applied (CSS-only primary + JS belt-and-suspenders):**
+- overflow-y: hidden on .mud-tabs — creates a scroll container context (CSS spec: overflow != visible creates a scroll container) without hiding horizontal tab scroll buttons
+- position: sticky; top: 0; z-index: 10 on .mud-tabs-toolbar — within the overflow-y: hidden scroll container, sticks at top: 0 regardless of what scrollTop is set to. Immune to any timing issues.
+- window.resetMudTabsScroll() in editor-utils.js — resets scrollTop to 0, called from OnTabActivatedAsync as cleanup
+
+**Key CSS insight:** position: sticky + overflow: hidden parent IS valid — the hidden-overflow ancestor IS the sticky scroll container per CSS spec. The toolbar sticks at top: 0 of the container's visible area even if scrollTop is set by MudBlazor's JS.
+
+**Files changed:**
+- src/LinqStudio.Blazor/Components/Pages/Editor/Editor.razor.css
+- src/LinqStudio.Blazor/wwwroot/editor-utils.js
+- src/LinqStudio.Blazor/Components/Pages/Editor/QueryEditorPanel.razor.cs
+
+**Test results:** 119 Core + 61 Blazor passing. E2E pre-existing flaky (require app server).
+
+### 2026 — CSS Selector Typo Fix (Tab Bar Scroll Bug — Root Cause)
+
+**Bug reported by:** Alice (via snakex64)
+
+**Root cause:** .mud-tab-panels in Editor.razor.css was a typo — the correct MudBlazor class is .mud-tabs-panels (one character difference: "tab" → "tabs"). This meant the display: flex; flex: 1; min-height: 0 rule on the panels container never applied, causing a permanent 52px structural overflow on div.mud-tabs. That overflow was exactly what the browser scrolled to when Monaco got focus in a newly-visible panel.
+
+**Fix:**
+- src/LinqStudio.Blazor/Components/Pages/Editor/Editor.razor.css: Corrected ::deep .mud-tab-panels → ::deep .mud-tabs-panels
+
+**Confirmed existing (from prior task):**
+- overflow-y: hidden on ::deep .mud-tabs — prevents browser focus-scroll propagation
+- position: sticky; top: 0; z-index: 10 on ::deep .mud-tabs-toolbar — toolbar stays pinned regardless of scrollTop
+
+The three rules together make the scroll bug structurally impossible:
+1. Correct selector eliminates the 52px overflow
+2. overflow-y: hidden blocks any focus-scroll from propagating
+3. sticky toolbar survives any residual scrollTop
+
+**Test Results:** 527 tests pass (119 Core, 61 Blazor, 309 Databases, 38 E2E passed, 4 E2E skipped). Exit code 0.
+
+1 file changed, 1 line.

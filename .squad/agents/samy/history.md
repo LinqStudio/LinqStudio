@@ -7,6 +7,24 @@
 
 ## Learnings
 
+### 2026-06-XX MudTabs scrollTop:52 Bug Root Cause
+
+**Task:** Root cause analysis for intermittent `div.mud-tabs { scrollTop: 52 }` hiding the tab bar behind the fixed app bar.
+
+**Root cause confirmed:**  
+`Rounded="true"` on `<MudTabs>` adds CSS class `.mud-tabs-rounded` which sets `overflow: hidden` on `div.mud-tabs` (MudBlazor `_tabs.scss`). `overflow: hidden` creates a **scroll container** — `scrollTop` CAN be set on it. With `KeepPanelsAlive="true"`, Monaco editors retain DOM focus when hidden (`display: none`). On tab switch, the panel transitions to `display: contents`, the browser fires "scroll focused element into view", setting `scrollTop ≈ 52` (= tab bar height) on `div.mud-tabs`, scrolling the tab bar behind the fixed app bar.
+
+**Key distinction:** `overflow: hidden` creates a scroll container (scrollTop settable); `overflow: clip` does NOT (scrollTop stays 0). MudTabs itself never sets scrollTop — the browser focus mechanism does.
+
+**Fix options:**
+1. **Option A (recommended):** Add `overflow: clip` to `::deep .mud-tabs` in `Editor.razor.css` — blocks browser scrollTop without visual change
+2. **Option B:** Remove `Rounded="true"` from `<MudTabs>` — eliminates `overflow:hidden` entirely; MudPaper handles visual container
+3. **Option C:** JS reset scrollTop after tab switch — fragile timing, not recommended
+
+**Deliverable:** `.squad/decisions/inbox/samy-scroll-analysis.md`
+
+---
+
 ### 2026-06-XXT00:00:00Z Editor KeepPanelsAlive
 Proposal not viable, KeepPanelsAlive inapplicable, recommends SortChanged callback.
 
