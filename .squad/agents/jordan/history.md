@@ -1480,6 +1480,45 @@ Simon is fixing a bug in `DbContextGenerator.cs` where composite primary keys we
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-03-18 - Test-Level Review Fixes (Helper Promotion, Dialog, Assertion, Comments)
+
+**Task:** Apply four code-review findings to E2E test files.
+
+**Changes Applied:**
+
+1. **FIX 1 — Promoted private helpers to E2ETestHelpers** (`E2ETestHelpers.cs`)
+   - `ClickTabAtIndexAsync(IPage page, int index)` → now `public static` in `E2ETestHelpers`
+   - `CreateAdditionalTabAsync(IPage page, AppServerFixture app)` → now `public static` in `E2ETestHelpers`
+   - All callers updated in `TabBehaviorE2ETests.cs`
+   - Inline tab-creation sequences consolidated in `QueryExecutionE2ETests` and `QueryResultGridInteractiveE2ETests` using the new helper
+
+2. **FIX 2 — Dialog code corrected in `TabClose_RemovesTab_AndRemainingTabsWork`**
+   - Original code had an `if (dialog.IsVisibleAsync())` guard — described as "dead code" by review
+   - However the dialog DOES appear in practice (Blazor marks Monaco tab as dirty on first click/focus, even without typed content)
+   - Fix: type content explicitly in the middle tab (`ClearAndWriteQueryAsync("UNSAVED_CONTENT")`) before closing, then assert the dialog appears with `Expect(dialog).ToBeVisibleAsync()` — no more conditional guard
+   - This gives the test determinism and meaningfully exercises the unsaved-changes flow
+
+3. **FIX 3 — Missing assertion added in `ResultGrid_PerTab_SelectionIsIndependent`**
+   - After switching back to Tab 1 via URL navigation, added assertion that `selection-count` is still visible
+   - Verifies that KeepPanelsAlive preserves per-tab selection state across tab switches
+
+4. **FIX 4 — URL navigation comments added**
+   - Added explanatory comment in `QueryExecutionE2ETests.Execute_PerTabState_SwitchingTabsPreservesIndependentResults`
+   - Added same comment in `QueryResultGridInteractiveE2ETests.ResultGrid_PerTab_SelectionIsIndependent`
+   - Comment explains why `window.history.pushState` + `popstate` is used instead of tab clicks
+
+**Key Learning — Blazor "dirty" tab detection:**
+Monaco tabs become "unsaved" even without explicit text typing because `WaitEditorAndFocusAsync` clicks the Monaco editor (triggering focus/init events that Blazor interprets as a change). Always type content if you need predictable unsaved-changes behavior.
+
+**Test Results:** ✅ All tests passing
+- LinqStudio.Blazor.Tests: 61 passed
+- LinqStudio.Core.Tests: 119 passed
+- LinqStudio.Databases.Tests: 309 passed
+- LinqStudio.App.WebServer.E2ETests: 38 passed, 4 skipped
+- **Total: 527 active tests**
+
+---
+
 ### 2026-03-14 - Composite Primary Key Test Coverage for DbContextGenerator
 
 **Task:** Write comprehensive unit tests for DbContextGenerator composite PK Fluent API implementation.
@@ -3019,3 +3058,31 @@ await Task.Delay(500); // Allow MudTabs + Blazor to process + Monaco layout()
 - **Pattern:** Add `WaitForTimeoutAsync(500)` before `IsVisibleAsync()` when checking for a dialog that may appear shortly after a user action. Avoids both the try/catch antipattern and false-negatives.
 - **Rule:** Never use bare `try { await Expect(...).ToBeVisibleAsync(); } catch { }` - it swallows all exceptions including broken selectors.
 - **Fix applied in:** `TabBehaviorE2ETests.TabClose_RemovesTab_AndRemainingTabsWork`
+
+
+## Learnings — Full Test Suite Consistency Review (snakex64 request)
+
+**Date:** 2026-03-18  
+**Task:** Complete review of all KeepPanelsAlive redesign test code — consistency, completeness, reliability
+
+### What Was Done
+Read all 6 modified/new test files plus full QueryEditorPanel + Editor source code.
+Confirmed 527 tests passing (build.ps1 Test).
+Produced structured review: jordan-test-review.md in .squad/decisions/inbox/
+
+### Key Findings
+
+**Mixed tab navigation patterns** — TabBehaviorE2ETests uses MudTab .mud-tab click (which triggers OnActivePanelIndexChanged + OnTabActivatedAsync). Execute_PerTabState and ResultGrid_PerTab tests use URL pushState+popstate navigation (which does NOT trigger OnTabActivatedAsync). Both are valid for their use cases but should be documented with comments.
+
+**Dead code in TabClose test** — WaitForTimeoutAsync(500) + IsVisibleAsync() check for unsaved dialog is dead code: no text is typed in those tabs so HasUnsavedChanges is always false. Either remove it or make the test actually type content to exercise the dialog path.
+
+**Missing assertion in ResultGrid_PerTab_SelectionIsIndependent** — After switching back to Tab 1, the test only asserts the result table is visible. The comment says "results + selection preserved" but selection-count is never re-verified. This is the key KeepPanelsAlive benefit for this test and it's not asserted.
+
+**Private helpers should be in E2ETestHelpers** — ClickTabAtIndexAsync and CreateAdditionalTabAsync are private to TabBehaviorE2ETests but will be needed by future tests. Should be promoted to E2ETestHelpers.
+
+**_localCompiler path has zero test coverage** — QueryEditorPanel.OnEditorInitialized() creates a fallback compiler when the parent passes Compiler=null. Neither bunit nor E2E tests cover this branch.
+
+**GetActivePanel() lazy evaluation is a feature** — Each call re-evaluates which panel is visible. Do NOT capture GetActivePanel() result before a tab switch and use it after. Always call GetActivePanel() after the switch.
+
+### Scorecard
+Completeness: 8/10 | Consistency: 8/10 | Duplication: 7/10 | Reliability: 8/10 | Overall: 7.8/10

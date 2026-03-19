@@ -11,6 +11,26 @@
 
 ## Learnings
 
+### 2026-07-15 — Full Consistency Review: KeepPanelsAlive Refactor
+
+**Requested by:** snakex64  
+**Branch:** `context-generator` (1 commit ahead of origin)  
+**Files reviewed:** `QueryEditorPanel.razor`, `QueryEditorPanel.razor.cs`, `QueryEditorPanel.razor.css`, `Editor.razor`, `Editor.razor.cs`, `Editor.razor.css`, `QueryResultGrid.razor`, `QueryResultGrid.razor.cs`, `queryResultGrid.js`, `TabBehaviorE2ETests.cs`, `E2ETestHelpers.cs`, `NavMenuE2ETests.cs`, `QueryExecutionE2ETests.cs`, `QueryResultGridInteractiveE2ETests.cs`, `QueryResultGridTests.cs`  
+**Build status:** ✅ 0 warnings, 0 errors
+
+**Verdict: A−. No bugs found. Solid refactor.**
+
+**Findings:**
+- [High] `copilot.md` describes stale `OnTabActivatedAsync` implementation (says `_editor.Layout(new Dimension{...})` but code uses `monacoRelayout` JS — the documented approach would set Monaco to 0×0, actual is correct auto-sizing)
+- [Medium] `Editor.razor.cs` has two dead `using` directives: `Microsoft.Extensions.Options` and `LinqStudio.Core.Settings` — neither used after refactor
+- [Medium] `_localCompiler` fallback created in `OnEditorInitialized` stays alive alongside parent's `Compiler` after it arrives — double Roslyn workspace briefly; disposal is correct
+- [Low] Missing space after `if` on line 96 of `Editor.razor.cs`; `_isRefreshingSchema = false` redundant; `GC.SuppressFinalize` in `Editor.Dispose()` unnecessary (no finalizer)
+- [Low] `monacoRelayout` JS param named `editorContainerId` but receives Monaco editor's own root div ID
+
+**Highlights (correct):** `@key` on MudTabPanel, closure capture fix, unique per-tab IDs via `QueryId:N`, `Compiler ?? _localCompiler` at invocation time, sort-polling removal, reflection contract test for deleted SortDefinitions params, `GetActivePanel` E2E scoping to visible tabpanel.
+
+---
+
 ### 2026-03-13 - Team Review Cycle - Full Codebase Assessment
 
 Completed comprehensive codebase review. Grade: A-. Identified 19 issues (3 critical). Critical findings: assembly loading pattern vulnerabilities, settings persistence race conditions, incomplete error handling. Code quality strong; test coverage (35-40%) is highest priority improvement.
@@ -377,6 +397,9 @@ When reviewing database generator classes, distinguish between:
 
 
 ## Learnings
+
+### 2026-06-XXT00:00:00Z Editor KeepPanelsAlive
+Alex — B+ grade, minor cleanup items, EvilJosh — medium-large refactor, Samy — inapplicable, recommends SortChanged callback.
 
 ### 2026-06-XX — KeepPanelsAlive Redesign Review
 

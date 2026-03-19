@@ -9,6 +9,9 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-06-XXT00:00:00Z Editor KeepPanelsAlive
+Medium-large refactor required, sort machinery deletion, Monaco/splitter multi-instance management.
+
 ### 2026-03-13 - QueryResultGrid Component Implementation
 
 **Task:** Created QueryResultGrid.razor component for displaying LINQ query execution results.
@@ -1302,3 +1305,8 @@ QueryResultGrid is at Components/QueryResultGrid.razor (not in Editor folder). S
 - No finalizer exists on the class; the call in DisposeAsync is the correct single location.
 
 **Test Results:** All 527 tests pass (119 Core, 61 Blazor, 309 Databases, 38 E2E passed, 4 E2E skipped). One E2E test (TabClose_RemovesTab_AndRemainingTabsWork) was flaky on first run but passed on retry — pre-existing flakiness, not caused by these changes.
+
+
+### 2026 - Code Review Fixes (Cleanup Pass)
+
+4 files changed. 527 tests passing. See .squad/decisions/inbox/eviljosh-cleanup.md for full detail.

@@ -7,6 +7,9 @@
 
 ## Learnings
 
+### 2026-06-XXT00:00:00Z Editor KeepPanelsAlive
+Proposal not viable, KeepPanelsAlive inapplicable, recommends SortChanged callback.
+
 ### 2026-03-14 - QueryResultGrid Dynamic Grid Enhancement Analysis
 
 **Task:** Analyze architecture for adding SSMS-like grid features (column resize, reorder, cell/row selection, sorting) to QueryResultGrid  
@@ -1807,3 +1810,28 @@ This supersedes samy-keepalive-analysis.md (which correctly identified the archi
 - 🟠 Memory scales with open tabs (~10–20MB JS heap per Monaco instance)
 - 🟡 @key="q.Id" on MudTabPanel is MANDATORY for stable identity
 - 🟡 URL navigation removed from tab clicks (deep-link only)
+
+### 2026-03-14 - KeepPanelsAlive Editor Redesign Architectural Review
+
+**Task:** Full architectural consistency review of Editor → QueryEditorPanel tab redesign  
+**Requested by:** snakex64  
+**Deliverable:** `.squad/decisions/inbox/samy-arch-review.md`
+
+#### Key Findings
+
+**Architecture is sound.** The Editor (orchestrator) / QueryEditorPanel (per-tab) split is clean. State ownership is correct. No HIGH severity issues.
+
+**Medium Issues Found:**
+1. **Tab switching doesn't update URL** — OnActivePanelIndexChanged calls OpenQuery() but never NavigateTo(). URL becomes stale after first tab switch; F5 returns to wrong tab. Decision needed: update URL on switch or explicitly document as IDE-style behavior.
+2. **Compiler disposal race** — RefreshSchemaAsync disposes old _compiler before confirming no in-flight completions are using it. Fix: swap reference before disposing (old = _compiler; _compiler = new; old.Dispose()).
+3. **queryResultGrid.js name is misleading** — Now contains splitter logic, monacoRelayout, and clipboard. Should be split or renamed to linqstudio.js / ditor.js.
+4. **copilot.md stale** — Documents _editor.Layout(new Dimension{W=0,H=0}) but code uses monacoRelayout JS. Also says 50ms delay but code uses 100ms.
+
+**Low Issues:** Orphaned _localCompiler when shared compiler arrives; StateHasChanged() after async delay without disposed guard; lex:1 inline vs CSS; esults-bottom doesn't rebalance on browser resize; unnecessary ase.OnAfterRenderAsync() call.
+
+#### Architecture Patterns Confirmed
+- MonacoProvidersService correctly routes completions/hover by editor URI — each QueryEditorPanel registers/unregisters its providers. Provider isolation works with multiple simultaneous Monaco instances.
+- KeepPanelsAlive + @key="capturedQ.Id" + _tabPanelRefs dictionary is the correct three-part pattern for stable panel-to-reference tracking.
+- IAsyncDisposable + disposeSplitter JS call correctly prevents document event listener accumulation.
+- _delay + _splitterInitialized two-stage render gate is correct for Monaco + splitter init ordering.
+

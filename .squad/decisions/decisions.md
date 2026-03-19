@@ -648,6 +648,17 @@ When building interactive tree views with async data loading:
 
 ### Decisions
 
+## Alex — Code Review
+PR: KeepPanelsAlive Editor Redesign
+B+ grade, minor cleanup items. Approved with recommended fixes.
+Actionable: Remove dead _activePanelIndex, add warning for _editor null, fix Playwright try/catch antipattern.
+
+## EvilJosh — Change Plan
+KeepPanelsAlive cannot be applied as-is. Requires structural refactor, move content into MudTabPanels, delete sort machinery, manage Monaco/splitter multi-instance. Medium-large refactor.
+
+## Samy — Architectural Analysis
+KeepPanelsAlive inapplicable. Editor uses MudTabs for navigation only, no content inside panels. Recommendation: Use MudDataGrid SortChanged callback, do not pursue KeepPanelsAlive.
+
 1. **EditProjectDialog.Save():** Added null/empty validation before calling `Project.UpdateConnection()` to prevent empty connection strings from being passed to the backend.
 
 2. **DatabaseTreeView Cache Access:** Replaced direct dictionary access with `GetValueOrDefault()` pattern to safely access tree expansion state without race conditions on concurrent expand/collapse events.
