@@ -89,8 +89,16 @@ public static class E2ETestHelpers
 		var monacoEditor = GetActivePanel(page).GetByTestId("monaco-editor-container").Locator(".monaco-editor");
 		await Expect(monacoEditor.First).ToBeVisibleAsync();
 
-		// Click to focus the editor
+		// Click the outer editor div first (triggers Monaco's own focus handler)
 		await monacoEditor.First.ClickAsync();
+
+		// Monaco's real keyboard sink is the textarea.inputarea inside each editor instance.
+		// Clicking only the outer div can leave keyboard focus on a previously active editor
+		// (e.g., Tab 1's textarea still holds focus while Tab 2's panel becomes visible).
+		// Force-clicking the inputarea guarantees browser keyboard focus moves to THIS editor.
+		var inputArea = GetActivePanel(page).GetByTestId("monaco-editor-container").Locator("textarea.inputarea");
+		if (await inputArea.CountAsync() > 0)
+			await inputArea.First.ClickAsync(new LocatorClickOptions { Force = true });
 	}
 
 	/// <summary>
@@ -159,6 +167,7 @@ public static class E2ETestHelpers
 	/// <summary>
 	/// Clicks a MudTabs tab button by 0-based position and waits for the panel switch to complete.
 	/// Includes additional delay to allow Monaco editor relayout (OnTabActivatedAsync has a 100ms delay).
+	/// Also explicitly focuses the newly active Monaco editor so keyboard events go to the right instance.
 	/// </summary>
 	public static async Task ClickTabAtIndexAsync(IPage page, int index)
 	{
