@@ -25,14 +25,13 @@ class Build : NukeBuild
 	[Solution]
 	readonly Solution Solution;
 
-	// MAUI is Windows-only; exclude it on non-Windows runners to avoid workload errors
-	IEnumerable<Project> MauiProjects => Solution.AllProjects
-		.Where(p => p.Name.Contains("Maui", StringComparison.OrdinalIgnoreCase));
+	// MAUI is Windows-only; AppHost references MAUI — both are excluded on non-Windows runners
+	static readonly string[] NonWindowsExcludedProjects = ["LinqStudio.App.Maui", "LinqStudio.AppHost"];
 
-	// Get all projects except the build project itself (and MAUI on non-Windows)
+	// Get all projects except the build project itself (and Windows-only projects on non-Windows)
 	IEnumerable<Project> BuildableProjects => Solution.AllProjects
 		.Where(p => p != Solution.GetProject("_build"))
-		.Where(p => EnvironmentInfo.IsWin || !MauiProjects.Contains(p));
+		.Where(p => EnvironmentInfo.IsWin || !NonWindowsExcludedProjects.Contains(p.Name));
 
 	// Test project discovery
 	IEnumerable<Project> UnitTestProjects => Solution.AllProjects.Where(p => p.Name.EndsWith(".Tests"));
