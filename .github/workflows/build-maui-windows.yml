@@ -1,0 +1,32 @@
+name: build-maui-windows
+
+on:
+  pull_request:
+    paths:
+      - 'src/LinqStudio.App.Maui/**'
+      - 'src/LinqStudio.Blazor/**'
+      - 'src/LinqStudio.Core/**'
+      - 'src/LinqStudio.Abstractions/**'
+
+jobs:
+  windows-latest:
+    name: windows-latest
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: 'Setup: .NET 10'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+      - name: 'Cache: ~/.nuget/packages'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.nuget/packages
+          key: ${{ runner.os }}-${{ hashFiles('**/global.json', '**/*.csproj', '**/Directory.Packages.props') }}
+      - name: 'Install: MAUI Windows workload'
+        run: dotnet workload install maui-windows
+      - name: 'Build: LinqStudio.App.Maui'
+        run: dotnet build src/LinqStudio.App.Maui/LinqStudio.App.Maui.csproj --configuration Release
