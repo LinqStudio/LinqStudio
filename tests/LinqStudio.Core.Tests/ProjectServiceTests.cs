@@ -183,17 +183,27 @@ public class ProjectServiceTests : IDisposable
 	}
 
 	[Fact]
-	public async Task SaveProjectAsync_WithInvalidPath_ThrowsException()
+	public async Task SaveProjectAsync_WithNonExistentDirectory_CreatesDirectoryAndSaves()
 	{
-		// Arrange
+		// Arrange — SaveProjectAsync now creates missing directories instead of throwing.
 		var service = new ProjectService();
-		var invalidPath = Path.Combine(_testDirectory, "nonexistent_folder", "test.linq");
+		var subDir = Path.Combine(_testDirectory, "auto_created_folder");
+		var filePath = Path.Combine(subDir, "test.linq");
 		var project = service.CreateNew("Test", "Connection");
 
-		// Act & Assert
-		await Assert.ThrowsAsync<DirectoryNotFoundException>(
-			() => service.SaveProjectAsync(project, invalidPath)
-		);
+		try
+		{
+			// Act
+			await service.SaveProjectAsync(project, filePath);
+
+			// Assert
+			Assert.True(File.Exists(filePath));
+		}
+		finally
+		{
+			if (Directory.Exists(subDir))
+				Directory.Delete(subDir, recursive: true);
+		}
 	}
 
 	#endregion

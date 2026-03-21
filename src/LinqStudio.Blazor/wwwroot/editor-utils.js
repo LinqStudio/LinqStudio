@@ -102,21 +102,45 @@ window.resetMudTabsScroll = function() {
     if (mudTabs) mudTabs.scrollTop = 0;
 };
 
-// Copy text to clipboard using Clipboard API
+// Copy text to clipboard using Clipboard API with execCommand fallback
 window.copyToClipboard = function(text) {
-    // Fallback if clipboard API not available
-    if (!navigator.clipboard) {
-        console.warn('Clipboard API not available');
-        return Promise.reject(new Error('Clipboard API not available'));
+    // Try the modern Clipboard API first (requires 'clipboard-write' permission or user activation)
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text)
+            .then(() => {
+                console.log('copyToClipboard: Text copied via Clipboard API');
+                return true;
+            })
+            .catch(error => {
+                console.warn('copyToClipboard: Clipboard API failed, trying execCommand fallback:', error);
+                return window._copyViaExecCommand(text);
+            });
     }
-    
-    return navigator.clipboard.writeText(text)
-        .then(() => {
-            console.log('copyToClipboard: Text copied successfully');
-            return true;
-        })
-        .catch(error => {
-            console.error('copyToClipboard: Failed to copy to clipboard:', error);
-            return false;
-        });
+
+    // Fallback: execCommand (deprecated but still works in Chromium for test environments)
+    return Promise.resolve(window._copyViaExecCommand(text));
+};
+
+window._copyViaExecCommand = function(text) {
+    try {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        textarea.style.top = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        const success = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        if (success) {
+            console.log('copyToClipboard: Text copied via execCommand fallback');
+        } else {
+            console.error('copyToClipboard: execCommand fallback also failed');
+        }
+        return success;
+    } catch (err) {
+        console.error('copyToClipboard: All copy methods failed:', err);
+        return false;
+    }
 };

@@ -7,7 +7,20 @@ namespace LinqStudio.Core.Services;
 /// <summary>
 /// Scoped factory used by UI pages to create and initialize CompilerService instances.
 /// </summary>
-public class CompilerServiceFactory(RoslynWorkspaceService roslynWorkspaceService, IDbContextGenerator? generator = null, ILogger<CompilerService>? logger = null)
+/// <remarks>
+/// Each call to <see cref="CreateAsync"/> or <see cref="CreateFromProjectAsync"/> allocates
+/// a new Roslyn <c>AdhocWorkspace</c> via <see cref="RoslynWorkspaceService"/>, adds EF Core
+/// model files and the generated DbContext as in-memory documents, and builds the compilation.
+/// Callers should retain the returned <see cref="CompilerService"/> rather than invoking the
+/// factory on every keystroke.
+/// </remarks>
+/// <param name="roslynWorkspaceService">Service that manages Roslyn workspace and document creation.</param>
+/// <param name="generator">
+/// Optional EF Core code generator used by <see cref="CreateFromProjectAsync"/>.
+/// When <see langword="null"/> both factory methods fall back to the built-in demo model.
+/// </param>
+/// <param name="logger">Optional logger forwarded to each created <see cref="CompilerService"/>.</param>
+public class CompilerServiceFactory(RoslynWorkspaceService roslynWorkspaceService, IDbContextGenerator? generator = null, ILogger<CompilerService>? logger = null) : ICompilerServiceFactory
 {
 	private readonly RoslynWorkspaceService _roslynWorkspaceService = roslynWorkspaceService;
 	private readonly string _defaultContextTypeName = "TestDbContext";
@@ -16,6 +29,10 @@ public class CompilerServiceFactory(RoslynWorkspaceService roslynWorkspaceServic
 	/// <summary>
 	/// Create a new CompilerService instance and initialize it with a small hard-coded model.
 	/// </summary>
+	/// <returns>
+	/// A fully initialized <see cref="CompilerService"/> backed by the demo schema
+	/// (<c>Person</c> entity + <c>TestDbContext</c> using an in-memory database).
+	/// </returns>
 	public async Task<CompilerService> CreateAsync()
 	{
 		var svc = new CompilerService(_defaultContextTypeName, _defaultProjectNamespace, _roslynWorkspaceService, logger);
@@ -67,6 +84,12 @@ public class TestDbContext : DbContext
 	/// Creates a CompilerService initialized from the given project's live database schema.
 	/// Falls back to the demo model when no database connection is configured on the project.
 	/// </summary>
+	/// <param name="project">The project whose database schema drives EF Core code generation.</param>
+	/// <param name="cancellationToken">Token to cancel the schema generation step.</param>
+	/// <returns>
+	/// A fully initialized <see cref="CompilerService"/> reflecting the project's schema,
+	/// or the demo-model service if <paramref name="project"/> has no generator configured.
+	/// </returns>
 	public async Task<CompilerService> CreateFromProjectAsync(Project project, CancellationToken cancellationToken = default)
 	{
 		if (generator is null || project.QueryGenerator is null)

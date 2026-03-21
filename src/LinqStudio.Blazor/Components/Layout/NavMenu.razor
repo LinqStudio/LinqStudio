@@ -1,5 +1,4 @@
-﻿@using LinqStudio.Blazor.Abstractions
-@using LinqStudio.Blazor.Components.Dialogs;
+﻿@using LinqStudio.Blazor.Components.Dialogs;
 
 <MudNavMenu data-testid="nav-menu">
 	<MudNavLink Href="/" Icon="@Icons.Material.Filled.Home" Match="NavLinkMatch.All" data-testid="nav-home">Home</MudNavLink>
@@ -66,11 +65,6 @@
 					<MudMenuItem OnClick="CreateNewQuery" data-testid="nav-editor-new">
 						<MudIcon Icon="@Icons.Material.Filled.Add" Class="mr-2" />
 						New Query
-					</MudMenuItem>
-
-					<MudMenuItem OnClick="OpenQueryFromFile" data-testid="nav-editor-open-file">
-						<MudIcon Icon="@Icons.Material.Filled.FolderOpen" Class="mr-2" />
-						Open Query...
 					</MudMenuItem>
 				</ChildContent>
 			</MudMenu>

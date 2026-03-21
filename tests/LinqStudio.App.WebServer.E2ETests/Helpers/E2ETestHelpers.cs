@@ -158,6 +158,7 @@ public static class E2ETestHelpers
 
 	/// <summary>
 	/// Clicks a MudTabs tab button by 0-based position and waits for the panel switch to complete.
+	/// Includes additional delay to allow Monaco editor relayout (OnTabActivatedAsync has a 100ms delay).
 	/// </summary>
 	public static async Task ClickTabAtIndexAsync(IPage page, int index)
 	{
