@@ -6,7 +6,15 @@
 3. During testing, run all the tests not just specific ones. NEVER leave before you ran the tests. If you make any change at all (such as code review changes) you MUST rerun the tests again, ALL THE TESTS.
 4. If you encounter anything worth nothing, or add new features or functionnalities then create a "copilot.md" file in that directory and add the information to it (or to any existing "copilot.md" file). This is important to keep track of all the changes and information for future reference. For example, if creating a new service for a specific use, add a simple 1-2 lines in copilot.md in the directory of that service.
 5. Sometimes the E2E tests have a hard time, if it doesn't work the first time, try rerunning a second time.
-6. Always load the relevant skills before starting to work on any task. The main orchestrator agent can defer loading skills to the worker agent, but if you are the worker agent tasked with doing the work, make sure to load the relevant skills before starting to work on the task. This will ensure that you have all the necessary information and tools to complete the task efficiently and effectively.
+
+# For the main orchestrator agent
+Always load the relevant skills before starting to work on any task.
+You can defer loading specific skills to the worker agent.
+You Must ALWAYS use agents to perform analysis, reviews, bugfixes, research, etc. You only exists to orchestrate other agents. When you start an agent to do the work for you, tell that agent that he is a worker agent, not the orchestrator.
+
+# For worker agents
+The worker agents are tasked with doing the actual work. Make sure to load the relevant skills before starting to work on the task. This will ensure that you have all the necessary information and tools to complete the task efficiently and effectively.
+Prefer loading more skills if you are unsure.
 
 ## Project Overview
 LinqStudio is a .NET 10 Blazor web application providing an IDE-like interface for writing and executing EF Core LINQ queries, replacing the use of software such as SQL Server Management Studio. It uses Roslyn compiler APIs for intellisense/autocomplete. The architecture follows a layered approach with a core service layer, Blazor UI components, and an Aspire-based app host for orchestration.

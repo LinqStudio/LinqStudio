@@ -164,6 +164,19 @@ public static class E2ETestHelpers
 		await page.Locator(".mud-tab").Nth(index).ClickAsync();
 		// Wait for the active panel to be visible — real sync point instead of a fixed time budget
 		await Expect(page.Locator("[role='tabpanel']:visible")).ToHaveCountAsync(1, new() { Timeout = 5000 });
+		// Wait for Monaco relayout: OnTabActivatedAsync fires monacoRelayout() after a 100ms delay.
+		// Poll until the editor has non-zero height, confirming layout() has been called and Monaco has rendered.
+		var monacoContainer = GetActivePanel(page).GetByTestId("monaco-editor-container");
+		for (var attempt = 0; attempt < 30; attempt++)
+		{
+			var box = await monacoContainer.BoundingBoxAsync();
+			if (box is { Height: > 0 }) break;
+			await Task.Delay(100);
+		}
+		// Force-focus the active Monaco textarea so keyboard events go to the correct editor instance
+		var inputArea = GetActivePanel(page).Locator("textarea.inputarea");
+		if (await inputArea.CountAsync() > 0)
+			await inputArea.First.ClickAsync(new() { Force = true });
 	}
 
 	/// <summary>
