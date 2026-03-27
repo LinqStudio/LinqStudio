@@ -10,13 +10,14 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 {
 	[Inject] private ILogger<DatabaseTreeView> Logger { get; set; } = null!;
 	[Inject] private ProjectWorkspace Workspace { get; set; } = null!;
-	[Inject] private ErrorHandlingService ErrorHandlingService { get; set; } = null!;
 
 	private List<DatabaseTableName> _tables = [];
 	private Dictionary<string, DatabaseTableDetail> _tableDetailsCache = new();
 	private Dictionary<string, bool> _expandedStates = new();
 	private HashSet<string> _loadingTables = [];
+	private Dictionary<string, string> _tableDetailErrors = new();
 	private bool _isLoading = false;
+	private string? _loadError;
 
 	// Track connection identity to avoid re-querying DB on unrelated workspace changes (e.g. query saves)
 	private string? _trackedConnectionString;
@@ -59,7 +60,9 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 		_tables.Clear();
 		_expandedStates.Clear();
 		_tableDetailsCache.Clear();
+		_tableDetailErrors.Clear();
 		_loadingTables.Clear();
+		_loadError = null;
 
 		InvokeAsync(async () =>
 		{
@@ -80,6 +83,7 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 		}
 
 		_isLoading = true;
+		_loadError = null;
 		StateHasChanged();
 
 		try
@@ -99,7 +103,7 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 		catch (Exception ex)
 		{
 			Logger.LogError(ex, "Failed to load database tables.");
-			await ErrorHandlingService.HandleErrorAsync(ex, "Failed to load database tables.");
+			_loadError = ex.Message;
 		}
 		finally
 		{
@@ -126,6 +130,7 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 
 		// Mark as loading
 		_loadingTables.Add(table.FullName);
+		_tableDetailErrors.Remove(table.FullName);
 		StateHasChanged();
 
 		try
@@ -137,7 +142,8 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 		catch (Exception ex)
 		{
 			Logger.LogError(ex, "Failed to load columns for table '{TableName}'.", table.FullName);
-			await ErrorHandlingService.HandleErrorAsync(ex, $"Failed to load columns for table '{table.FullName}'.");
+			_tableDetailErrors[table.FullName] = ex.Message;
+			_expandedStates[table.FullName] = false;
 		}
 		finally
 		{
@@ -149,9 +155,11 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 	private async Task RefreshTables()
 	{
 		_tableDetailsCache.Clear();
+		_tableDetailErrors.Clear();
 		_loadingTables.Clear();
 		_tables.Clear();
 		_expandedStates.Clear();
+		_loadError = null;
 
 		await LoadTablesAsync();
 	}

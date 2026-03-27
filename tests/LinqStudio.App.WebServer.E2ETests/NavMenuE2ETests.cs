@@ -273,7 +273,7 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await Expect(dialog).ToBeVisibleAsync();
 
 		var connectionStringField = page.GetByTestId("project-connection-string-field");
-		await connectionStringField.FillAsync("Server=localhost;Database=TestDb;Integrated Security=true;");
+		await connectionStringField.FillAsync("Server=localhost;Database=TestDb;Integrated Security=true;Connect Timeout=1;");
 
 		var saveBtn = page.GetByTestId("edit-project-save-btn");
 		await saveBtn.ClickAsync();
@@ -349,7 +349,7 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		Assert.NotNull(project);
 
 		// Verify connection string was saved
-		Assert.Equal("Server=localhost;Database=TestDb;Integrated Security=true;", project.ConnectionString);
+		Assert.Equal("Server=localhost;Database=TestDb;Integrated Security=true;Connect Timeout=1;", project.ConnectionString);
 
 		// Verify unsaved indicator is cleared after save
 		await Expect(projectGroup).Not.ToContainTextAsync("*");

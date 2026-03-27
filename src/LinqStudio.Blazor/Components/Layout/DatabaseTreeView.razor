@@ -19,6 +19,12 @@
 		{
 			<MudProgressLinear Indeterminate="true" data-testid="db-tree-loading" />
 		}
+		else if (_loadError != null)
+		{
+			<MudAlert Severity="Severity.Warning" Dense="true" Class="mt-1" data-testid="db-tree-error">
+				<MudText Typo="Typo.caption">@_loadError</MudText>
+			</MudAlert>
+		}
 		else if (_tables.Count > 0)
 		{
 			<div data-testid="db-tree-view">
@@ -41,6 +47,17 @@
 											<div class="d-flex align-center">
 												<MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
 												<MudText Typo="Typo.caption">Loading columns...</MudText>
+											</div>
+										</Content>
+									</MudTreeViewItem>
+								}
+								else if (_tableDetailErrors.TryGetValue(table.FullName, out var detailError))
+								{
+									<MudTreeViewItem T="string" Value="@($"{table.FullName}-error")" CanExpand="false">
+										<Content>
+											<div class="d-flex align-center">
+												<MudIcon Icon="@Icons.Material.Filled.Warning" Color="Color.Warning" Size="Size.Small" Class="mr-1" />
+												<MudText Typo="Typo.caption" Class="mud-text-secondary">@detailError</MudText>
 											</div>
 										</Content>
 									</MudTreeViewItem>
