@@ -56,7 +56,7 @@ public class QueryExecutionService(
 			{
 				alc?.Unload();
 				stopwatch.Stop();
-				var errorMessage = string.Join("\n", diagnostics);
+				var errorMessage = diagnostics;
 				return QueryExecutionResult.FromError(errorMessage, isCompileError: true, stopwatch.Elapsed);
 			}
 
@@ -186,8 +186,11 @@ public class QueryExecutionService(
 		string dbContextCode,
 		CancellationToken cancellationToken)
 	{
-		// Create workspace using shared service
-		var (workspace, projectId, solution) = _roslynWorkspaceService.CreateWorkspace("QueryExecution");
+		// Create workspace using shared service — disposed at end of method via using
+		var workspaceResult = _roslynWorkspaceService.CreateWorkspace("QueryExecution");
+		using var workspace = workspaceResult.Workspace;
+		var projectId = workspaceResult.ProjectId;
+		var solution = workspaceResult.Solution;
 
 		// Add all documents at once
 		solution = _roslynWorkspaceService.AddDocuments(
