@@ -1,6 +1,7 @@
 using LinqStudio.Blazor.Services;
 using LinqStudio.Core.Models;
 using LinqStudio.Core.Services;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace LinqStudio.Blazor.Tests.Services;
 
@@ -18,7 +19,7 @@ public class QueriesWorkspaceTests : IDisposable
 		_testProjectFilePath = Path.Combine(_testDirectory, "TestProject.linq");
 
 		_queryService = new QueryService();
-		_workspace = new QueriesWorkspace(_queryService);
+		_workspace = new QueriesWorkspace(_queryService, NullLogger<QueriesWorkspace>.Instance);
 	}
 
 	public void Dispose()

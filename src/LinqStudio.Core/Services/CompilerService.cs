@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.Completion;
 using Microsoft.CodeAnalysis.Text;
 using System.Reflection;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.Extensions.Logging;
 
 namespace LinqStudio.Core.Services;
 
@@ -15,10 +16,11 @@ public class CompilerService : IDisposable
     private Solution _solution;
     private readonly string _contextTypeName;
     private readonly string _projectNamespace;
+    private readonly ILogger<CompilerService>? _logger;
     private const string _beforeUserQuery = "return";
     private const string _afterUserQuery = "";  // Hardcoded, can be changed as needed
 
-    public CompilerService(string contextTypeName, string projectNamespace)
+    public CompilerService(string contextTypeName, string projectNamespace, ILogger<CompilerService>? logger = null)
     {
         _workspace = new AdhocWorkspace();
         var solutionInfo = SolutionInfo.Create(SolutionId.CreateNewId(), VersionStamp.Create());
@@ -34,6 +36,7 @@ public class CompilerService : IDisposable
         _solution = _solution.AddProject(projectInfo);
         _contextTypeName = contextTypeName;
         _projectNamespace = projectNamespace;
+        _logger = logger;
 
         // Add EF Core references and basic assemblies
         var efCoreAssemblies = new[]
@@ -54,7 +57,10 @@ public class CompilerService : IDisposable
                 {
                     asm = Assembly.Load(asmName);
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    _logger?.LogWarning(ex, "[CompilerService] Error loading assembly {AsmName}", asmName);
+                }
             }
             if (asm != null)
             {
@@ -72,7 +78,10 @@ public class CompilerService : IDisposable
                     references.Add(MetadataReference.CreateFromFile(asm.Location));
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                    _logger?.LogWarning(ex, "[CompilerService] Error adding metadata reference for {AsmName}", asm.GetName().Name);
+            }
         }
 
         _solution = _solution.WithProjectMetadataReferences(_projectId, references);
@@ -83,7 +92,10 @@ public class CompilerService : IDisposable
             var parseOptions = new Microsoft.CodeAnalysis.CSharp.CSharpParseOptions(documentationMode: Microsoft.CodeAnalysis.DocumentationMode.Diagnose);
             _solution = _solution.WithProjectParseOptions(_projectId, parseOptions);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "[CompilerService] Error setting parse options");
+        }
     }
 
     #region Init / Add files
@@ -362,7 +374,10 @@ public class QueryContainer
                                 methods = qtype.GetMembers(candidateName).OfType<IMethodSymbol>().ToArray();
                             }
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            _logger?.LogWarning(ex, "[CompilerService] Error loading System.Linq.Queryable");
+                        }
                     }
 
                     // (no debug output)
@@ -398,7 +413,10 @@ public class QueryContainer
                             if (compatible)
                                 matches.Add(m);
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            _logger?.LogWarning(ex, "[CompilerService] Error checking method compatibility");
+                        }
                     }
 
                     // prefer extension methods/static LINQ helpers if present
@@ -481,12 +499,18 @@ public class QueryContainer
         {
             _workspace?.Dispose();
         }
-        catch { }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "[CompilerService] Error disposing workspace");
+        }
 
         try
         {
             _lock?.Dispose();
         }
-        catch { }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "[CompilerService] Error disposing lock");
+        }
     }
 }

@@ -1,6 +1,7 @@
 using LinqStudio.Blazor.Constants;
 using LinqStudio.Blazor.Models;
 using LinqStudio.Core.Services;
+using Microsoft.Extensions.Logging;
 
 namespace LinqStudio.Blazor.Services;
 
@@ -11,14 +12,16 @@ namespace LinqStudio.Blazor.Services;
 public class QueriesWorkspace
 {
 	private readonly QueryService _queryService;
+	private readonly ILogger<QueriesWorkspace> _logger;
 	private Guid? _currentQueryId;
 	private readonly Dictionary<Guid, OpenQueryState> _openQueries = new();
 	private readonly Dictionary<Guid, SavedQuery> _allQueries = new();
 	private string? _projectFilePath;
 
-	public QueriesWorkspace(QueryService queryService)
+	public QueriesWorkspace(QueryService queryService, ILogger<QueriesWorkspace> logger)
 	{
 		_queryService = queryService;
+		_logger = logger;
 	}
 
 	/// <summary>
@@ -86,6 +89,8 @@ public class QueriesWorkspace
 				_allQueries[query.Id] = query;
 			}
 
+			_logger.LogInformation("Initialized queries workspace with {QueryCount} queries from '{FilePath}'.", _allQueries.Count, projectFilePath);
+
 			// Open first query if any exist
 			if (_allQueries.Count > 0)
 			{
@@ -130,6 +135,7 @@ public class QueriesWorkspace
 			};
 		}
 
+		_logger.LogInformation("Opened query {QueryId} ('{QueryName}').", queryId, query.Name);
 		_currentQueryId = queryId;
 		OnQueriesChanged();
 	}
@@ -148,13 +154,10 @@ public class QueriesWorkspace
 
 		if (_currentQueryId == queryId)
 		{
-			_currentQueryId = _openQueries.Keys.FirstOrDefault();
-			if (_currentQueryId == Guid.Empty)
-			{
-				_currentQueryId = null;
-			}
+			_currentQueryId = _openQueries.Count > 0 ? _openQueries.Keys.First() : (Guid?)null;
 		}
 
+		_logger.LogInformation("Closed query {QueryId}.", queryId);
 		OnQueriesChanged();
 	}
 
@@ -189,6 +192,7 @@ public class QueriesWorkspace
 		}
 
 		_currentQueryId = newQuery.Id;
+		_logger.LogInformation("Created new query {QueryId} ('{QueryName}').", newQuery.Id, newQuery.Name);
 		OnQueriesChanged();
 
 		return newQuery.Id;
@@ -251,11 +255,7 @@ public class QueriesWorkspace
 
 		if (_currentQueryId == queryId)
 		{
-			_currentQueryId = _allQueries.Keys.FirstOrDefault();
-			if (_currentQueryId == Guid.Empty)
-			{
-				_currentQueryId = null;
-			}
+			_currentQueryId = _allQueries.Count > 0 ? _allQueries.Keys.First() : (Guid?)null;
 		}
 
 		// Delete from disk if project file path is set

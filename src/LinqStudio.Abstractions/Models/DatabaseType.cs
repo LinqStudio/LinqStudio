@@ -6,5 +6,7 @@ namespace LinqStudio.Abstractions.Models;
 public enum DatabaseType
 {
 	Mssql,
-	MySql
+	MySql,
+	PostgreSql,
+	Sqlite
 }

@@ -6,6 +6,7 @@ using LinqStudio.Abstractions;
 using LinqStudio.Core.Extensions;
 using LinqStudio.Core.Resources;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Logging;
 using System.Text;
 using System.Text.Json;
 
@@ -13,6 +14,7 @@ namespace LinqStudio.Blazor.Components.Pages.Settings;
 
 public partial class SettingsEditor : ComponentBase, IDisposable
 {
+	[Inject] private ILogger<SettingsEditor> Logger { get; set; } = null!;
 	private IDisposable? _providerDisposable;
 	private bool _disposed = false;
 	private StandaloneCodeEditor? _editor;
@@ -84,6 +86,7 @@ public partial class SettingsEditor : ComponentBase, IDisposable
 
 					// reload the JSON
 					await _editor.SetValue(JsonSerializer.Serialize((object)Setting, JsonSerializerOptions.Indented));
+					Logger.LogInformation("Settings section '{SectionName}' reloaded.", Setting.SectionName);
 
 					await _editor.UpdateOptions(new()
 					{
@@ -121,6 +124,8 @@ public partial class SettingsEditor : ComponentBase, IDisposable
 		{
 			return;
 		}
+
+		Logger.LogInformation("Settings editor initialized for section '{SectionName}'.", Setting.SectionName);
 
 		_providerDisposable = await MonacoProvidersService.RegisterHoverProviderAsync(_editor, async (uri, position, context) =>
 		{
@@ -187,8 +192,6 @@ public partial class SettingsEditor : ComponentBase, IDisposable
 							return true;
 						}
 					}
-					long position = reader.TokenStartIndex; // byte offset in JSON
-					Console.WriteLine($"Property '{propertyName}' starts at position {position}");
 				}
 			}
 		}

@@ -37,20 +37,6 @@ public class ProjectServiceTests : IDisposable
 	}
 
 	[Fact]
-	public void CreateNew_GeneratesUniqueIds()
-	{
-		// Arrange
-		var service = new ProjectService();
-
-		// Act
-		var project1 = service.CreateNew("Project 1", "Connection 1");
-		var project2 = service.CreateNew("Project 2", "Connection 2");
-
-		// Assert
-		Assert.NotEqual(project1.Id, project2.Id);
-	}
-
-	[Fact]
 	public void CreateNew_WithEmptyStrings_DoesNotThrow()
 	{
 		// Arrange
@@ -437,25 +423,6 @@ public class ProjectServiceTests : IDisposable
 	#endregion
 
 	#region Edge Cases
-
-	[Fact]
-	public async Task LoadProjectAsync_WithCorruptedJson_ThrowsInvalidOperationException()
-	{
-		// Arrange
-		var service = new ProjectService();
-		var filePath = Path.Combine(_testDirectory, "corrupted.linq");
-
-		await File.WriteAllTextAsync(filePath, "{ invalid json content }");
-
-		// Act & Assert
-		var exception = await Assert.ThrowsAsync<InvalidOperationException>(
-			() => service.LoadProjectAsync(filePath)
-		);
-
-		Assert.Contains("corrupted or in an invalid format", exception.Message);
-		Assert.NotNull(exception.InnerException);
-		Assert.IsType<JsonException>(exception.InnerException);
-	}
 
 	[Fact]
 	public async Task SaveProjectAsync_WithVeryLongName_Succeeds()

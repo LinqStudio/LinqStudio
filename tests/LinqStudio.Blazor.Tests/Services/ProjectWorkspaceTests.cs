@@ -1,6 +1,7 @@
 using LinqStudio.Blazor.Services;
 using LinqStudio.Core.Models;
 using LinqStudio.Core.Services;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace LinqStudio.Blazor.Tests.Services;
 
@@ -19,8 +20,8 @@ public class ProjectWorkspaceTests : IDisposable
 
 		_projectService = new ProjectService(); // Real implementation
 		_queryService = new QueryService();
-		_queriesWorkspace = new QueriesWorkspace(_queryService);
-		_workspace = new ProjectWorkspace(_projectService, _queriesWorkspace);
+		_queriesWorkspace = new QueriesWorkspace(_queryService, NullLogger<QueriesWorkspace>.Instance);
+		_workspace = new ProjectWorkspace(_projectService, _queriesWorkspace, NullLogger<ProjectWorkspace>.Instance);
 	}
 
 	#region CreateNew Tests
@@ -200,10 +201,10 @@ public class ProjectWorkspaceTests : IDisposable
 	#region Update Tests
 
 	[Fact]
-	public void Update_UpdatesCurrentProject()
+	public async Task Update_UpdatesCurrentProject()
 	{
 		// Arrange
-		_workspace.CreateNewAsync("Test");
+		await _workspace.CreateNewAsync("Test");
 		var updatedProject = _workspace.CurrentProject!;
 		updatedProject.ConnectionString = "Updated";
 
@@ -238,10 +239,10 @@ public class ProjectWorkspaceTests : IDisposable
 	#region Close Tests
 
 	[Fact]
-	public void Close_ClosesProject_AndClearsState()
+	public async Task Close_ClosesProject_AndClearsState()
 	{
 		// Arrange
-		_workspace.CreateNewAsync("Test");
+		await _workspace.CreateNewAsync("Test");
 
 		// Act
 		_workspace.Close();
@@ -319,10 +320,10 @@ public class ProjectWorkspaceTests : IDisposable
 	#region CurrentProjectName Tests
 
 	[Fact]
-	public void CurrentProjectName_ReturnsProjectName_WhenSet()
+	public async Task CurrentProjectName_ReturnsProjectName_WhenSet()
 	{
 		// Act
-		_workspace.CreateNewAsync("MyProject");
+		await _workspace.CreateNewAsync("MyProject");
 
 		// Assert
 		Assert.Equal("MyProject", _workspace.CurrentProjectName);

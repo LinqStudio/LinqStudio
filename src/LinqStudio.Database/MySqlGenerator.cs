@@ -12,12 +12,68 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 	/// <summary>
 	/// Creates a new instance of the MySQL generator.
 	/// </summary>
-	/// <param name="database">EF Core database facade.</param>
+	/// <param name="connection">Database connection.</param>
 	public MySqlGenerator(DbConnection connection) : base(connection)
 	{
 	}
 
+	/// <summary>
+	/// Creates a new MySQL generator from a connection string.
+	/// </summary>
+	/// <param name="connectionString">MySQL connection string.</param>
+	/// <returns>A new MySQL generator instance.</returns>
 	public static MySqlGenerator Create(string connectionString) => new(new MySql.Data.MySqlClient.MySqlConnection(connectionString));
+
+	/// <inheritdoc/>
+	public override DbColumnType MapToGenericType(string dataType)
+	{
+		var type = dataType.ToLowerInvariant();
+
+		return type switch
+		{
+			// Boolean (tinyint(1) is typically used for boolean)
+			"bool" or "boolean" => DbColumnType.Boolean,
+
+			// Integer types (signed)
+			"tinyint" => DbColumnType.SByte, // or Boolean if tinyint(1)
+			"smallint" => DbColumnType.Int16,
+			"mediumint" or "int" or "integer" => DbColumnType.Int32,
+			"bigint" => DbColumnType.Int64,
+
+			// Integer types (unsigned) - detected separately based on column attributes
+			"tinyint unsigned" => DbColumnType.Byte,
+			"smallint unsigned" => DbColumnType.UInt16,
+			"mediumint unsigned" or "int unsigned" or "integer unsigned" => DbColumnType.UInt32,
+			"bigint unsigned" => DbColumnType.UInt64,
+
+			// Floating point
+			"float" => DbColumnType.Float,
+			"double" or "double precision" or "real" => DbColumnType.Double,
+
+			// Decimal
+			"decimal" or "numeric" or "dec" or "fixed" => DbColumnType.Decimal,
+
+			// String types
+			"char" or "varchar" or "tinytext" or "text" or "mediumtext" or "longtext" => DbColumnType.String,
+			"enum" or "set" => DbColumnType.String,
+
+			// Date/Time types
+			"date" or "datetime" or "timestamp" or "year" => DbColumnType.DateTime,
+			"time" => DbColumnType.TimeSpan,
+
+			// Binary types
+			"binary" or "varbinary" or "tinyblob" or "blob" or "mediumblob" or "longblob" or "bit" => DbColumnType.Binary,
+
+			// JSON
+			"json" => DbColumnType.Json,
+
+			// Geometric types (treat as binary)
+			"geometry" or "point" or "linestring" or "polygon" or "multipoint" or "multilinestring" or "multipolygon" or "geometrycollection" => DbColumnType.Binary,
+
+			// Default
+			_ => DbColumnType.Unknown
+		};
+	}
 
 	/// <inheritdoc/>
 	protected override DatabaseTableName? ParseTableFromSchemaRow(DataRow row)
@@ -40,20 +96,22 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 	/// <inheritdoc/>
 	public override async Task<DatabaseTableDetail> GetTableAsync(string tableName, CancellationToken cancellationToken = default)
 	{
-		var (schema, name) = ParseTableName(tableName);
-		schema ??= DbConnection.Database; // Default to current database
+		ArgumentException.ThrowIfNullOrWhiteSpace(tableName, nameof(tableName));
 
-		var wasOpen = DbConnection.State == ConnectionState.Open;
+		var (schema, name) = ParseTableName(tableName);
+		schema ??= Connection.Database; // Default to current database
+
+		var wasOpen = Connection.State == ConnectionState.Open;
 		if (!wasOpen)
-			await DbConnection.OpenAsync(cancellationToken);
+			await Connection.OpenAsync(cancellationToken);
 
 		try
 		{
 			// Get columns using database-specific query
-			var columns = await GetColumnsAsync(DbConnection, schema, name, cancellationToken);
+			var columns = await GetColumnsAsync(Connection, schema, name, cancellationToken);
 
 			// Get foreign keys using database-specific query
-			var foreignKeys = await GetForeignKeysAsync(DbConnection, schema, name, cancellationToken);
+			var foreignKeys = await GetForeignKeysAsync(Connection, schema, name, cancellationToken);
 
 			return new DatabaseTableDetail
 			{
@@ -66,7 +124,7 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 		finally
 		{
 			if (!wasOpen)
-				await DbConnection.CloseAsync();
+				await Connection.CloseAsync();
 		}
 	}
 
@@ -93,6 +151,7 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 
 		await using var command = connection.CreateCommand();
 		command.CommandText = query;
+		command.CommandTimeout = 30;
 
 		var schemaParam = command.CreateParameter();
 		schemaParam.ParameterName = "@Schema";
@@ -146,6 +205,7 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 			{
 				Name = reader.GetString(0),
 				DataType = reader.GetString(1),
+				GenericType = MapToGenericType(reader.GetString(1)),
 				IsNullable = reader.GetString(2) == "YES",
 				IsPrimaryKey = columnKey == "PRI",
 				IsIdentity = extra.Contains("auto_increment", StringComparison.OrdinalIgnoreCase),
@@ -179,6 +239,7 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 
 		await using var command = connection.CreateCommand();
 		command.CommandText = query;
+		command.CommandTimeout = 30;
 
 		var schemaParam = command.CreateParameter();
 		schemaParam.ParameterName = "@Schema";

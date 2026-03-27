@@ -39,4 +39,11 @@ public interface IDatabaseQueryGenerator
 	/// <param name="cancellationToken">Cancellation token for timeout control.</param>
 	/// <returns>Task that completes successfully if connection is valid, throws exception otherwise.</returns>
 	Task TestConnectionAsync(CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Maps a database-specific data type to a generic DbColumnType.
+	/// </summary>
+	/// <param name="dataType">Database-specific type name (e.g., "int", "varchar", "timestamp").</param>
+	/// <returns>Corresponding generic DbColumnType.</returns>
+	DbColumnType MapToGenericType(string dataType);
 }

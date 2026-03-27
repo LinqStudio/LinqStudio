@@ -9,6 +9,7 @@ using LinqStudio.Core.Services;
 using LinqStudio.Core.Settings;
 using Microsoft.AspNetCore.Components;
 using Microsoft.CodeAnalysis.Tags;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MudBlazor;
 
@@ -16,7 +17,9 @@ namespace LinqStudio.Blazor.Components.Pages.Editor;
 
 public partial class Editor : ComponentBase, IDisposable
 {
+	[Inject] private ILogger<Editor> Logger { get; set; } = null!;
 	[Inject] private ISnackbar Snackbar { get; set; } = null!;
+	[Inject] private ErrorHandlingService ErrorHandlingService { get; set; } = null!;
 	[Inject] private MonacoProvidersService MonacoProvidersService { get; set; } = null!;
 	[Inject] private CompilerServiceFactory CompilerServiceFactory { get; set; } = null!;
 	[Inject] private IOptionsMonitor<UISettings> UISettings { get; set; } = null!;
@@ -76,6 +79,7 @@ public partial class Editor : ComponentBase, IDisposable
 
 		if (QueryIdParam is not null)
 		{
+			Logger.LogInformation("Loading query {QueryId}.", QueryIdParam.Value);
 			Workspace.Queries.OpenQuery(QueryIdParam.Value);
 		}
 		// Don't auto-open queries - let the user explicitly open them
@@ -229,8 +233,9 @@ public partial class Editor : ComponentBase, IDisposable
 					Incomplete = false
 				};
 			}
-			catch
+			catch (Exception ex)
 			{
+				Logger.LogWarning(ex, "[Editor] Completion provider error");
 				return null;
 			}
 		});
@@ -274,8 +279,9 @@ public partial class Editor : ComponentBase, IDisposable
 					}
 				};
 			}
-			catch
+			catch (Exception ex)
 			{
+				Logger.LogWarning(ex, "[Editor] Hover provider error");
 				return null;
 			}
 		});
@@ -392,12 +398,14 @@ public partial class Editor : ComponentBase, IDisposable
 
 			if (success)
 			{
+				Logger.LogInformation("Query {QueryId} saved successfully.", qid);
 				Snackbar.Add("Query saved successfully.", Severity.Success);
 			}
 		}
 		catch (Exception ex)
 		{
-			Snackbar.Add($"Failed to save query: {ex.Message}", Severity.Error);
+			Logger.LogError(ex, "Failed to save query.");
+			await ErrorHandlingService.HandleErrorAsync(ex, "Failed to save query");
 		}
 	}
 
