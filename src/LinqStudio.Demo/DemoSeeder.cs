@@ -14,14 +14,16 @@ public static class DemoSeeder
 
 		var customers = BogusDataGenerator.GenerateCustomers();
 		var products = BogusDataGenerator.GenerateProducts();
-		var orders = BogusDataGenerator.GenerateOrders(customers);
-		var orderItems = BogusDataGenerator.GenerateOrderItems(orders, products);
 
 		await context.AddRangeAsync(customers);
 		await context.AddRangeAsync(products);
-		await context.SaveChangesAsync();
+		await context.SaveChangesAsync(); // customers and products now have real DB-assigned IDs
+
+		var orders = BogusDataGenerator.GenerateOrders(customers);
 		await context.AddRangeAsync(orders);
-		await context.SaveChangesAsync();
+		await context.SaveChangesAsync(); // orders now have real DB-assigned IDs
+
+		var orderItems = BogusDataGenerator.GenerateOrderItems(orders, products);
 		await context.AddRangeAsync(orderItems);
 		await context.SaveChangesAsync();
 	}

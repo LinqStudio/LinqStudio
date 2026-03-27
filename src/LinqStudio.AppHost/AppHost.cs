@@ -28,7 +28,6 @@ var seeder = builder.AddProject<Projects.LinqStudio_DatabaseSeeder>("demo-seeder
 
 builder.AddProject<Projects.LinqStudio_App_WebServer>("linqstudio-app-webserver")
 	.WithReference(mssqlDb, "DemoMssql")
-	.WithReference(mysqlDb, "DemoMysql")
-	.WaitForCompletion(seeder);
+	.WithReference(mysqlDb, "DemoMysql");
 
 builder.Build().Run();

@@ -44,14 +44,18 @@ static async Task SeedDatabaseAsync(string connectionString, DatabaseProvider pr
 					.UseMySQL(connectionString).Options,
 				_ => throw new NotSupportedException()
 			};
-			using var ctx = new DemoDbContext(options);
+			await using var ctx = new DemoDbContext(options);
+			await using var tx = await ctx.Database.BeginTransactionAsync();
+
 			await DemoSeeder.SeedAsync(ctx);
+
+			await tx.CommitAsync();
 			Console.WriteLine($"[{name}] Seeded successfully.");
 			return;
 		}
 		catch (Exception ex)
 		{
-			Console.WriteLine($"[{name}] Retry {10 - retries}/10: {ex.Message}");
+			Console.WriteLine($"[{name}] Retry {10 - retries}/10: {ex.ToString()}");
 			await Task.Delay(3000);
 		}
 	}
