@@ -20,3 +20,5 @@ Replaces native OS file dialogs for browsing, opening, and saving projects. Supp
 - **Open mode**: Shows sorted project list; selecting and confirming returns `ProjectBrowserResult(id, name)`.
 - **SaveAs mode**: Text input for project name + list of existing projects (clicking one pre-fills the name). Returns `ProjectBrowserResult(existingId_or_empty, typedName)` — empty ID means new project.
 - Inline delete (trash icon per item) reloads the list automatically via `IProjectRepository.DeleteProjectAsync`.
+
+> ⚠️ **Known gap (tracked issue):** The inline delete currently has **no confirmation dialog** — one click irreversibly deletes the project. All other destructive actions in NavMenu (New, Open, Close) already guard against data loss. A confirmation step matching the pattern of `ShowUnsavedChangesDialogAsync` should be added here before this dialog is considered production-safe.

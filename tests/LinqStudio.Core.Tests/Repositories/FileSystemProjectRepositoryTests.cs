@@ -234,6 +234,46 @@ public class FileSystemProjectRepositoryTests : IDisposable
 
 	#endregion
 
+	#region Path traversal security
+
+	[Theory]
+	[InlineData("../secret")]
+	[InlineData(@"..\secret")]
+	[InlineData("sub/file")]
+	[InlineData(@"sub\file")]
+	[InlineData(@"C:\Windows\system32")]
+	public async Task LoadProjectAsync_PathTraversalId_ThrowsArgumentException(string maliciousId)
+	{
+		await Assert.ThrowsAsync<ArgumentException>(
+			() => _repository.LoadProjectAsync(maliciousId));
+	}
+
+	[Theory]
+	[InlineData("../secret")]
+	[InlineData(@"..\secret")]
+	[InlineData("sub/file")]
+	[InlineData(@"sub\file")]
+	public async Task SaveProjectAsync_PathTraversalName_ThrowsArgumentException(string maliciousName)
+	{
+		var project = new Project { Name = maliciousName };
+
+		await Assert.ThrowsAsync<ArgumentException>(
+			() => _repository.SaveProjectAsync(project));
+	}
+
+	[Theory]
+	[InlineData("../secret")]
+	[InlineData(@"..\secret")]
+	[InlineData("sub/file")]
+	[InlineData(@"sub\file")]
+	public async Task DeleteProjectAsync_PathTraversalId_ThrowsArgumentException(string maliciousId)
+	{
+		await Assert.ThrowsAsync<ArgumentException>(
+			() => _repository.DeleteProjectAsync(maliciousId));
+	}
+
+	#endregion
+
 	#region IDisposable
 
 	public void Dispose()

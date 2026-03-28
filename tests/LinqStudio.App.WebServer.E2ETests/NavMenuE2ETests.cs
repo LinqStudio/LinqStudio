@@ -326,4 +326,73 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		saveBtn = page.GetByTestId("nav-project-save");
 		await Expect(saveBtn).ToHaveAttributeAsync("aria-disabled", "true");
 	}
+
+	[Fact(Timeout = 120_000)]
+	public async Task NavMenu_OpenProject_ExistingProject_LoadsProjectInEditor()
+	{
+		Assert.NotNull(_pw.Browser);
+
+		await using var context = await _pw.Browser.NewContextAsync();
+		var page = await context.NewPageAsync();
+
+		// Step 1: Create a new project and save it as "OpenTestProject"
+		// A new project always starts dirty (HasUnsavedChanges = true), so we save it
+		// first so that we can close it cleanly without a confirmation dialog.
+		await E2ETestHelpers.CreateNewProjectAsync(page, _app);
+
+		await page.GetByTestId("nav-project").ClickAsync();
+		await Task.Delay(100);
+		await page.GetByTestId("nav-project-save-as").ClickAsync();
+
+		var browserDialog = page.GetByTestId("project-browser-dialog");
+		await Expect(browserDialog).ToBeVisibleAsync();
+
+		var nameInput = page.GetByTestId("project-name-input");
+		await nameInput.FillAsync("OpenTestProject");
+
+		await page.GetByTestId("project-browser-save-btn").ClickAsync();
+
+		var saveSnackbar = page.Locator(".mud-snackbar").Last;
+		await Expect(saveSnackbar).ToBeVisibleAsync();
+		await Expect(saveSnackbar).ToContainTextAsync("Project saved successfully");
+
+		var projectGroup = page.GetByTestId("nav-project");
+		await Expect(projectGroup).Not.ToContainTextAsync("*");
+
+		// Step 2: Close the project — no unsaved-changes dialog because it was just saved
+		await page.GetByTestId("nav-project").ClickAsync();
+		await Task.Delay(100);
+		await page.GetByTestId("nav-project-close").ClickAsync();
+
+		// No confirmation dialog expected since HasUnsavedChanges = false after SaveAs
+		await page.WaitForURLAsync(_app.BaseUrl.ToString());
+		await Expect(projectGroup).ToContainTextAsync("Project");
+		await Expect(projectGroup).Not.ToContainTextAsync("OpenTestProject");
+
+		// Step 3: Open the project browser dialog in Open mode
+		// With no project open, HasUnsavedChanges = false — the browser dialog opens directly
+		await page.GetByTestId("nav-project").ClickAsync();
+		await Task.Delay(100);
+		await page.GetByTestId("nav-project-open").ClickAsync();
+
+		// Verify dialog opened in Open mode (has "Open" button, no name text-field)
+		await Expect(browserDialog).ToBeVisibleAsync();
+		await Expect(page.GetByTestId("project-browser-open-btn")).ToBeVisibleAsync();
+
+		// Step 4: Select "OpenTestProject" from the project list
+		var projectItem = page.GetByTestId("project-list-item")
+			.Filter(new() { HasText = "OpenTestProject" });
+		await Expect(projectItem).ToBeVisibleAsync(new() { Timeout = 10_000 });
+		await projectItem.ClickAsync();
+
+		// Step 5: Confirm the open
+		await page.GetByTestId("project-browser-open-btn").ClickAsync();
+
+		// Step 6: Verify the project is now loaded in the workspace
+		await Expect(projectGroup).ToContainTextAsync("OpenTestProject");
+		await Expect(projectGroup).Not.ToContainTextAsync("*");
+
+		var successSnackbar = page.Locator(".mud-snackbar").Last;
+		await Expect(successSnackbar).ToContainTextAsync("loaded successfully");
+	}
 }
