@@ -21,9 +21,11 @@ internal static class FileSystemRepositoryHelper
 	/// <list type="number">
 	///   <item>
 	///     <description>
-	///       <c>Path.GetFileName(id) != id</c> — rejects any <paramref name="id"/> that already
-	///       contains a directory separator (e.g. <c>../secret</c> or <c>sub/file</c>).
-	///       This catches the most obvious traversal attempts before touching the file system.
+	///       An explicit backslash check combined with <c>Path.GetFileName(id) != id</c> — rejects
+	///       any <paramref name="id"/> that contains a directory separator
+	///       (e.g. <c>../secret</c>, <c>sub/file</c>, or <c>..\secret</c>).
+	///       The explicit backslash check is required because on Linux <c>\</c> is a valid filename
+	///       character rather than a separator, so <c>Path.GetFileName</c> alone would not reject it.
 	///     </description>
 	///   </item>
 	///   <item>
@@ -54,7 +56,9 @@ internal static class FileSystemRepositoryHelper
 	internal static string GetValidatedPath(string basePath, string id, string extension)
 	{
 		// First check: reject any id that is not a plain filename (contains / or \ or is empty).
-		if (Path.GetFileName(id) != id)
+		// Explicitly check for backslash because on Linux '\' is a valid filename character,
+		// not a path separator, so Path.GetFileName alone would not reject it.
+		if (id.Contains('\\') || Path.GetFileName(id) != id)
 			throw new ArgumentException($"Invalid ID '{id}'.", nameof(id));
 
 		var fullBase = Path.GetFullPath(basePath);
