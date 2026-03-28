@@ -1,4 +1,4 @@
-using LinqStudio.Blazor.Abstractions;
+using LinqStudio.Core.Repositories;
 using LinqStudio.Core.Services;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -24,11 +24,11 @@ internal class BlazorWebAppFactory : WebApplicationFactory<Program>
 
 		builder.ConfigureServices(services =>
 		{
-			// Replace IFileSystemService with mock
-			var fsDescriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IFileSystemService));
-			if (fsDescriptor is not null)
-				services.Remove(fsDescriptor);
-			services.AddSingleton<IFileSystemService>(MockFileSystemService);
+			// Point file-system repository storage at the mock's test directory
+			var storageDescriptor = services.SingleOrDefault(d => d.ServiceType == typeof(FileSystemStorageOptions));
+			if (storageDescriptor is not null)
+				services.Remove(storageDescriptor);
+			services.AddSingleton(new FileSystemStorageOptions { BasePath = MockFileSystemService.GetTestFilesDirectory() });
 
 			// Replace IQueryExecutionService with mock so tests get a real async delay,
 			// allowing Blazor to render the IsExecuting=true state before execution completes.

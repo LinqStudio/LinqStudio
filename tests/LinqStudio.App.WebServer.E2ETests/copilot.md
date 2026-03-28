@@ -31,6 +31,27 @@ dotnet run --project src/LinqStudio.AppHost
 dotnet test --filter "FullyQualifiedName~AspireDashboard_ShowsBothDatabases_AsHealthy"
 ```
 
+## Tab-Switch Timing (CI Stability)
+
+`ClickTabAtIndexAsync` in `E2ETestHelpers.cs` uses a three-stage wait after clicking a tab:
+
+1. **Correct panel visibility** — `Expect([role='tabpanel'].Nth(index)).ToBeVisibleAsync(5s)`.
+   This waits for the **specific panel at the clicked index** to become visible. The previous
+   approach (`ToHaveCountAsync(1)`) was unreliable: since there is always exactly 1 visible panel
+   (the *previous* tab before the switch), that check would pass immediately without confirming
+   the correct panel was now active, causing the test to read stale content.
+
+2. **Monaco container height > 0** — polls until the editor container has non-zero height,
+   confirming `monacoRelayout()` has fired and Monaco has laid out.
+
+3. **`.view-lines` visible** — `Expect(GetActivePanel(page).Locator(".view-lines").First).ToBeVisibleAsync(10s)`.
+   Height > 0 does not mean Monaco has finished rendering text on slow CI runners;
+   this waits for the text content to be present in the DOM.
+
+`TabActivationLayoutDelayMs` in `QueryEditorPanel.razor.cs` is set to **300ms** (increased from
+100ms) so `monacoRelayout()` fires after the browser has had enough time to complete the layout
+pass on CI hardware.
+
 ## MudBlazor Interaction Patterns
 
 MudBlazor components (MudSelect, MudMenu) require specific interaction strategies:

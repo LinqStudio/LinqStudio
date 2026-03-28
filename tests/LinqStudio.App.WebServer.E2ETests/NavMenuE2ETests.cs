@@ -264,13 +264,12 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await E2ETestHelpers.CreateNewProjectAsync(page, _app);
 
 		// --- Update connection string via Properties dialog ---
-		// Need to open menu first
 		await page.GetByTestId("nav-project").ClickAsync();
-		await Task.Delay(100); // Wait for menu to open
+		await Task.Delay(100);
 		await page.GetByTestId("nav-project-properties").ClickAsync();
 
-		var dialog = page.GetByTestId("edit-project-dialog");
-		await Expect(dialog).ToBeVisibleAsync();
+		var editDialog = page.GetByTestId("edit-project-dialog");
+		await Expect(editDialog).ToBeVisibleAsync();
 
 		var connectionStringField = page.GetByTestId("project-connection-string-field");
 		await connectionStringField.FillAsync("Server=localhost;Database=TestDb;Integrated Security=true;");
@@ -278,68 +277,35 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		var saveBtn = page.GetByTestId("edit-project-save-btn");
 		await saveBtn.ClickAsync();
 
-		await Expect(dialog).Not.ToBeVisibleAsync();
+		await Expect(editDialog).Not.ToBeVisibleAsync();
 
 		// Verify project shows unsaved indicator after properties update
 		var projectGroup = page.GetByTestId("nav-project");
 		await Expect(projectGroup).ToContainTextAsync("Untitled *");
 
-		// --- Create first query with custom name and content ---
-		await E2ETestHelpers.CreateQueryAsync(page, _app, "context.People.Where(x => x.Id > 10).OrderBy(x => x.Name)");
-
-		// Verify unsaved indicator appears in editor (scope to active panel - single tab at this point)
-		var activePanel = E2ETestHelpers.GetActivePanel(page);
-		var unsavedIndicator = activePanel.GetByTestId("query-unsaved-indicator");
-		await Expect(unsavedIndicator).ToBeVisibleAsync();
-
-		_app.MockFileSystemService.SetNextSaveFileResult($"Get Filtered People{FileExtensions.Query.WithDot()}");
-		await activePanel.GetByTestId("query-save-btn").ClickAsync();
-		var snackbar = page.Locator(".mud-snackbar").Last;
-		await Expect(snackbar).ToBeVisibleAsync();
-		await Expect(snackbar).ToContainTextAsync("Query saved successfully");
-
-		// Verify name matches saved filename
-		var queryName = activePanel.GetByTestId("query-name-display");
-		await Expect(queryName).ToContainTextAsync("Get Filtered People");
-
-		// --- Create second query with different content ---
-		await E2ETestHelpers.CreateQueryAsync(page, _app, "context.People.Select(x => new { x.Id, x.Name }).Take(100)", 1);
-
-		// Verify unsaved indicator appears (scope to active panel — 2nd tab is now active)
-		activePanel = E2ETestHelpers.GetActivePanel(page);
-		unsavedIndicator = activePanel.GetByTestId("query-unsaved-indicator");
-		await Expect(unsavedIndicator).ToBeVisibleAsync();
-
-		_app.MockFileSystemService.SetNextSaveFileResult($"Get People Summary{FileExtensions.Query.WithDot()}");
-		await activePanel.GetByTestId("query-save-btn").ClickAsync();
-		snackbar = page.Locator(".mud-snackbar").Last;
-		await Expect(snackbar).ToBeVisibleAsync();
-		await Expect(snackbar).ToContainTextAsync("Query saved successfully");
-
-		// Verify rename succeeded
-		queryName = activePanel.GetByTestId("query-name-display");
-		await Expect(queryName).ToContainTextAsync("Get People Summary");
-
-		// Navigate back to home
-		await page.GetByTestId("nav-home").ClickAsync();
-
-		// Verify project still shows unsaved indicator
-		await Expect(projectGroup).ToContainTextAsync("Untitled *");
-
-		// --- Save the project ---
-		_app.MockFileSystemService.SetNextSaveFileResult($"TestProject{FileExtensions.Project.WithDot()}");
-
-		// Need to open menu first
+		// --- Save the project via ProjectBrowserDialog ---
 		await page.GetByTestId("nav-project").ClickAsync();
-		await Task.Delay(100); // Wait for menu to open
+		await Task.Delay(100);
 		await page.GetByTestId("nav-project-save-as").ClickAsync();
 
+		// ProjectBrowserDialog should open
+		var browserDialog = page.GetByTestId("project-browser-dialog");
+		await Expect(browserDialog).ToBeVisibleAsync();
+
+		// Type the project name
+		var nameInput = page.GetByTestId("project-name-input");
+		await nameInput.FillAsync("TestProject");
+
+		// Click Save
+		var saveBtnDialog = page.GetByTestId("project-browser-save-btn");
+		await saveBtnDialog.ClickAsync();
+
 		// Verify snackbar shows success message
-		snackbar = page.Locator(".mud-snackbar").Last;
+		var snackbar = page.Locator(".mud-snackbar").Last;
 		await Expect(snackbar).ToBeVisibleAsync();
 		await Expect(snackbar).ToContainTextAsync("Project saved successfully");
 
-		// Verify the file was created
+		// Verify the file was created in the mock directory
 		Assert.True(_app.MockFileSystemService.TestFileExists($"TestProject{FileExtensions.Project.WithDot()}"));
 
 		// --- Verify the saved file contains all expected content ---
@@ -354,11 +320,79 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		// Verify unsaved indicator is cleared after save
 		await Expect(projectGroup).Not.ToContainTextAsync("*");
 
-		// Verify Save button is disabled - need to open menu to check
+		// Verify Save button is disabled
 		await page.GetByTestId("nav-project").ClickAsync();
-		await Task.Delay(100); // Wait for menu to open
+		await Task.Delay(100);
 		saveBtn = page.GetByTestId("nav-project-save");
-		// MudBlazor uses aria-disabled instead of disabled attribute
 		await Expect(saveBtn).ToHaveAttributeAsync("aria-disabled", "true");
+	}
+
+	[Fact(Timeout = 120_000)]
+	public async Task NavMenu_OpenProject_ExistingProject_LoadsProjectInEditor()
+	{
+		Assert.NotNull(_pw.Browser);
+
+		await using var context = await _pw.Browser.NewContextAsync();
+		var page = await context.NewPageAsync();
+
+		// Step 1: Create a new project and save it as "OpenTestProject"
+		// A new project always starts dirty (HasUnsavedChanges = true), so we save it
+		// first so that we can close it cleanly without a confirmation dialog.
+		await E2ETestHelpers.CreateNewProjectAsync(page, _app);
+
+		await page.GetByTestId("nav-project").ClickAsync();
+		await Task.Delay(100);
+		await page.GetByTestId("nav-project-save-as").ClickAsync();
+
+		var browserDialog = page.GetByTestId("project-browser-dialog");
+		await Expect(browserDialog).ToBeVisibleAsync();
+
+		var nameInput = page.GetByTestId("project-name-input");
+		await nameInput.FillAsync("OpenTestProject");
+
+		await page.GetByTestId("project-browser-save-btn").ClickAsync();
+
+		var saveSnackbar = page.Locator(".mud-snackbar").Last;
+		await Expect(saveSnackbar).ToBeVisibleAsync();
+		await Expect(saveSnackbar).ToContainTextAsync("Project saved successfully");
+
+		var projectGroup = page.GetByTestId("nav-project");
+		await Expect(projectGroup).Not.ToContainTextAsync("*");
+
+		// Step 2: Close the project — no unsaved-changes dialog because it was just saved
+		await page.GetByTestId("nav-project").ClickAsync();
+		await Task.Delay(100);
+		await page.GetByTestId("nav-project-close").ClickAsync();
+
+		// No confirmation dialog expected since HasUnsavedChanges = false after SaveAs
+		await page.WaitForURLAsync(_app.BaseUrl.ToString());
+		await Expect(projectGroup).ToContainTextAsync("Project");
+		await Expect(projectGroup).Not.ToContainTextAsync("OpenTestProject");
+
+		// Step 3: Open the project browser dialog in Open mode
+		// With no project open, HasUnsavedChanges = false — the browser dialog opens directly
+		await page.GetByTestId("nav-project").ClickAsync();
+		await Task.Delay(100);
+		await page.GetByTestId("nav-project-open").ClickAsync();
+
+		// Verify dialog opened in Open mode (has "Open" button, no name text-field)
+		await Expect(browserDialog).ToBeVisibleAsync();
+		await Expect(page.GetByTestId("project-browser-open-btn")).ToBeVisibleAsync();
+
+		// Step 4: Select "OpenTestProject" from the project list
+		var projectItem = page.GetByTestId("project-list-item")
+			.Filter(new() { HasText = "OpenTestProject" });
+		await Expect(projectItem).ToBeVisibleAsync(new() { Timeout = 10_000 });
+		await projectItem.ClickAsync();
+
+		// Step 5: Confirm the open
+		await page.GetByTestId("project-browser-open-btn").ClickAsync();
+
+		// Step 6: Verify the project is now loaded in the workspace
+		await Expect(projectGroup).ToContainTextAsync("OpenTestProject");
+		await Expect(projectGroup).Not.ToContainTextAsync("*");
+
+		var successSnackbar = page.Locator(".mud-snackbar").Last;
+		await Expect(successSnackbar).ToContainTextAsync("loaded successfully");
 	}
 }

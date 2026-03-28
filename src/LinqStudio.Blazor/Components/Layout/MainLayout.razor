@@ -1,7 +1,7 @@
 ﻿@inherits LayoutComponentBase;
 @implements IDisposable
 @inject IOptionsMonitor<UISettings> UISettings;
-@inject SettingsService SettingsService;
+@inject ISettingsService SettingsService;
 @inject ErrorHandlingService ErrorHandlingService;
 
 <MudThemeProvider Theme="@_theme" IsDarkMode="UISettings.CurrentValue.IsDarkMode" />
