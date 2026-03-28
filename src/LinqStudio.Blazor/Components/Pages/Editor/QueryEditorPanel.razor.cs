@@ -106,7 +106,7 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 
 	private CancellationTokenSource? _debounceTokenSource;
 	private const int DebounceDelayMs = 300;
-	private const int TabActivationLayoutDelayMs = 100;
+	private const int TabActivationLayoutDelayMs = 300;
 
 	private QueryExecutionResult? _result;
 	private bool _isExecuting;

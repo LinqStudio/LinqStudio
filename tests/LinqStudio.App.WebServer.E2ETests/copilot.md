@@ -31,6 +31,18 @@ dotnet run --project src/LinqStudio.AppHost
 dotnet test --filter "FullyQualifiedName~AspireDashboard_ShowsBothDatabases_AsHealthy"
 ```
 
+## Tab-Switch Timing (CI Stability)
+
+`ClickTabAtIndexAsync` in `E2ETestHelpers.cs` polls until the Monaco container has non-zero height,
+then waits for `.view-lines` to be visible (10s timeout) before returning. This two-stage wait is
+required because "height > 0" does not mean Monaco has finished rendering text content — on the
+slower Linux CI runner the text re-render could arrive 100–200ms after the container becomes
+measurable.
+
+`TabActivationLayoutDelayMs` in `QueryEditorPanel.razor.cs` is set to **300ms** (increased from
+100ms) so `monacoRelayout()` fires after the browser has had enough time to complete the layout
+pass on CI hardware.
+
 ## MudBlazor Interaction Patterns
 
 MudBlazor components (MudSelect, MudMenu) require specific interaction strategies:

@@ -183,6 +183,10 @@ public static class E2ETestHelpers
 			if (box is { Height: > 0 }) break;
 			await Task.Delay(100);
 		}
+		// Wait for Monaco to finish rendering text content (height > 0 is not enough on slow CI runners)
+		await Expect(GetActivePanel(page).Locator(".view-lines").First)
+			.ToBeVisibleAsync(new() { Timeout = 10_000 });
+
 		// Force-focus the active Monaco textarea so keyboard events go to the correct editor instance
 		var inputArea = GetActivePanel(page).Locator("textarea.inputarea");
 		if (await inputArea.CountAsync() > 0)
