@@ -166,15 +166,19 @@ public static class E2ETestHelpers
 
 	/// <summary>
 	/// Clicks a MudTabs tab button by 0-based position and waits for the panel switch to complete.
-	/// Includes additional delay to allow Monaco editor relayout (OnTabActivatedAsync has a 100ms delay).
+	/// Includes additional delay to allow Monaco editor relayout (OnTabActivatedAsync has a 300ms delay).
 	/// Also explicitly focuses the newly active Monaco editor so keyboard events go to the right instance.
 	/// </summary>
 	public static async Task ClickTabAtIndexAsync(IPage page, int index)
 	{
 		await page.Locator(".mud-tab").Nth(index).ClickAsync();
-		// Wait for the active panel to be visible — real sync point instead of a fixed time budget
-		await Expect(page.Locator("[role='tabpanel']:visible")).ToHaveCountAsync(1, new() { Timeout = 5000 });
-		// Wait for Monaco relayout: OnTabActivatedAsync fires monacoRelayout() after a 100ms delay.
+		// Wait for the SPECIFIC panel at this index to become visible.
+		// Using Nth(index) is critical: ToHaveCountAsync(1) was unreliable because there is always
+		// exactly 1 visible panel (the previous tab's panel before the switch), so that check
+		// could pass immediately without confirming the CORRECT panel is now active.
+		await Expect(page.Locator("[role='tabpanel']").Nth(index))
+			.ToBeVisibleAsync(new() { Timeout = 5000 });
+		// Wait for Monaco relayout: OnTabActivatedAsync fires monacoRelayout() after a 300ms delay.
 		// Poll until the editor has non-zero height, confirming layout() has been called and Monaco has rendered.
 		var monacoContainer = GetActivePanel(page).GetByTestId("monaco-editor-container");
 		for (var attempt = 0; attempt < 30; attempt++)
