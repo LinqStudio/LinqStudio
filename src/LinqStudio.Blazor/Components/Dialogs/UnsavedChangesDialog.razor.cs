@@ -9,6 +9,9 @@ public partial class UnsavedChangesDialog : ComponentBase
 	private IMudDialogInstance MudDialog { get; set; } = null!;
 
 	[Parameter]
+	public string Title { get; set; } = "Unsaved Changes";
+
+	[Parameter]
 	public string Message { get; set; } = "Current project has unsaved changes. Continue without saving?";
 
 	[Parameter]

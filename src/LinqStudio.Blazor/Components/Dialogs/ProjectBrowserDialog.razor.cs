@@ -1,3 +1,4 @@
+using LinqStudio.Blazor.Extensions;
 using LinqStudio.Blazor.Models;
 using LinqStudio.Core.Repositories;
 using Microsoft.AspNetCore.Components;
@@ -23,6 +24,10 @@ public partial class ProjectBrowserDialog : ComponentBase
 	/// <summary>Gets or sets the snackbar service used for transient error notifications.</summary>
 	[Inject]
 	private ISnackbar Snackbar { get; set; } = null!;
+
+	/// <summary>Gets or sets the dialog service used to show confirmation prompts.</summary>
+	[Inject]
+	private IDialogService DialogService { get; set; } = null!;
 
 	/// <summary>
 	/// Gets or sets the dialog mode, which controls whether the user is opening an existing
@@ -98,7 +103,7 @@ public partial class ProjectBrowserDialog : ComponentBase
 	}
 
 	/// <summary>
-	/// Deletes <paramref name="project"/> from the repository and refreshes the list.
+	/// Asks the user to confirm, then deletes <paramref name="project"/> from the repository and refreshes the list.
 	/// </summary>
 	/// <param name="project">The project to delete.</param>
 	/// <remarks>
@@ -112,6 +117,12 @@ public partial class ProjectBrowserDialog : ComponentBase
 	/// </remarks>
 	private async Task DeleteProjectAsync(ProjectSummary project)
 	{
+		var confirmed = await DialogService.ShowDeleteProjectConfirmationAsync(project.Name);
+		if (!confirmed)
+		{
+			return;
+		}
+
 		try
 		{
 			await ProjectRepository.DeleteProjectAsync(project.Id);
