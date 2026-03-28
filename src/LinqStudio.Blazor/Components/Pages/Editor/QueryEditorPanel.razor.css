@@ -32,3 +32,13 @@
     display: flex;
     flex-direction: column;
 }
+
+/* flex: 1 fills the flex parent (.mud-tab-panel); height: 100% would resolve to 0
+   when the parent's height is flex-derived rather than an explicit value.
+   ::deep is required because StandaloneCodeEditor is a child component — its root
+   div is not rendered by QueryEditorPanel, so Blazor's scoped attribute is not
+   added to it. Without ::deep the scoped selector never matches. */
+::deep .code-viewer {
+    flex: 1;
+    min-height: 200px;
+}

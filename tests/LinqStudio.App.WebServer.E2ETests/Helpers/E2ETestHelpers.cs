@@ -161,9 +161,11 @@ public static class E2ETestHelpers
 	/// </summary>
 	public static async Task ClickTabAtIndexAsync(IPage page, int index)
 	{
-		await page.Locator(".mud-tab").Nth(index).ClickAsync();
-		// Wait for the active panel to be visible — real sync point instead of a fixed time budget
-		await Expect(page.Locator("[role='tabpanel']:visible")).ToHaveCountAsync(1, new() { Timeout = 5000 });
+		// Scope to outer editor query tabs to avoid matching inner Results|C#|SQL tab headers
+		await page.GetByTestId("editor-query-tabs").Locator(".mud-tab").Nth(index).ClickAsync();
+		// Wait for the outer query panel's execution bar to be visible — reliable sync point
+		// that avoids counting issues from nested Results|C#|SQL tabs.
+		await Expect(GetActivePanel(page).GetByTestId("query-execution-bar")).ToBeVisibleAsync(new() { Timeout = 5000 });
 		// Wait for Monaco relayout: OnTabActivatedAsync fires monacoRelayout() after a 100ms delay.
 		// Poll until the editor has non-zero height, confirming layout() has been called and Monaco has rendered.
 		var monacoContainer = GetActivePanel(page).GetByTestId("monaco-editor-container");

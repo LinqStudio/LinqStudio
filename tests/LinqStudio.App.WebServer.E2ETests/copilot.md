@@ -136,6 +136,25 @@ await page.WaitForURLAsync(tab1Url);
 - **Race condition prevention**: `Execute_ShowsEmptyResultSet_WhenQueryReturnsNoRows` calls `SetNextResult()` immediately before `executeBtn.ClickAsync()` (not at the start of the test) to minimize the window for other in-flight executions consuming the configured result.
 - **MudBlazor timeout-select**: The MudSelect is wrapped in `<div data-testid="timeout-select">` in Editor.razor because MudSelect's UserAttributes go on a hidden input, making `GetByTestId` find a non-visible element.
 
+## Visual Code Viewer Height E2E Tests
+
+Added `VisualCodeViewerHeightE2ETests.cs` to verify the `::deep .code-viewer` CSS fix.
+
+### Bug Fixed
+Monaco editor in C# and SQL result tabs had zero height because the Blazor-scoped CSS selector `.code-viewer` didn't reach the `StandaloneCodeEditor` child component. Fixed by changing to `::deep .code-viewer` in `QueryEditorPanel.razor.css`.
+
+### Tests
+| Test | What it verifies |
+|------|-----------------|
+| `CSharpTab_MonacoEditor_FillsHeightVertically` | Monaco editor in C# tab is ≥150px tall after executing a query with mock C# output |
+| `SqlTab_MonacoEditor_FillsHeightVertically` | Monaco editor in SQL tab is ≥150px tall after executing a query with mock SQL output |
+
+Both tests:
+1. Use `MockQueryExecutionService.SetNextResult()` to provide a result with `GeneratedCSharp` and `GeneratedSql`
+2. Execute the query via the Execute button
+3. Click the respective tab (`[data-testid='results-tabs'] .mud-tab`)
+4. Measure the Monaco editor bounding box height
+
 ## QueryResultGrid Interactive E2E Tests (NEW - PENDING IMPLEMENTATION)
 
 **Status:** ⏳ Tests written in `QueryResultGridInteractiveE2ETests.cs`, waiting for EvilJosh's MudDataGrid implementation

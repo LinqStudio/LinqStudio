@@ -40,6 +40,8 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 	[Inject] private IJSRuntime JSRuntime { get; set; } = null!;
 
 	private StandaloneCodeEditor? _editor;
+	private StandaloneCodeEditor? _csharpEditor;
+	private StandaloneCodeEditor? _sqlEditor;
 	private IDisposable? _providerDisposable;
 	private IDisposable? _hoverProviderDisposable;
 	private CompilerService? _localCompiler;
@@ -83,6 +85,28 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 		AcceptSuggestionOnEnter = "on"
 	};
 
+	private StandaloneEditorConstructionOptions CSharpViewerConstructionOptions(StandaloneCodeEditor ed) => new()
+	{
+		AutomaticLayout = true,
+		Language = "csharp",
+		Theme = UISettings.CurrentValue.IsDarkMode ? "vs-dark" : null,
+		ReadOnly = true,
+		Value = _result?.GeneratedCSharp ?? string.Empty,
+		LineNumbers = "on",
+		Minimap = new EditorMinimapOptions { Enabled = false }
+	};
+
+	private StandaloneEditorConstructionOptions SqlViewerConstructionOptions(StandaloneCodeEditor ed) => new()
+	{
+		AutomaticLayout = true,
+		Language = "sql",
+		Theme = UISettings.CurrentValue.IsDarkMode ? "vs-dark" : null,
+		ReadOnly = true,
+		Value = _result?.GeneratedSql ?? string.Empty,
+		LineNumbers = "on",
+		Minimap = new EditorMinimapOptions { Enabled = false }
+	};
+
 	protected override void OnInitialized()
 	{
 		_selectedTimeout = QueryExecutionSettings.CurrentValue.TimeoutSeconds;
@@ -111,7 +135,7 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 			// Ignore JS errors (circuit reconnect, rapid navigation, slow init)
 		}
 	}
-
+	
 	protected override void OnParametersSet()
 	{
 		if (Compiler is not null && _localCompiler is not null)
@@ -475,6 +499,20 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 		{
 			var result = await QueryExecutionService.ExecuteQueryAsync(queryText, Workspace.CurrentProject, _executionCts.Token);
 			_result = result;
+
+			// Update viewer editors if they are already mounted (e.g. user ran a second query
+			// without the editors being unmounted). Since _result = null clears them at the start
+			// of each execution, these are typically no-ops but serve as a safety net.
+			if (_csharpEditor is not null)
+			{
+				try { await _csharpEditor.SetValue(result.GeneratedCSharp ?? string.Empty); }
+				catch { /* Ignore JS errors during editor update */ }
+			}
+			if (_sqlEditor is not null)
+			{
+				try { await _sqlEditor.SetValue(result.GeneratedSql ?? string.Empty); }
+				catch { /* Ignore JS errors during editor update */ }
+			}
 
 			if (result.Success)
 			{
