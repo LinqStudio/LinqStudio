@@ -66,6 +66,39 @@ The splitter (`initSplitter` JS) MUST be called on the **second render** of `Que
 
 **Do NOT call `initSplitter` during `firstRender=true`** — those elements may not yet be in the DOM.
 
-## IAsyncDisposable for JS Cleanup
+## C#/SQL Tabs in Results Area
 
-`QueryEditorPanel` implements both `IDisposable` and `IAsyncDisposable`. The async path calls `disposeSplitter` with the unique splitter ID to remove event listeners. This prevents memory leaks from `document` event listeners accumulating. Editor itself only disposes the shared `_compiler` and unsubscribes from WorkspaceChanged.
+`QueryEditorPanel.razor` shows three tabs in the results area: **Results | C# | SQL**.
+
+- **Results tab**: the existing `QueryResultGrid` component (unchanged)
+- **C# tab**: read-only Monaco editor showing the generated `QueryContainer` C# source (from `QueryExecutionResult.GeneratedCSharp`)
+- **SQL tab**: read-only Monaco editor showing the EF Core-generated SQL (from `QueryExecutionResult.GeneratedSql`)
+
+Key implementation notes:
+- `_delay = true` guards both viewer editors just like the main editor
+- `KeepPanelsAlive="true"` on the inner `MudTabs` keeps Monaco instances alive across inner tab switches
+- No `ActivePanelIndexChanged` handler on the inner `MudTabs` — `AutomaticLayout = true` on both viewer editors means Monaco self-relayouts when the panel becomes visible
+- `SQL` tab shows "not available" message when `GeneratedSql` is null (e.g. queries not translatable to SQL)
+- `QueryExecutionResult.GeneratedCSharp` and `QueryExecutionResult.GeneratedSql` are always null on error results
+
+## Monaco Height in Results Tabs (C# / SQL)
+
+The C# and SQL tabs each contain a read-only `StandaloneCodeEditor` with `CssClass="code-viewer"`. For them to fill the tab panel area, the flex chain is provided by `Editor.razor.css` (which uses `::deep` to reach into child components) and a single rule in `QueryEditorPanel.razor.css`:
+
+- `Editor.razor.css ::deep .mud-tabs` → `flex: 1; display: flex; flex-direction: column; min-height: 0; overflow-y: hidden;` — applies to the inner `.results-tabs` MudTabs too
+- `Editor.razor.css ::deep .mud-tabs-panels` → `flex: 1; display: flex; flex-direction: column; min-height: 0;`
+- `Editor.razor.css ::deep .mud-tab-panel` → `flex: 1; display: flex; flex-direction: column; min-height: 0;`
+- `QueryEditorPanel.razor.css ::deep .code-viewer` → `flex: 1; min-height: 200px;` — THE critical fix; `height: 100%` resolves to 0 when parent height is flex-derived; `::deep` is required because `StandaloneCodeEditor` is a child component
+
+**Critical:** The `::deep` is mandatory on `.code-viewer` because `StandaloneCodeEditor` renders its root `div` as a child component; without `::deep` Blazor's scoped attribute selector never matches the element.
+
+`AutomaticLayout = true` is set on both `CSharpViewerConstructionOptions` and `SqlViewerConstructionOptions` — Monaco self-relayouts when a panel transitions from `display:none` to visible, so no manual `monacoRelayout` call is needed on inner tab switch.
+
+
+## E2E Test Impact
+
+Adding nested `MudTabs` (Results|C#|SQL) inside `QueryEditorPanel` affects E2E test selectors:
+- `[role='tabpanel']:visible` now returns **2** (outer query panel + inner results panel) — updated `ClickTabAtIndexAsync` to use `query-execution-bar` as the sync point instead of panel count
+- `.mud-tab` count includes inner Results/C#/SQL buttons — `TabClose` test updated to use `query-execution-bar` count instead
+- Outer `MudTabs` has `data-testid="editor-query-tabs"` — use `GetByTestId("editor-query-tabs").Locator(".mud-tab")` when needing to scope to outer tab buttons only
+

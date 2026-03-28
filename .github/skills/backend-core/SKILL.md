@@ -1,6 +1,6 @@
 ---
 name: backend-core
-description: Patterns and conventions for LinqStudio's backend projects (Core, Databases, Abstractions): settings pattern, service registration, DB introspection, query execution pipeline, and C# conventions. Use this when working on src/LinqStudio.Core, src/LinqStudio.Databases, or src/LinqStudio.Abstractions.
+description: Patterns and conventions for LinqStudio's backend projects (Core, Databases, Abstractions)-> settings pattern, service registration, DB introspection, query execution pipeline, and C# conventions. Use this when working on src/LinqStudio.Core, src/LinqStudio.Databases, or src/LinqStudio.Abstractions.
 ---
 
 # SKILL: Backend Core Patterns

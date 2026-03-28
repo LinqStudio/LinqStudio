@@ -1,4 +1,4 @@
-@page "/editor"
+﻿@page "/editor"
 @page "/editor/{QueryIdParam:guid}"
 @page "/editor/new"
 
@@ -14,7 +14,7 @@
 						 ApplyEffectsToContainer="true"
 						 KeepPanelsAlive="true"
 						 ActivePanelIndex="@GetActivePanelIndex()"
-						 ActivePanelIndexChanged="@OnActivePanelIndexChanged">
+						 ActivePanelIndexChanged="@OnActivePanelIndexChanged" data-testid="editor-query-tabs">
 					@foreach (var q in GetOpenQueriesInOrder())
 					{
 						var capturedQ = q;
