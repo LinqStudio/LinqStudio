@@ -1,4 +1,4 @@
-﻿using Xunit;
+using Xunit;
 
 namespace LinqStudio.App.WebServer.E2ETests.Fixtures;
 

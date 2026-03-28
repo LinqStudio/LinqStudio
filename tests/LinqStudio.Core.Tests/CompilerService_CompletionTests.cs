@@ -5,6 +5,8 @@ namespace LinqStudio.Core.Tests;
 
 public class CompilerService_CompletionTests
 {
+    private static RoslynWorkspaceService CreateRoslynWorkspaceService() => new();
+
     private string ReadEmbeddedFile(string path)
     {
         using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream($"LinqStudio.Core.Tests.{path}") ?? throw new FileNotFoundException($"Resource not found: {path}");
@@ -22,7 +24,7 @@ public class CompilerService_CompletionTests
         var query = "context.People.";
 
         var models = new Dictionary<string, string> { { "Person", modelCode } };
-        using var service = new CompilerService("TestDbContext", projectNamespace);
+        using var service = new CompilerService("TestDbContext", projectNamespace, CreateRoslynWorkspaceService());
         await service.Initialize(models, dbContextCode);
 
         var completions = await service.GetCompletionsAsync(query, query.Length);
@@ -44,7 +46,7 @@ public class CompilerService_CompletionTests
         var query = "cont"; // partial 'context'
 
         var models = new Dictionary<string, string> { { "Person", modelCode } };
-        using var service = new CompilerService("TestDbContext", projectNamespace);
+        using var service = new CompilerService("TestDbContext", projectNamespace, CreateRoslynWorkspaceService());
         await service.Initialize(models, dbContextCode);
 
         var completions = await service.GetCompletionsAsync(query, 3);
@@ -63,7 +65,7 @@ public class CompilerService_CompletionTests
         var query = "context.People"; // missing trailing dot and semicolon
 
         var models = new Dictionary<string, string> { { "Person", modelCode } };
-        using var service = new CompilerService("TestDbContext", projectNamespace);
+        using var service = new CompilerService("TestDbContext", projectNamespace, CreateRoslynWorkspaceService());
         await service.Initialize(models, dbContextCode);
 
         var completions = await service.GetCompletionsAsync(query, query.Length);
@@ -82,7 +84,7 @@ public class CompilerService_CompletionTests
         var query = "context.People.Where"; // cursor in middle
 
         var models = new Dictionary<string, string> { { "Person", modelCode } };
-        using var service = new CompilerService("TestDbContext", projectNamespace);
+        using var service = new CompilerService("TestDbContext", projectNamespace, CreateRoslynWorkspaceService());
         await service.Initialize(models, dbContextCode);
 
         var cursor = query.IndexOf("Where") + 2; // middle of 'Where'
@@ -102,7 +104,7 @@ public class CompilerService_CompletionTests
         var query = string.Empty;
 
         var models = new Dictionary<string, string> { { "Person", modelCode } };
-        using var service = new CompilerService("TestDbContext", projectNamespace);
+        using var service = new CompilerService("TestDbContext", projectNamespace, CreateRoslynWorkspaceService());
         await service.Initialize(models, dbContextCode);
 
         var completions = await service.GetCompletionsAsync(query, 0);
@@ -118,7 +120,7 @@ public class CompilerService_CompletionTests
         var modelCode = ReadEmbeddedFile("TestFiles.Person.cs");
         var dbContextCode = ReadEmbeddedFile("TestFiles.TestDbContext.cs");
 
-        using var service = new CompilerService("TestDbContext", projectNamespace);
+        using var service = new CompilerService("TestDbContext", projectNamespace, CreateRoslynWorkspaceService());
         await service.Initialize(new Dictionary<string, string> { { "Person", modelCode } }, dbContextCode);
 
         var queries = new[]
@@ -141,7 +143,7 @@ public class CompilerService_CompletionTests
         var modelCode = ReadEmbeddedFile("TestFiles.Person.cs");
         var dbContextCode = ReadEmbeddedFile("TestFiles.TestDbContext.cs");
 
-        using var service = new CompilerService("TestDbContext", projectNamespace);
+        using var service = new CompilerService("TestDbContext", projectNamespace, CreateRoslynWorkspaceService());
         await service.Initialize(new Dictionary<string, string> { { "Person", modelCode } }, dbContextCode);
 
         var listNeg = await service.GetCompletionsAsync("context.People.", -10);

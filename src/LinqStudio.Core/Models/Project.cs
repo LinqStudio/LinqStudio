@@ -1,4 +1,4 @@
-﻿using LinqStudio.Abstractions.Abstractions;
+using LinqStudio.Abstractions;
 using LinqStudio.Abstractions.Models;
 using LinqStudio.Databases;
 using LinqStudio.Databases.PostgreSQL;

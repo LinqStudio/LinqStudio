@@ -1,4 +1,4 @@
-﻿using BlazorMonaco.Editor;
+using BlazorMonaco.Editor;
 using BlazorMonaco.Languages;
 using Microsoft.JSInterop;
 using System.Collections.Concurrent;

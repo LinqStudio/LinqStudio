@@ -162,6 +162,12 @@
   <data name="UserSettings.UISettings.IsDarkMode" xml:space="preserve">
     <value>True to set the UI in dark mode</value>
   </data>
+  <data name="UserSettings.QueryExecutionSettings" xml:space="preserve">
+    <value>Query Execution</value>
+  </data>
+  <data name="UserSettings.QueryExecutionSettings.TimeoutSeconds" xml:space="preserve">
+    <value>Query Timeout (seconds)</value>
+  </data>
   <data name="ConnectionSettings.Title" xml:space="preserve">
     <value>Connection Settings</value>
   </data>

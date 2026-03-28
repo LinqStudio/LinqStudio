@@ -107,10 +107,59 @@ dotnet watch test --project tests/LinqStudio.App.WebServer.E2ETests/LinqStudio.A
 dotnet test --filter "DatabaseTreeView"
 ```
 
+## QueryResultGrid Component Tests (bUnit)
+**File:** `tests/LinqStudio.Blazor.Tests/QueryResultGridTests.cs`
+
+17 tests covering all 5 render states of the `QueryResultGrid` component:
+
+```bash
+dotnet test tests/LinqStudio.Blazor.Tests/LinqStudio.Blazor.Tests.csproj --filter "FullyQualifiedName~QueryResultGrid"
+```
+
+### Test List:
+- ✅ `QueryResultGrid_RendersEmpty_WhenResultIsNullAndNotExecuting`
+- ✅ `QueryResultGrid_ShowsSpinner_WhenIsExecutingTrue`
+- ✅ `QueryResultGrid_HidesSpinner_WhenIsExecutingFalse`
+- ✅ `QueryResultGrid_ShowsError_WhenResultHasRuntimeError`
+- ✅ `QueryResultGrid_ShowsCompileError_WhenResultIsCompileError`
+- ✅ `QueryResultGrid_ShowsElapsedTime_InErrorState`
+- ✅ `QueryResultGrid_ShowsEmptyInfo_WhenQueryReturnsNoRows`
+- ✅ `QueryResultGrid_ShowsElapsedTime_InEmptyState`
+- ✅ `QueryResultGrid_ShowsTable_WhenResultHasRows`
+- ✅ `QueryResultGrid_RendersColumnHeaders_ForEachColumn`
+- ✅ `QueryResultGrid_ShowsRowCount_InSuccessState`
+- ✅ `QueryResultGrid_ShowsSingularRow_WhenSingleRow`
+- ✅ `QueryResultGrid_ShowsElapsedTime_InSuccessState`
+- ✅ `QueryResultGrid_FormatsSubSecondElapsed_AsMilliseconds`
+- ✅ `QueryResultGrid_FormatsSecondElapsed_AsSeconds`
+- ✅ `QueryResultGrid_ShowsSpinner_EvenWhenResultIsNotNull`
+- ✅ `QueryResultGrid_HandleNullCellValues_Gracefully`
+
 ## Current Status
 
-- ✅ Tests compile successfully
-- ✅ Tests are discoverable by xUnit
-- ⏳ Waiting for DatabaseTreeView.razor component implementation
-- ⏳ Some tests will fail until component exists (expected)
-- ✅ Basic infrastructure tests should pass now (placeholder, DI, etc.)
+- ✅ All 56 Blazor component tests pass → Now 60 tests (+4 QueryResultGrid interactive tests)
+- ✅ DatabaseTreeView tests pass (5 tests)
+- ✅ QueryResultGrid tests pass (17 tests) → Now 21 tests (+4 interactive/testid tests)
+- ✅ ErrorHandling tests pass (34 tests)
+
+## QueryResultGrid Interactive Tests (NEW - PENDING IMPLEMENTATION)
+
+**Status:** ⏳ Tests written, waiting for EvilJosh's MudDataGrid implementation
+
+### New bUnit Tests (QueryResultGridTests.cs)
+Added 4 tests for MudDataGrid migration features:
+- `QueryResultGrid_ShowsNullAsText_WhenCellValueIsNull` - NULL values display as "NULL" text
+- `QueryResultGrid_RendersRows_WithCorrectCount` - Verifies rows are rendered with correct count and content
+- `QueryResultGrid_RendersColumnHeaders_WithCorrectTestIds` - Headers have `data-testid="column-header-{ColumnName}"`
+- `QueryResultGrid_RendersCells_WithCorrectTestIds` - Cells have `data-testid="cell-{rowIndex}-{columnName}"`
+
+### Required `data-testid` Attributes (for EvilJosh):
+```razor
+<!-- Column headers -->
+<th data-testid="column-header-@columnName">
+
+<!-- Cells -->
+<td data-testid="cell-@rowIndex-@columnName">
+```
+
+**Note:** MudDataGrid uses same `.mud-table-root` CSS class as MudTable, so existing 17 tests need no selector updates. Rows no longer have data-testid attributes (JavaScript injection removed).

@@ -1,0 +1,101 @@
+@using LinqStudio.Abstractions.Models
+
+@if (IsExecuting)
+{
+	<div class="d-flex align-center pa-4">
+		<MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mr-3" />
+		<MudText Typo="Typo.body1">Executing query...</MudText>
+	</div>
+}
+else if (Result is not null)
+{
+	@if (!Result.Success)
+	{
+		<MudAlert Severity="Severity.Error" Variant="Variant.Filled" Class="my-2">
+			<MudText Typo="Typo.body1">
+				@if (Result.IsCompileError)
+				{
+					<strong>Compilation error:</strong>
+					@(" ")
+				}
+				@Result.ErrorMessage
+			</MudText>
+			<MudText Typo="Typo.caption" Class="mt-2">
+				Elapsed: @FormatElapsedTime(Result.Elapsed)
+			</MudText>
+		</MudAlert>
+	}
+	else if (Result.Rows.Count == 0)
+	{
+		<MudAlert Severity="Severity.Info" Variant="Variant.Filled" Class="my-2">
+			<MudText Typo="Typo.body1">Query returned no results.</MudText>
+			<MudText Typo="Typo.caption" Class="mt-2">
+				Elapsed: @FormatElapsedTime(Result.Elapsed)
+			</MudText>
+		</MudAlert>
+	}
+	else
+	{
+		<div class="mt-2 query-result-grid-container" @onkeydown="OnKeyDown" tabindex="0">
+			<MudDataGrid T="IReadOnlyDictionary<string, object>"
+						 Items="@Result.Rows"
+						 Dense="true"
+						 Hover="true"
+						 Striped="true"
+						 FixedHeader="true"
+						 Virtualize="true"
+						 Height="100%"
+						 ColumnResizeMode="ResizeMode.Container"
+						 DragDropColumnReordering="true"
+						 MultiSelection="false"
+						 SelectOnRowClick="false"
+						 RowClick="@OnMudRowClick"
+						 RowClassFunc="@GetRowClass"
+						 Elevation="0"
+						 @ref="_dataGrid"
+						 data-testid="query-result-grid">
+				<Columns>
+					@foreach (var colName in Result.ColumnNames)
+					{
+						<TemplateColumn T="IReadOnlyDictionary<string, object>"
+										Title="@colName"
+										Sortable="true"
+										SortBy="@(row => row.GetValueOrDefault(colName)?.ToString() ?? string.Empty)">
+							<HeaderTemplate>
+								<div data-testid="@($"column-header-{colName}")">@colName</div>
+							</HeaderTemplate>
+							<CellTemplate>
+								@{
+									var cellValue = context.Item.GetValueOrDefault(colName);
+									var cellStr = cellValue is null ? "NULL" : cellValue.ToString();
+									var rowIndex = GetRowIndex(context.Item);
+								}
+								<div style="width:100%; height:100%; padding:4px"
+									 data-testid="@($"cell-{rowIndex}-{colName}")">
+									@cellStr
+								</div>
+							</CellTemplate>
+						</TemplateColumn>
+					}
+				</Columns>
+			</MudDataGrid>
+			<div class="d-flex justify-space-between align-center pa-2">
+				@if (_selectedRows.Count > 0)
+				{
+					<div data-testid="selection-count">
+						<MudText Typo="Typo.caption" Class="mud-text-secondary">
+							@_selectedRows.Count @(_selectedRows.Count == 1 ? "row" : "rows") selected
+						</MudText>
+					</div>
+				}
+				else
+				{
+					<div></div>
+				}
+				<MudText Typo="Typo.caption" Class="mud-text-secondary">
+					@Result.Rows.Count @(Result.Rows.Count == 1 ? "row" : "rows") · @FormatElapsedTime(Result.Elapsed)
+				</MudText>
+			</div>
+		</div>
+	}
+}

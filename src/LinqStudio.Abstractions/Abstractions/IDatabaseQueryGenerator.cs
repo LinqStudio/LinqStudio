@@ -1,6 +1,6 @@
-﻿using LinqStudio.Abstractions.Models;
+using LinqStudio.Abstractions.Models;
 
-namespace LinqStudio.Abstractions.Abstractions;
+namespace LinqStudio.Abstractions;
 
 /// <summary>
 /// Interface for generating database schema information.

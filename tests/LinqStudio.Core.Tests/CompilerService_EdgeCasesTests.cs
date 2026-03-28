@@ -6,6 +6,8 @@ namespace LinqStudio.Core.Tests;
 
 public class CompilerService_EdgeCasesTests
 {
+    private static RoslynWorkspaceService CreateRoslynWorkspaceService() => new();
+
     private string ReadEmbeddedFile(string path)
     {
         using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream($"LinqStudio.Core.Tests.{path}") ?? throw new FileNotFoundException($"Resource not found: {path}");
@@ -20,7 +22,7 @@ public class CompilerService_EdgeCasesTests
         var modelCode = ReadEmbeddedFile("TestFiles.Person.cs");
         var dbContextCode = ReadEmbeddedFile("TestFiles.TestDbContext.cs");
 
-        using var service = new CompilerService("TestDbContext", projectNamespace);
+        using var service = new CompilerService("TestDbContext", projectNamespace, CreateRoslynWorkspaceService());
         await service.Initialize(new Dictionary<string, string> { { "Person", modelCode } }, dbContextCode);
 
         var firstQuery = "context.People.Where(p => p.Id > 1)";
@@ -43,7 +45,7 @@ public class CompilerService_EdgeCasesTests
         var projectNamespace = "TestEmpty";
         var dbContextCode = "using Microsoft.EntityFrameworkCore; namespace TestEmpty; public class EmptyContext : DbContext { }";
 
-        using var service = new CompilerService("EmptyContext", projectNamespace);
+        using var service = new CompilerService("EmptyContext", projectNamespace, CreateRoslynWorkspaceService());
 
         // Initialize with no model files
         await service.Initialize(new Dictionary<string, string>(), dbContextCode);
@@ -63,7 +65,7 @@ public class CompilerService_EdgeCasesTests
         var modelCode = ReadEmbeddedFile("TestFiles.Person.cs");
         var dbContextCode = ReadEmbeddedFile("TestFiles.TestDbContext.cs");
 
-        using var service = new CompilerService("TestDbContext", projectNamespace);
+        using var service = new CompilerService("TestDbContext", projectNamespace, CreateRoslynWorkspaceService());
         await service.Initialize(new Dictionary<string, string> { { "Person", modelCode } }, dbContextCode);
 
         // Build a relatively large query (repetitive but harmless)
@@ -84,7 +86,7 @@ public class CompilerService_EdgeCasesTests
     [Fact]
     public void Dispose_ReleasesResources_NoExceptions()
     {
-        var service = new CompilerService("TestDbContext", "Test");
+        var service = new CompilerService("TestDbContext", "Test", CreateRoslynWorkspaceService());
         // Ensure Dispose doesn't throw
         service.Dispose();
         // Second dispose also should be safe

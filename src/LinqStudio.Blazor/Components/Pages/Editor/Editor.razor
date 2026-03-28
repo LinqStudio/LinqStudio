@@ -1,9 +1,6 @@
 @page "/editor"
 @page "/editor/{QueryIdParam:guid}"
 @page "/editor/new"
-@using BlazorMonaco
-@using BlazorMonaco.Editor
-@using BlazorMonaco.Languages
 
 <PageTitle>Editor - LinqStudio</PageTitle>
 
@@ -12,76 +9,26 @@
 	{
 		@if (Workspace.Queries.CurrentQueryId is not null)
 		{
-			<!-- Query Tabs -->
-			<MudPaper Class="pa-1" Elevation="1">
-				<MudTabs Rounded="true" ApplyEffectsToContainer="true">
+			<MudPaper Class="pa-1" Elevation="1" style="flex:1; min-height:0; display:flex; flex-direction:column;">
+				<MudTabs Rounded="true"
+						 ApplyEffectsToContainer="true"
+						 KeepPanelsAlive="true"
+						 ActivePanelIndex="@GetActivePanelIndex()"
+						 ActivePanelIndexChanged="@OnActivePanelIndexChanged">
 					@foreach (var q in GetOpenQueriesInOrder())
 					{
-						var isOpen = Workspace.Queries.OpenQueries.TryGetValue(q.Id, out var state);
-						var tabName = (isOpen && state?.HasUnsavedChanges == true) ? $"{q.Name} *" : q.Name;
-						<MudTabPanel 
-							Text="@tabName" 
-							OnClick="@(() => NavigateToQuery(q.Id))" />
+						var capturedQ = q;
+						<MudTabPanel @key="capturedQ.Id" Text="@GetTabName(capturedQ)">
+							<QueryEditorPanel QueryId="capturedQ.Id"
+											  Compiler="_compiler"
+											  IsRefreshingSchema="@_isRefreshingSchema"
+											  OnRefreshSchemaRequested="RefreshSchemaAsync"
+											  OnQueryClosed="OnQueryClosedAsync"
+											  @ref="_tabPanelRefs[capturedQ.Id]" />
+						</MudTabPanel>
 					}
 				</MudTabs>
 			</MudPaper>
-
-			<!-- Query Info Bar -->
-			<MudPaper Class="pa-2" Elevation="1" data-testid="query-info-bar">
-			<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-				<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-					<MudIcon Icon="@Icons.Material.Filled.Description" Size="Size.Small" />
-					<MudText Typo="Typo.body1" data-testid="query-name-display">
-						<strong>@(Workspace.Queries.GetCurrentQuery()?.Name ?? "New Query")</strong>
-					</MudText>
-
-					@if (Workspace.Queries.CurrentQueryState?.HasUnsavedChanges == true)
-					{
-						<MudChip T="string" Size="Size.Small" Color="Color.Warning" Icon="@Icons.Material.Filled.Edit" data-testid="query-unsaved-indicator">Unsaved</MudChip>
-					}
-				</MudStack>
-
-				<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-					<MudTooltip Text="Save query">
-						<MudIconButton Icon="@Icons.Material.Filled.Save"
-									   Color="Color.Primary"
-									   Size="Size.Small"
-									   OnClick="SaveCurrentQuery"
-									   Disabled="@(Workspace.Queries.CurrentQueryId is null)"
-									   data-testid="query-save-btn" />
-					</MudTooltip>
-
-					<MudTooltip Text="Close query">
-						<MudIconButton Icon="@Icons.Material.Filled.Close"
-									   Color="Color.Primary"
-									   Size="Size.Small"
-									   OnClick="CloseCurrentQuery"
-									   Disabled="@(Workspace.Queries.CurrentQueryId is null)"
-									   data-testid="query-close-btn" />
-					</MudTooltip>
-				</MudStack>
-			</MudStack>
-		</MudPaper>
-
-		<!-- Monaco Editor -->
-		<div class="editor-top" style="flex:1" data-testid="monaco-editor-container">
-			@if (!Delay)
-			{
-				<StandaloneCodeEditor @ref="_editor"
-									  Id="editor-top"
-									  CssClass="editor"
-									  ConstructionOptions="EditorConstructionOptions"
-									  OnDidInit="OnEditorInitialized"
-									  OnDidChangeModelContent="OnEditorContentChanged" />
-			}
-		</div>
-
-		<!-- Editor Actions -->
-		<MudPaper Class="pa-2" Elevation="1" data-testid="editor-info-bar">
-			<MudText Typo="Typo.body2" Color="Color.Secondary">
-				Editor provides IntelliSense using Roslyn compiler with EF Core support
-			</MudText>
-		</MudPaper>
 		}
 		else
 		{
@@ -90,6 +37,13 @@
 				No queries are currently open. Create a new query or open an existing one from the Editor menu.
 			</MudAlert>
 		}
+
+		<!-- Editor Info -->
+		<MudPaper Class="pa-2" Elevation="1" data-testid="editor-info-bar">
+			<MudText Typo="Typo.body2" Color="Color.Secondary">
+				Editor provides IntelliSense using Roslyn compiler with EF Core support
+			</MudText>
+		</MudPaper>
 	}
 	else
 	{

@@ -1,4 +1,4 @@
-﻿using LinqStudio.Abstractions.Models;
+using LinqStudio.Abstractions.Models;
 using Microsoft.Data.SqlClient;
 using System.Data;
 using System.Data.Common;
@@ -220,15 +220,39 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 		var restrictions = new string?[] { null, schema, tableName, null };
 		var columnsSchema = await connection.GetSchemaAsync("Columns", restrictions, cancellationToken);
 
-		// Get primary key information from Indexes schema
+		// Get primary key information using a direct SQL query
+		// IndexColumns returns ALL indexed columns (not just PK), so we query sys.indexes directly
 		var primaryKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-		var indexesSchema = await connection.GetSchemaAsync("IndexColumns", restrictions, cancellationToken);
-		foreach (DataRow row in indexesSchema.Rows)
+		const string pkQuery = """
+			SELECT 
+				c.name AS column_name,
+				ic.key_ordinal AS key_ordinal
+			FROM sys.indexes i
+			INNER JOIN sys.index_columns ic ON i.object_id = ic.object_id AND i.index_id = ic.index_id
+			INNER JOIN sys.columns c ON ic.object_id = c.object_id AND ic.column_id = c.column_id
+			WHERE i.is_primary_key = 1 
+			  AND i.object_id = OBJECT_ID(@tableName)
+			ORDER BY ic.key_ordinal
+			""";
+
+		await using (var pkCommand = connection.CreateCommand())
 		{
-			var columnName = row["column_name"]?.ToString();
-			if (!string.IsNullOrEmpty(columnName))
-				primaryKeys.Add(columnName);
+			pkCommand.CommandText = pkQuery;
+			pkCommand.CommandTimeout = 30;
+
+			var pkParameter = pkCommand.CreateParameter();
+			pkParameter.ParameterName = "@tableName";
+			pkParameter.Value = $"{schema}.{tableName}";
+			pkCommand.Parameters.Add(pkParameter);
+
+			await using var pkReader = await pkCommand.ExecuteReaderAsync(cancellationToken);
+			while (await pkReader.ReadAsync(cancellationToken))
+			{
+				var columnName = pkReader.GetString(0);
+				if (!string.IsNullOrEmpty(columnName))
+					primaryKeys.Add(columnName);
+			}
 		}
 
 

@@ -1,4 +1,4 @@
-﻿using LinqStudio.Abstractions;
+using LinqStudio.Abstractions;
 using System.Text.Json.Serialization;
 
 namespace LinqStudio.Core.Settings;

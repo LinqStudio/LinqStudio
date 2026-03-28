@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Completion;
 using Microsoft.CodeAnalysis.Text;
 using System.Reflection;
@@ -16,75 +16,20 @@ public class CompilerService : IDisposable
     private Solution _solution;
     private readonly string _contextTypeName;
     private readonly string _projectNamespace;
+    private readonly RoslynWorkspaceService _roslynWorkspaceService;
     private readonly ILogger<CompilerService>? _logger;
     private const string _beforeUserQuery = "return";
     private const string _afterUserQuery = "";  // Hardcoded, can be changed as needed
 
-    public CompilerService(string contextTypeName, string projectNamespace, ILogger<CompilerService>? logger = null)
+    public CompilerService(string contextTypeName, string projectNamespace, RoslynWorkspaceService roslynWorkspaceService, ILogger<CompilerService>? logger = null)
     {
-        _workspace = new AdhocWorkspace();
-        var solutionInfo = SolutionInfo.Create(SolutionId.CreateNewId(), VersionStamp.Create());
-        _solution = _workspace.AddSolution(solutionInfo);
-        _projectId = ProjectId.CreateNewId();
-        var projectInfo = ProjectInfo.Create(
-            _projectId,
-            VersionStamp.Create(),
-            "EFCoreModelsProject",
-            "EFCoreModelsProject",
-            LanguageNames.CSharp
-        );
-        _solution = _solution.AddProject(projectInfo);
+        _roslynWorkspaceService = roslynWorkspaceService;
         _contextTypeName = contextTypeName;
         _projectNamespace = projectNamespace;
         _logger = logger;
 
-        // Add EF Core references and basic assemblies
-        var efCoreAssemblies = new[]
-        {
-            "Microsoft.EntityFrameworkCore",
-            "Microsoft.EntityFrameworkCore.Relational",
-            "Microsoft.EntityFrameworkCore.SqlServer",
-            "System.Linq",
-            "System.Linq.Queryable"
-        };
-        var references = new List<MetadataReference>();
-        foreach (var asmName in efCoreAssemblies)
-        {
-            var asm = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(a => a.GetName().Name == asmName);
-            if (asm == null)
-            {
-                try
-                {
-                    asm = Assembly.Load(asmName);
-                }
-                catch (Exception ex)
-                {
-                    _logger?.LogWarning(ex, "[CompilerService] Error loading assembly {AsmName}", asmName);
-                }
-            }
-            if (asm != null)
-            {
-                references.Add(MetadataReference.CreateFromFile(asm.Location));
-            }
-        }
-
-        // add all left over assemblies from current domain
-        foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
-        {
-            try
-            {
-                if (!asm.IsDynamic && !string.IsNullOrEmpty(asm.Location) && !efCoreAssemblies.Contains(asm.GetName().Name))
-                {
-                    references.Add(MetadataReference.CreateFromFile(asm.Location));
-                }
-            }
-            catch (Exception ex)
-            {
-                    _logger?.LogWarning(ex, "[CompilerService] Error adding metadata reference for {AsmName}", asm.GetName().Name);
-            }
-        }
-
-        _solution = _solution.WithProjectMetadataReferences(_projectId, references);
+        // Create workspace with all metadata references using the shared service
+        (_workspace, _projectId, _solution) = _roslynWorkspaceService.CreateWorkspace("EFCoreModelsProject");
 
         // Ensure the C# parser includes documentation comments so XML docs are available on symbols
         try
@@ -153,25 +98,7 @@ public class CompilerService : IDisposable
 
     private string WrapUserQuery(string userQuery)
     {
-        if(!userQuery.TrimEnd().EndsWith(';'))
-            userQuery += ";";
-        
-        return $$"""
-using System;
-using System.Linq;
-using System.Threading.Tasks;
-
-namespace {{_projectNamespace}};
-
-public class QueryContainer
-{
-    public async Task<IQueryable<object>> Query({{_contextTypeName}} context)
-    {
-        {{_beforeUserQuery}} {{userQuery}}
-        {{_afterUserQuery}}
-    }
-}
-""";
+        return _roslynWorkspaceService.WrapQuery(userQuery, _contextTypeName, _projectNamespace, _beforeUserQuery);
     }
 
     public async Task<IReadOnlyList<(CompletionItem Item, string? Description)>> GetCompletionsAsync(string userQueryContent, int cursorPosition)

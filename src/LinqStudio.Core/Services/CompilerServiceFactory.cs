@@ -1,3 +1,5 @@
+using LinqStudio.Abstractions;
+using LinqStudio.Core.Models;
 using Microsoft.Extensions.Logging;
 
 namespace LinqStudio.Core.Services;
@@ -5,8 +7,9 @@ namespace LinqStudio.Core.Services;
 /// <summary>
 /// Scoped factory used by UI pages to create and initialize CompilerService instances.
 /// </summary>
-public class CompilerServiceFactory(ILogger<CompilerService>? logger = null)
+public class CompilerServiceFactory(RoslynWorkspaceService roslynWorkspaceService, IDbContextGenerator? generator = null, ILogger<CompilerService>? logger = null)
 {
+	private readonly RoslynWorkspaceService _roslynWorkspaceService = roslynWorkspaceService;
 	private readonly string _defaultContextTypeName = "TestDbContext";
 	private readonly string _defaultProjectNamespace = "LinqStudio.TestModels";
 
@@ -15,7 +18,7 @@ public class CompilerServiceFactory(ILogger<CompilerService>? logger = null)
 	/// </summary>
 	public async Task<CompilerService> CreateAsync()
 	{
-		var svc = new CompilerService(_defaultContextTypeName, _defaultProjectNamespace, logger);
+		var svc = new CompilerService(_defaultContextTypeName, _defaultProjectNamespace, _roslynWorkspaceService, logger);
 
 		var models = new Dictionary<string, string>
 		{
@@ -57,6 +60,23 @@ public class TestDbContext : DbContext
 ";
 
 		await svc.Initialize(models, dbContext);
+		return svc;
+	}
+
+	/// <summary>
+	/// Creates a CompilerService initialized from the given project's live database schema.
+	/// Falls back to the demo model when no database connection is configured on the project.
+	/// </summary>
+	public async Task<CompilerService> CreateFromProjectAsync(Project project, CancellationToken cancellationToken = default)
+	{
+		if (generator is null || project.QueryGenerator is null)
+		{
+			return await CreateAsync();
+		}
+
+		var result = await generator.GenerateAsync(project.QueryGenerator, cancellationToken);
+		var svc = new CompilerService(result.ContextTypeName, result.Namespace, _roslynWorkspaceService, logger);
+		await svc.Initialize(result.ModelFiles, result.DbContextCode);
 		return svc;
 	}
 }

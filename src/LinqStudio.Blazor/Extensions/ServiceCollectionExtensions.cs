@@ -1,4 +1,4 @@
-﻿using LinqStudio.Blazor.Services;
+using LinqStudio.Blazor.Services;
 using Microsoft.Extensions.DependencyInjection;
 using MudBlazor.Services;
 
@@ -12,6 +12,7 @@ public static class ServiceCollectionExtensions
 
 		services.AddScoped<MonacoProvidersService>();
 		services.AddScoped<ErrorHandlingService>();
+		services.AddScoped<IClipboardService, ClipboardService>();
 
 		services.AddScoped<QueriesWorkspace>();
 		services.AddScoped<ProjectWorkspace>();

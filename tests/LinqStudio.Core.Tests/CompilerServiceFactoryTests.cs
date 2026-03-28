@@ -4,11 +4,12 @@ namespace LinqStudio.Core.Tests;
 
 public class CompilerServiceFactoryTests
 {
+	private static RoslynWorkspaceService CreateRoslynWorkspaceService() => new();
 
 	[Fact]
 	public async Task CreateAsync_ProducesCompilerService_WithCompletions()
 	{
-		var factory = new CompilerServiceFactory();
+		var factory = new CompilerServiceFactory(CreateRoslynWorkspaceService());
 
 		var svc = await factory.CreateAsync();
 
@@ -24,7 +25,7 @@ public class CompilerServiceFactoryTests
 	[Fact]
 	public async Task CreateAsync_ProducesCompilerService_WithHoverInfo()
 	{
-		var factory = new CompilerServiceFactory();
+		var factory = new CompilerServiceFactory(CreateRoslynWorkspaceService());
 
 		using var svc = await factory.CreateAsync();
 
@@ -42,7 +43,7 @@ public class CompilerServiceFactoryTests
 	[Fact]
 	public async Task CreateAsync_ProducesCompilerService_WithHover_ForWhereMethod()
 	{
-		var factory = new CompilerServiceFactory();
+		var factory = new CompilerServiceFactory(CreateRoslynWorkspaceService());
 
 		using var svc = await factory.CreateAsync();
 

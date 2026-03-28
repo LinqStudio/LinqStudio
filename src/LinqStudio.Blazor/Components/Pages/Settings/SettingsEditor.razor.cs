@@ -1,4 +1,4 @@
-﻿using BlazorMonaco;
+using BlazorMonaco;
 using BlazorMonaco.Editor;
 using BlazorMonaco.Languages;
 using LinqStudio.Blazor.Services;

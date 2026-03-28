@@ -1,5 +1,5 @@
-using LinqStudio.Core.Extensions;
 using LinqStudio.Core.Models;
+using LinqStudio.Core.Extensions;
 using System.Text.Json;
 
 namespace LinqStudio.Core.Services;

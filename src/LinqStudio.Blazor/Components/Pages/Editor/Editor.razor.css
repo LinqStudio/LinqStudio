@@ -1,3 +1,34 @@
-﻿::deep .editor {
-    height: 100%
+/* MudTabs height passthrough for full-height panel layout */
+::deep .mud-tabs {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    /* overflow-y: hidden prevents MudBlazor's scrollIntoView() from scrolling the tab
+       container and pushing the tab header bar behind the fixed app bar.
+       It also creates a scroll container context required for sticky positioning below. */
+    overflow-y: hidden;
+}
+
+/* Keep tab header bar always visible regardless of what scrollTop MudBlazor sets.
+   position: sticky inside an overflow-y: hidden ancestor sticks at top: 0
+   of that container's visible area, making it immune to any scrollTop value. */
+::deep .mud-tabs-tabbar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+::deep .mud-tabs-panels {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+::deep .mud-tab-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }

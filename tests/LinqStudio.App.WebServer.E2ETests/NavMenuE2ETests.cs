@@ -287,35 +287,37 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		// --- Create first query with custom name and content ---
 		await E2ETestHelpers.CreateQueryAsync(page, _app, "context.People.Where(x => x.Id > 10).OrderBy(x => x.Name)");
 
-		// Verify unsaved indicator appears in editor
-		var unsavedIndicator = page.GetByTestId("query-unsaved-indicator");
+		// Verify unsaved indicator appears in editor (scope to active panel - single tab at this point)
+		var activePanel = E2ETestHelpers.GetActivePanel(page);
+		var unsavedIndicator = activePanel.GetByTestId("query-unsaved-indicator");
 		await Expect(unsavedIndicator).ToBeVisibleAsync();
 
 		_app.MockFileSystemService.SetNextSaveFileResult($"Get Filtered People{FileExtensions.Query.WithDot()}");
-		await page.GetByTestId("query-save-btn").ClickAsync();
+		await activePanel.GetByTestId("query-save-btn").ClickAsync();
 		var snackbar = page.Locator(".mud-snackbar").Last;
 		await Expect(snackbar).ToBeVisibleAsync();
 		await Expect(snackbar).ToContainTextAsync("Query saved successfully");
 
 		// Verify name matches saved filename
-		var queryName = page.GetByTestId("query-name-display");
+		var queryName = activePanel.GetByTestId("query-name-display");
 		await Expect(queryName).ToContainTextAsync("Get Filtered People");
 
 		// --- Create second query with different content ---
 		await E2ETestHelpers.CreateQueryAsync(page, _app, "context.People.Select(x => new { x.Id, x.Name }).Take(100)", 1);
 
-		// Verify unsaved indicator appears
-		unsavedIndicator = page.GetByTestId("query-unsaved-indicator");
+		// Verify unsaved indicator appears (scope to active panel — 2nd tab is now active)
+		activePanel = E2ETestHelpers.GetActivePanel(page);
+		unsavedIndicator = activePanel.GetByTestId("query-unsaved-indicator");
 		await Expect(unsavedIndicator).ToBeVisibleAsync();
 
 		_app.MockFileSystemService.SetNextSaveFileResult($"Get People Summary{FileExtensions.Query.WithDot()}");
-		await page.GetByTestId("query-save-btn").ClickAsync();
+		await activePanel.GetByTestId("query-save-btn").ClickAsync();
 		snackbar = page.Locator(".mud-snackbar").Last;
 		await Expect(snackbar).ToBeVisibleAsync();
 		await Expect(snackbar).ToContainTextAsync("Query saved successfully");
 
 		// Verify rename succeeded
-		queryName = page.GetByTestId("query-name-display");
+		queryName = activePanel.GetByTestId("query-name-display");
 		await Expect(queryName).ToContainTextAsync("Get People Summary");
 
 		// Navigate back to home

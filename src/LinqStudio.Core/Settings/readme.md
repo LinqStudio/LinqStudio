@@ -13,3 +13,13 @@ Each settings must implement `IUserSettingsSection`, this will automatically add
 Each setting class must have a translated name. For example UISettings has `UserSettings.UISettings` as translation with "UI Settings".
 
 Each property must also have a translation such as `UserSettings.UISettings.IsDarkMode`
+
+## QueryExecutionSettings
+Added in Phase 1b. Configures query execution behavior including timeout settings.
+
+### Properties
+- `TimeoutSeconds` (int, default 30): Query execution timeout in seconds. Valid values: 10, 30, 60, 120, 300, 0 (0 = no timeout)
+
+### Localization Keys
+- `UserSettings.QueryExecutionSettings` = "Query Execution"
+- `UserSettings.QueryExecutionSettings.TimeoutSeconds` = "Query Timeout (seconds)"

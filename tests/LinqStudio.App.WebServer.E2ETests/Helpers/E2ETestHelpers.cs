@@ -1,3 +1,4 @@
+using LinqStudio.Abstractions.Models;
 using LinqStudio.App.WebServer.E2ETests.Fixtures;
 using Microsoft.Playwright;
 using static Microsoft.Playwright.Assertions;
@@ -43,12 +44,13 @@ public static class E2ETestHelpers
 		await page.GetByTestId("nav-editor-new").ClickAsync();
 		// Queries now use GUIDs instead of numeric indices, so use a wildcard pattern
 		await page.WaitForURLAsync($"{app.BaseUrl}editor/*");
-		await Expect(page.GetByTestId("monaco-editor-container")).ToBeVisibleAsync();
+		// With KeepPanelsAlive, multiple panels can exist — wait for the visible one
+		await Expect(GetActivePanel(page).GetByTestId("monaco-editor-container").First).ToBeVisibleAsync();
 
 		// Wait for Monaco editor and focus it
-		var monacoEditor = page.Locator("#editor-top .monaco-editor");
-		await Expect(monacoEditor).ToBeVisibleAsync();
-		await monacoEditor.ClickAsync();
+		var monacoEditor = GetActivePanel(page).GetByTestId("monaco-editor-container").Locator(".monaco-editor");
+		await Expect(monacoEditor.First).ToBeVisibleAsync();
+		await monacoEditor.First.ClickAsync();
 
 		await ClearAndWriteQueryAsync(page, queryText);
 	}
@@ -70,22 +72,34 @@ public static class E2ETestHelpers
 
 		// Wait for editor page to load
 		await page.WaitForURLAsync($"{app.BaseUrl}editor/*");
-		await Expect(page.GetByTestId("monaco-editor-container")).ToBeVisibleAsync();
+		// With KeepPanelsAlive, scope to the visible (active) panel
+		await Expect(GetActivePanel(page).GetByTestId("monaco-editor-container").First).ToBeVisibleAsync();
 
 		await WaitEditorAndFocusAsync(page);
 	}
 
 	/// <summary>
 	/// Waits for the Monaco editor to be visible and focuses it by clicking.
+	/// With KeepPanelsAlive, multiple panels may exist — scopes to the visible active panel.
 	/// </summary>
 	public static async Task WaitEditorAndFocusAsync(IPage page)
 	{
-		// Wait for Monaco container to appear
-		var monacoEditor = page.Locator("#editor-top .monaco-editor");
-		await Expect(monacoEditor).ToBeVisibleAsync();
+		// With KeepPanelsAlive, multiple Monaco editor containers may exist (one per open tab)
+		// Scope to the visible active panel
+		var monacoEditor = GetActivePanel(page).GetByTestId("monaco-editor-container").Locator(".monaco-editor");
+		await Expect(monacoEditor.First).ToBeVisibleAsync();
 
 		// Click to focus the editor
-		await monacoEditor.ClickAsync();
+		await monacoEditor.First.ClickAsync();
+	}
+
+	/// <summary>
+	/// Returns a locator scoped to the currently active (visible) MudTabPanel.
+	/// With KeepPanelsAlive, all panels are mounted but only one is visible at a time.
+	/// </summary>
+	public static ILocator GetActivePanel(IPage page)
+	{
+		return page.Locator("[role='tabpanel']").Filter(new() { Visible = true });
 	}
 
 	/// <summary>
@@ -140,5 +154,65 @@ public static class E2ETestHelpers
 		var refreshBtn = page.GetByTestId("db-tree-refresh");
 		await Expect(refreshBtn).ToBeVisibleAsync();
 		await refreshBtn.ClickAsync();
+	}
+
+	/// <summary>
+	/// Clicks a MudTabs tab button by 0-based position and waits for the panel switch to complete.
+	/// </summary>
+	public static async Task ClickTabAtIndexAsync(IPage page, int index)
+	{
+		await page.Locator(".mud-tab").Nth(index).ClickAsync();
+		// Wait for the active panel to be visible — real sync point instead of a fixed time budget
+		await Expect(page.Locator("[role='tabpanel']:visible")).ToHaveCountAsync(1, new() { Timeout = 5000 });
+		// Wait for Monaco relayout: OnTabActivatedAsync fires monacoRelayout() after a 100ms delay.
+		// Poll until the editor has non-zero height, confirming layout() has been called and Monaco has rendered.
+		var monacoContainer = GetActivePanel(page).GetByTestId("monaco-editor-container");
+		for (var attempt = 0; attempt < 30; attempt++)
+		{
+			var box = await monacoContainer.BoundingBoxAsync();
+			if (box is { Height: > 0 }) break;
+			await Task.Delay(100);
+		}
+		// Force-focus the active Monaco textarea so keyboard events go to the correct editor instance
+		var inputArea = GetActivePanel(page).Locator("textarea.inputarea");
+		if (await inputArea.CountAsync() > 0)
+			await inputArea.First.ClickAsync(new() { Force = true });
+	}
+
+	/// <summary>
+	/// Creates a new query tab via the Editor nav menu, then waits for the editor to be ready.
+	/// </summary>
+	public static async Task CreateAdditionalTabAsync(IPage page, AppServerFixture app)
+	{
+		await page.GetByTestId("nav-editor").ClickAsync();
+		await Task.Delay(100);
+		await page.GetByTestId("nav-editor-new").ClickAsync();
+		await page.WaitForURLAsync($"{app.BaseUrl}editor/*");
+		await WaitEditorAndFocusAsync(page);
+	}
+
+	/// <summary>
+	/// Creates a multi-column QueryExecutionResult for testing QueryResultGrid.
+	/// Includes null values to test NULL display functionality.
+	/// </summary>
+	/// <param name="rows">Number of rows to generate (default: 3)</param>
+	public static QueryExecutionResult CreateMultiColumnResult(int rows = 3)
+	{
+		var columnNames = new[] { "Id", "Name", "Value" };
+		var rowData = Enumerable.Range(1, rows).Select(i =>
+			(IReadOnlyDictionary<string, object?>)new Dictionary<string, object?>
+			{
+				["Id"] = i,
+				["Name"] = $"Item{i}",
+				["Value"] = i % 3 == 0 ? null : (object?)$"val{i}"
+			}
+		).ToList();
+
+		return new QueryExecutionResult
+		{
+			ColumnNames = columnNames,
+			Rows = rowData,
+			Elapsed = TimeSpan.FromMilliseconds(15)
+		};
 	}
 }

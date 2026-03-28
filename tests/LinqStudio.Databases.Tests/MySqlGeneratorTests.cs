@@ -1,4 +1,4 @@
-using LinqStudio.Abstractions.Abstractions;
+using LinqStudio.Abstractions;
 using LinqStudio.Databases.Tests.Fixtures;
 using Microsoft.EntityFrameworkCore;
 using MySql.Data.MySqlClient;
