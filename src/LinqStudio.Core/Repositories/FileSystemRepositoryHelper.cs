@@ -66,7 +66,7 @@ internal static class FileSystemRepositoryHelper
 
 		// Second check: after full normalisation, confirm the resolved path is still inside basePath.
 		// The trailing DirectorySeparatorChar prevents "/base/foo" from matching "/base/foobar".
-		if (!fullPath.StartsWith(fullBase + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+		if (!fullPath.StartsWith(fullBase + Path.DirectorySeparatorChar, StringComparison.Ordinal))
 			throw new ArgumentException($"Invalid ID '{id}'.", nameof(id));
 
 		return fullPath;
