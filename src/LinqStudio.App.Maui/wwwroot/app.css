@@ -1,5 +1,19 @@
 html, body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* MAUI BlazorWebView wraps the app in a #app div (unlike WebServer where
+   Routes renders directly in <body>). Both #app and .mud-layout need explicit
+   height to propagate 100vh down through the flex chain to the Monaco editor. */
+#app {
+    height: 100%;
+}
+
+.mud-layout {
+    height: 100%;
 }
 
 a, .btn-link {
