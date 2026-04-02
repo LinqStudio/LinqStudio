@@ -33,13 +33,7 @@ git diff origin/main   # branch diff against main
 
 Read the relevant source files in full when the diff is ambiguous. Diff context is often too narrow to judge correctness.
 
-### Step 2 — Check decisions first
-
-Read `.squad/decisions.md` before flagging anything. Known issues, accepted trade-offs, and documented workarounds live there. Do not re-flag items already captured as P3 monitoring items or accepted decisions.
-
-All accepted trade-offs and monitoring items are documented in `.squad/decisions.md`. Do not re-flag anything already captured there.
-
-### Step 3 — Review for findings
+### Step 2 — Review for findings
 
 Check each of these categories. All are required on a full review; targeted reviews may focus on the areas touched.
 
@@ -111,7 +105,7 @@ Every source file must comply:
 
 ### 🔧 Error Handling
 
-The project uses a three-layer error handling strategy (decision #7). Flag deviations:
+The project uses a three-layer error handling strategy. Flag deviations:
 
 - **Layer 1 (manual):** Expected exceptions must be caught with `ErrorHandlingService` — not silently swallowed
 - **Layer 2 (global):** `AppErrorBoundary` catches unexpected exceptions — do not add duplicate global handlers
@@ -189,53 +183,47 @@ These are hard rules. Violating them breaks the team's review contract.
 
 - **Do NOT make any code changes.** Not even one-line fixes. Review only.
 - **Do NOT open PRs or create branches.** That is the implementer's job.
-- **Do NOT re-flag items already documented in `.squad/decisions.md`.** Check it first.
-- **Do NOT commit changes.** Team directive: only snakex64 commits and pushes (decisions.md, 2026-03-11).
+- **Do NOT commit changes.**
 - **Do NOT guess at intent.** If a change is ambiguous, read the full source file for context before flagging.
 - **Do NOT flag style that doesn't affect correctness.** No opinions on indentation, spacing, or personal preference.
-- **Do NOT flag the Monaco 500ms delay.** It is a documented workaround (decision #6).
+- **Do NOT flag the Monaco 500ms delay.** It is a documented workaround — `OnAfterRenderAsync()` includes `Task.Delay(500)` before Monaco initialization by design.
+- **Do NOT flag `AppHost.WaitForCompletion(seeder)` as missing.** The Aspire resource startup ordering in AppHost is a voluntary design decision — the WebServer handles seeder unavailability gracefully at runtime.
 - **Do NOT approve changes that have unaddressed High severity findings.** Escalate to the Coordinator instead.
 
 ---
 
 ## After the Review
 
-1. Write the review summary to `.squad/decisions/inbox/{agent}-review-{brief-slug}.md`
-2. Append any new learnings to your agent history file if you have one
-3. Do NOT fix anything. Do NOT create branches. Hand back to the Coordinator.
+1. Do NOT fix anything. Do NOT create branches. Hand back to the Coordinator.
 
 ---
 
 ## Anti-Patterns
 
-### Anti-Pattern 1: Reviewing without reading decisions.md first
-**What happens:** Flagging known trade-offs as new issues, wasting the team's time re-litigating settled decisions.  
-**Fix:** Always read `.squad/decisions.md` before starting. Check monitoring items and known issues sections.
-
-### Anti-Pattern 2: Surface-level diff review
+### Anti-Pattern 1: Surface-level diff review
 **What happens:** Reviewing only the changed lines without reading the full context. Missing issues introduced by indirect changes — e.g., a null returned from a refactored method that a caller doesn't guard against.  
 **Fix:** When diffs touch core services (CompilerService, ProjectWorkspace, QueriesWorkspace, any generator), read the full file.
 
-### Anti-Pattern 3: Flagging test coverage that already exists
+### Anti-Pattern 2: Flagging test coverage that already exists
 **What happens:** Recommending tests for paths that are already covered, lowering signal-to-noise in the review.  
 **Fix:** Before flagging a missing test, search the test project for the class or method name. Confirm the test doesn't exist.
 
-### Anti-Pattern 4: Missing `await` in test code treated as Low severity
+### Anti-Pattern 3: Missing `await` in test code treated as Low severity
 **What happens:** Missing `await` in test async methods looks benign but is a timing-dependent bug — assertions can run before operations complete, producing flaky tests that pass most of the time.  
 **Fix:** Always flag missing `await` in test code as **High severity**, not Low.
 
-### Anti-Pattern 5: Ignoring empty catch blocks in CompilerService
+### Anti-Pattern 4: Ignoring empty catch blocks in CompilerService
 **What happens:** CompilerService has historically had silent exception swallowing. Empty catch blocks here mean assembly load failures and Roslyn errors are invisible in production.  
 **Fix:** Flag every empty or no-op catch block in `CompilerService` as **High severity**.
 
-### Anti-Pattern 6: Accepting FluentAssertions usage
+### Anti-Pattern 5: Accepting FluentAssertions usage
 **What happens:** FluentAssertions is banned (decisions.md, known issue #1). Letting it through in new test code sets back the standardization effort.  
 **Fix:** Flag any `using FluentAssertions;` or `.Should().Be(...)` usage as **Medium severity** and note the required replacement (`Assert.*`).
 
-### Anti-Pattern 7: Accepting fire-and-forget without error handling
+### Anti-Pattern 6: Accepting fire-and-forget without error handling
 **What happens:** `_ = SomeAsync()` or `Task.Run(...)` with no `.ContinueWith` means unhandled exceptions vanish silently.  
 **Fix:** Flag every fire-and-forget with no error handling as **High severity**.
 
-### Anti-Pattern 8: Approving incomplete Testcontainers fixtures
+### Anti-Pattern 7: Approving incomplete Testcontainers fixtures
 **What happens:** Database generator tests that connect to `master` instead of a named database pass locally but miss production-only bugs.  
 **Fix:** Flag any database fixture that doesn't create and use a named database as **Medium severity**.

@@ -22,6 +22,7 @@ public class ProjectService
 	/// <summary>
 	/// Initializes a new instance of ProjectService with custom version configuration.
 	/// </summary>
+	/// <param name="versionConfig">Version configuration controlling supported schema version range.</param>
 	public ProjectService(ProjectVersionConfig versionConfig)
 	{
 		_versionConfig = versionConfig;
@@ -31,6 +32,9 @@ public class ProjectService
 	/// Creates a new project instance with default values.
 	/// The name is typically derived from the file name.
 	/// </summary>
+	/// <param name="name">Display name for the project, usually derived from the chosen file name.</param>
+	/// <param name="connectionString">Optional database connection string; empty string if not yet configured.</param>
+	/// <returns>A new <see cref="Project"/> stamped with the current schema version.</returns>
 	public Project CreateNew(string name, string connectionString = "")
 	{
 		return new Project
@@ -45,6 +49,16 @@ public class ProjectService
 	/// Loads a project from a file path.
 	/// Validates schema version compatibility.
 	/// </summary>
+	/// <param name="filePath">Absolute or relative path to the <c>.linq</c> project file.</param>
+	/// <returns>
+	/// The deserialized <see cref="Project"/>, or <see langword="null"/> if the file does not exist.
+	/// </returns>
+	/// <exception cref="InvalidOperationException">
+	/// Thrown when the file is empty, cannot be deserialized, or has an incompatible schema version.
+	/// </exception>
+	/// <exception cref="System.Text.Json.JsonException">
+	/// Wrapped as <see cref="InvalidOperationException"/> when the JSON is malformed.
+	/// </exception>
 	public async Task<Project?> LoadProjectAsync(string filePath)
 	{
 		if (!File.Exists(filePath))
@@ -84,16 +98,20 @@ public class ProjectService
 	/// Updates the ModifiedDate and SchemaVersion before saving.
 	/// Original file is preserved if serialization fails.
 	/// </summary>
+	/// <param name="project">The project to persist. <see cref="Project.ModifiedDate"/> and <see cref="Project.SchemaVersion"/> are updated in-place before writing.</param>
+	/// <param name="filePath">Absolute or relative path where the <c>.linq</c> file should be written.</param>
+	/// <exception cref="System.Text.Json.JsonException">Thrown when the project cannot be serialized.</exception>
+	/// <exception cref="IOException">Thrown when the file system denies the write.</exception>
 	public async Task SaveProjectAsync(Project project, string filePath)
 	{
 		// Validate project before saving
 		ValidateProject(project);
 
-		// Ensure directory exists
+		// Issue 8: use CreateDirectory (idempotent) instead of throwing if directory is missing.
 		var directory = Path.GetDirectoryName(filePath);
-		if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+		if (!string.IsNullOrEmpty(directory))
 		{
-			throw new DirectoryNotFoundException($"Directory '{directory}' does not exist.");
+			Directory.CreateDirectory(directory);
 		}
 
 		project.ModifiedDate = DateTimeOffset.UtcNow;
@@ -134,6 +152,12 @@ public class ProjectService
 	/// <summary>
 	/// Validates that the project's schema version is compatible with this version of LinqStudio.
 	/// </summary>
+	/// <param name="project">The project whose schema version is checked.</param>
+	/// <param name="filePath">Path used in exception messages to identify which file is problematic.</param>
+	/// <exception cref="InvalidOperationException">
+	/// Thrown when <see cref="Project.SchemaVersion"/> is newer than the supported maximum,
+	/// or older than the supported minimum.
+	/// </exception>
 	private void ValidateSchemaVersion(Project project, string filePath)
 	{
 		if (project.SchemaVersion > _versionConfig.CurrentSchemaVersion)
@@ -153,7 +177,10 @@ public class ProjectService
 
 	/// <summary>
 	/// Validates that the project has valid data.
+	/// Auto-repairs <see cref="Project.Id"/> and date fields when they are at their default values,
+	/// rather than throwing, to gracefully handle partially-constructed or migrated projects.
 	/// </summary>
+	/// <param name="project">The project to validate and auto-repair.</param>
 	private static void ValidateProject(Project project)
 	{
 		if (project.Id == Guid.Empty)

@@ -225,38 +225,38 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 		await Expect(firstRowCell).ToBeVisibleAsync();
 		await firstRowCell.ClickAsync();
 
-		// Wait for selection
-		await Task.Delay(300);
+		// Verify row 0 is actually selected before proceeding
+		var selectionCount = page.GetByTestId("selection-count");
+		await Expect(selectionCount).ToBeVisibleAsync(new() { Timeout = 5000 });
+		await Expect(selectionCount).ToContainTextAsync("1", new() { UseInnerText = true });
 
 		// Ctrl+Click second row to add to selection
 		var secondRowCell = page.Locator("[data-testid='cell-1-Id']");
 		await Expect(secondRowCell).ToBeVisibleAsync();
 		await secondRowCell.ClickAsync(new() { Modifiers = [Microsoft.Playwright.KeyboardModifier.Control] });
 
-		// Wait for selection to register
-		await Task.Delay(300);
+		// Wait for selection to register in Blazor
+		await Task.Delay(500);
 
-		// Trigger Ctrl+C on the container using KeyboardEvent
-		// This ensures the Blazor onkeydown handler fires
-		await page.EvaluateAsync(@"
-			const container = document.querySelector('.query-result-grid-container');
-			if (container) {
-				const event = new KeyboardEvent('keydown', {
-					key: 'c',
-					code: 'KeyC',
-					ctrlKey: true,
-					bubbles: true,
-					cancelable: true
-				});
-				container.dispatchEvent(event);
-			}
-		");
+		// Clear any pre-existing OS clipboard content so the poll loop only resolves
+		// when our write succeeds (not on stale content from a prior run or the OS).
+		await page.EvaluateAsync("navigator.clipboard.writeText('')");
 
-		// Wait for clipboard operation to complete
-		await Task.Delay(800);
+		// PressAsync focuses the element first, then sends a real trusted keyboard event.
+		// This is more reliable than a bare page.Keyboard.PressAsync call because
+		// it guarantees the container has focus when Ctrl+C fires.
+		var gridContainer = page.Locator(".query-result-grid-container");
+		await gridContainer.PressAsync("Control+c");
 
-		// Read clipboard content
-		var clipboardContent = await page.EvaluateAsync<string>("navigator.clipboard.readText()");
+		// Poll for non-empty clipboard content rather than a fixed delay.
+		// Blazor Server round-trip (keydown → SignalR → C# → JS interop → clipboard) takes variable time.
+		var clipboardContent = "";
+		for (var attempt = 0; attempt < 20; attempt++)
+		{
+			await Task.Delay(150);
+			clipboardContent = await page.EvaluateAsync<string>("navigator.clipboard.readText()");
+			if (!string.IsNullOrEmpty(clipboardContent)) break;
+		}
 		Assert.NotNull(clipboardContent);
 		Assert.NotEmpty(clipboardContent);
 

@@ -26,8 +26,25 @@ var seeder = builder.AddProject<Projects.LinqStudio_DatabaseSeeder>("demo-seeder
 	.WaitFor(mssql)
 	.WaitFor(mysql);
 
-builder.AddProject<Projects.LinqStudio_App_WebServer>("linqstudio-app-webserver")
-	.WithReference(mssqlDb, "DemoMssql")
-	.WithReference(mysqlDb, "DemoMysql");
+// Read feature flags from LinqStudio:Apps config section.
+// Toggle in appsettings.json (or appsettings.Development.json) to select which apps Aspire starts.
+var startWebServer = !bool.TryParse(builder.Configuration["LinqStudio:Apps:WebServer"], out var wsv) || wsv;
+var startMaui = bool.TryParse(builder.Configuration["LinqStudio:Apps:Maui"], out var mv) && mv;
+
+if (startWebServer)
+{
+	builder.AddProject<Projects.LinqStudio_App_WebServer>("linqstudio-webserver")
+		.WithReference(mssqlDb, "DemoMssql")
+		.WithReference(mysqlDb, "DemoMysql");
+}
+
+if (startMaui)
+{
+	// MAUI Blazor Hybrid: launches the desktop window (Windows only).
+	// No HTTP health endpoint — Aspire tracks it as a process resource.
+	builder.AddProject<Projects.LinqStudio_App_Maui>("linqstudio-maui")
+		.WithReference(mssqlDb, "DemoMssql")
+		.WithReference(mysqlDb, "DemoMysql");
+}
 
 builder.Build().Run();

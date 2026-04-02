@@ -1,6 +1,4 @@
 using LinqStudio.App.WebServer;
-using LinqStudio.App.WebServer.Services;
-using LinqStudio.Blazor.Abstractions;
 using LinqStudio.Blazor.Extensions;
 using LinqStudio.Core.Extensions;
 using LinqStudio.Core.Services;
@@ -15,12 +13,13 @@ builder.Configuration.AddJsonFile(SettingsService.FILE_NAME, optional: true, rel
 builder.Services.AddRazorComponents()
 	.AddInteractiveServerComponents();
 
+var projectsBasePath = builder.Configuration["LinqStudio:ProjectsPath"]
+	?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "LinqStudio", "Projects");
+
 builder.Services
 	.AddLinqStudio()
+	.AddFileSystemRepositories(projectsBasePath)
 	.AddLinqStudioBlazor();
-
-// Register server-specific file system service
-builder.Services.AddScoped<IFileSystemService, ServerFileSystemService>();
 
 var app = builder.Build();
 

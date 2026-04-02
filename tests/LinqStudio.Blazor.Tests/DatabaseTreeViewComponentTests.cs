@@ -4,8 +4,9 @@ using LinqStudio.Blazor.Components.Layout;
 using LinqStudio.Blazor.Extensions;
 using LinqStudio.Blazor.Services;
 using LinqStudio.Core.Extensions;
-using LinqStudio.Core.Services;
 using LinqStudio.Core.Models;
+using LinqStudio.Core.Repositories;
+using LinqStudio.Core.Services;
 using LinqStudio.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -17,10 +18,19 @@ namespace LinqStudio.Blazor.Tests;
 
 public class DatabaseTreeViewComponentTests : BunitContext
 {
+	private readonly string _testDirectory;
+
+	public DatabaseTreeViewComponentTests()
+	{
+		_testDirectory = Path.Combine(Path.GetTempPath(), $"LinqStudioDbTreeTests_{Guid.NewGuid()}");
+		Directory.CreateDirectory(_testDirectory);
+	}
+
 	private void SetupServices()
 	{
 		Services
 			.AddLinqStudio()
+			.AddFileSystemRepositories(_testDirectory)
 			.AddLinqStudioBlazor();
 
 		Services.AddLogging();
@@ -30,15 +40,11 @@ public class DatabaseTreeViewComponentTests : BunitContext
 	{
 		var projectService = new ProjectService();
 		var queryService = new QueryService();
-		var queriesWorkspace = new QueriesWorkspace(queryService, NullLogger<QueriesWorkspace>.Instance);
-		var workspace = new ProjectWorkspace(projectService, queriesWorkspace, NullLogger<ProjectWorkspace>.Instance);
-
-		// Create a project with the mock generator
-		var project = projectService.CreateNew("TestProject");
-		// For testing purposes, we'll use a real project but we can't easily mock QueryGenerator
-		// since it's constructed internally based on connection string
-		// Instead, we'll test the placeholder state and loading state which don't require DB connection
-		
+		var options = new FileSystemStorageOptions { BasePath = _testDirectory };
+		var projectRepository = new FileSystemProjectRepository(projectService, options);
+		var queryRepository = new FileSystemQueryRepository(queryService, options);
+		var queriesWorkspace = new QueriesWorkspace(queryRepository, NullLogger<QueriesWorkspace>.Instance);
+		var workspace = new ProjectWorkspace(projectRepository, queriesWorkspace, NullLogger<ProjectWorkspace>.Instance);
 		return workspace;
 	}
 
@@ -86,24 +92,8 @@ public class DatabaseTreeViewComponentTests : BunitContext
 
 	// TODO: Once DatabaseTreeView is implemented, add these tests:
 	// - DatabaseTreeView_ShowsTableList_AfterTablesLoad()
-	//   Setup: Mock GetTablesAsync to return test data
-	//   Assert: data-testid="table-dbo.Customers" exists
-	//
 	// - DatabaseTreeView_ShowsTableName_WhenNoSchema()
-	//   Setup: DatabaseTableName{Schema=null, Name="MyTable"}
-	//   Assert: data-testid="table-MyTable" exists
-	//
 	// - DatabaseTreeView_LoadsColumns_WhenTableExpanded()
-	//   Setup: Mock GetTableAsync to return columns
-	//   Trigger: Expand table node
-	//   Assert: column nodes appear
-	//
 	// - DatabaseTreeView_ShowsColumnType_Correctly()
-	//   Setup: TableColumn with specific type/length/nullable
-	//   Assert: Display format is correct (e.g., "nvarchar(50)?")
-	//
 	// - DatabaseTreeView_RefreshButton_ReloadsTableList()
-	//   Click: data-testid="db-tree-refresh"
-	//   Assert: GetTablesAsync called multiple times
-
 }

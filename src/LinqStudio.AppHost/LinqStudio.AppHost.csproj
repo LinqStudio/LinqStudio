@@ -18,6 +18,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\LinqStudio.App.WebServer\LinqStudio.App.WebServer.csproj" />
+    <!-- MAUI targets net10.0-windows; SkipGetTargetFrameworkProperties avoids framework resolution conflict -->
+    <ProjectReference Include="..\LinqStudio.App.Maui\LinqStudio.App.Maui.csproj" SkipGetTargetFrameworkProperties="true" />
     <ProjectReference Include="..\LinqStudio.DatabaseSeeder\LinqStudio.DatabaseSeeder.csproj" />
   </ItemGroup>
 

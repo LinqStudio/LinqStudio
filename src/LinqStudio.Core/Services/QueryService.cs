@@ -14,6 +14,10 @@ public class QueryService
 	private const string QueryFileExtension = ".linq.query";
 	private readonly ILogger<QueryService>? _logger;
 
+	/// <summary>
+	/// Initializes a new instance of <see cref="QueryService"/>.
+	/// </summary>
+	/// <param name="logger">Optional logger for file-operation diagnostics. Warnings are emitted per failed file rather than aborting a bulk load.</param>
 	public QueryService(ILogger<QueryService>? logger = null)
 	{
 		_logger = logger;
@@ -22,8 +26,13 @@ public class QueryService
 	/// <summary>
 	/// Gets the directory path for queries associated with a project.
 	/// </summary>
-	/// <param name="projectFilePath">Path to the project file.</param>
-	/// <returns>Path to the queries directory.</returns>
+	/// <param name="projectFilePath">Path to the project file (e.g. <c>MyProject.linq</c>).</param>
+	/// <returns>
+	/// Path to the queries directory (e.g. <c>MyProject.linq.queries/</c>).
+	/// </returns>
+	/// <exception cref="ArgumentException">
+	/// Thrown when <paramref name="projectFilePath"/> is <see langword="null"/> or empty.
+	/// </exception>
 	public string GetQueriesDirectory(string projectFilePath)
 	{
 		if (string.IsNullOrEmpty(projectFilePath))
@@ -41,7 +50,7 @@ public class QueryService
 	/// </summary>
 	/// <param name="projectFilePath">Path to the project file.</param>
 	/// <param name="queryId">Query identifier.</param>
-	/// <returns>Path to the query file.</returns>
+	/// <returns>Absolute or relative path to the query file (<c>{queryId}.linq.query</c>).</returns>
 	public string GetQueryFilePath(string projectFilePath, Guid queryId)
 	{
 		var queriesDir = GetQueriesDirectory(projectFilePath);
@@ -49,10 +58,14 @@ public class QueryService
 	}
 
 	/// <summary>
-	/// Loads all queries for a project.
+	/// Loads all queries for a project from its queries directory.
 	/// </summary>
 	/// <param name="projectFilePath">Path to the project file.</param>
-	/// <returns>List of saved queries.</returns>
+	/// <returns>
+	/// List of deserialized <see cref="SavedQuery"/> objects. Returns an empty list when the
+	/// queries directory does not yet exist. Individual files that fail to deserialize are
+	/// skipped with a warning log rather than aborting the entire load.
+	/// </returns>
 	public async Task<List<SavedQuery>> LoadQueriesAsync(string projectFilePath)
 	{
 		var queriesDir = GetQueriesDirectory(projectFilePath);
@@ -88,10 +101,19 @@ public class QueryService
 	}
 
 	/// <summary>
-	/// Saves a query to its individual file.
+	/// Saves a query to its individual file inside the project's queries directory.
 	/// </summary>
 	/// <param name="projectFilePath">Path to the project file.</param>
 	/// <param name="query">Query to save.</param>
+	/// <exception cref="ArgumentNullException">Thrown when <paramref name="query"/> is <see langword="null"/>.</exception>
+	/// <exception cref="InvalidOperationException">Thrown when <paramref name="query"/> has a <see cref="SavedQuery.Id"/> of <see cref="Guid.Empty"/>.</exception>
+	/// <remarks>
+	/// <c>Directory.CreateDirectory</c> is idempotent — it creates missing intermediate
+	/// directories and is a no-op when the directory already exists, replacing the old
+	/// TOCTOU-prone <c>if (!Directory.Exists) Directory.CreateDirectory</c> guard.
+	/// Uses an atomic write-then-replace pattern (temp file + <see cref="File.Move"/>) so
+	/// a crash during serialization never corrupts the existing query file.
+	/// </remarks>
 	public async Task SaveQueryAsync(string projectFilePath, SavedQuery query)
 	{
 		ArgumentNullException.ThrowIfNull(query);
@@ -103,11 +125,7 @@ public class QueryService
 
 		var queriesDir = GetQueriesDirectory(projectFilePath);
 
-		// Ensure queries directory exists
-		if (!Directory.Exists(queriesDir))
-		{
-			Directory.CreateDirectory(queriesDir);
-		}
+		Directory.CreateDirectory(queriesDir);
 
 		var queryFilePath = GetQueryFilePath(projectFilePath, query.Id);
 
@@ -144,10 +162,10 @@ public class QueryService
 	}
 
 	/// <summary>
-	/// Deletes a query file.
+	/// Deletes a query file from the project's queries directory.
 	/// </summary>
 	/// <param name="projectFilePath">Path to the project file.</param>
-	/// <param name="queryId">Query identifier to delete.</param>
+	/// <param name="queryId">Identifier of the query to delete. No-op if the file does not exist.</param>
 	public void DeleteQuery(string projectFilePath, Guid queryId)
 	{
 		var queryFilePath = GetQueryFilePath(projectFilePath, queryId);
@@ -185,10 +203,13 @@ public class QueryService
 	}
 
 	/// <summary>
-	/// Loads a query from a specific file path (standalone mode).
+	/// Loads a query from a specific file path (standalone / open-from-disk mode).
 	/// </summary>
 	/// <param name="filePath">Path to the query file.</param>
-	/// <returns>The loaded query.</returns>
+	/// <returns>
+	/// The deserialized <see cref="SavedQuery"/> with <see cref="SavedQuery.FilePath"/> set,
+	/// or <see langword="null"/> if the file does not exist or cannot be deserialized.
+	/// </returns>
 	public async Task<SavedQuery?> LoadQueryFromFileAsync(string filePath)
 	{
 		if (!File.Exists(filePath))
@@ -217,10 +238,20 @@ public class QueryService
 	}
 
 	/// <summary>
-	/// Saves a query to a specific file path (standalone mode).
+	/// Saves a query to a specific file path (standalone / open-from-disk mode).
 	/// </summary>
-	/// <param name="filePath">Path where to save the query file.</param>
+	/// <param name="filePath">Absolute or relative path where the query file should be written.</param>
 	/// <param name="query">Query to save.</param>
+	/// <exception cref="ArgumentNullException">Thrown when <paramref name="query"/> is <see langword="null"/>.</exception>
+	/// <exception cref="InvalidOperationException">Thrown when <paramref name="query"/> has a <see cref="SavedQuery.Id"/> of <see cref="Guid.Empty"/>.</exception>
+	/// <remarks>
+	/// <c>Directory.CreateDirectory</c> is idempotent — it creates any missing intermediate
+	/// directories and is a no-op when they already exist, replacing the old TOCTOU-prone
+	/// <c>if (!Directory.Exists) Directory.CreateDirectory</c> guard.
+	/// Uses an atomic write-then-replace pattern (temp file + <see cref="File.Move"/>) so
+	/// a crash during serialization never corrupts the target file. On success, sets
+	/// <see cref="SavedQuery.FilePath"/> to <paramref name="filePath"/>.
+	/// </remarks>
 	public async Task SaveQueryToFileAsync(string filePath, SavedQuery query)
 	{
 		ArgumentNullException.ThrowIfNull(query);
@@ -230,12 +261,9 @@ public class QueryService
 			throw new InvalidOperationException("Cannot save query with invalid ID (Guid.Empty).");
 		}
 
-		// Ensure directory exists
 		var directory = Path.GetDirectoryName(filePath);
-		if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-		{
+		if (!string.IsNullOrEmpty(directory))
 			Directory.CreateDirectory(directory);
-		}
 
 		// Write to temporary file first (atomic save pattern)
 		// Use a unique name to avoid conflicts with concurrent saves

@@ -399,7 +399,6 @@ private readonly Dictionary<Guid, QueryExecutionState> _executionStates = new();
 - `ProjectWorkspace` - Project + query state
 - `NavigationManager` - Routing
 - `IDialogService` - Unsaved changes dialogs
-- `IFileSystemService` - Save file dialogs
 - `IQueryExecutionService` - Execute queries (2026-03-13)
 - `IJSRuntime` - JS interop for splitter (2026-03-13)
 

@@ -8,9 +8,18 @@
 5. Sometimes the E2E tests have a hard time, if it doesn't work the first time, try rerunning a second time.
 
 # For the main orchestrator agent
-Always load the relevant skills before starting to work on any task.
-You can defer loading specific skills to the worker agent.
-You Must ALWAYS use agents to perform analysis, reviews, bugfixes, research, etc. You only exists to orchestrate other agents. When you start an agent to do the work for you, tell that agent that he is a worker agent, not the orchestrator.
+You are STRICTLY an orchestrator. You do NOT do work yourself. Ever.
+
+**YOU ARE FORBIDDEN FROM:**
+- Reading files, logs, or code (no `view`, `grep`, `glob`, or `powershell` for investigation)
+- Fetching CI logs, GitHub API data, or any external data yourself
+- Analysing, debugging, or reasoning about code or errors directly
+- Making any code changes yourself
+
+**YOUR ONLY JOB** is to receive the user's request, load the relevant skills, then immediately delegate ALL work — including initial investigation, log fetching, analysis, and implementation — to a worker agent via the `task` tool. The worker agent does everything; you only pass instructions and report results.
+
+Always load the relevant skills before starting to work on any task. You can defer loading specific skills to the worker agent.
+When you start an agent to do the work for you, tell that agent that it is a worker agent, not the orchestrator.
 
 # For worker agents
 The worker agents are tasked with doing the actual work. Make sure to load the relevant skills before starting to work on the task. This will ensure that you have all the necessary information and tools to complete the task efficiently and effectively.
