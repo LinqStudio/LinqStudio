@@ -30,8 +30,9 @@ public partial class Editor : ComponentBase, IDisposable
 	{
 		try
 		{
-			_compiler = Workspace.CurrentProject != null
-				? await CompilerServiceFactory.CreateFromProjectAsync(Workspace.CurrentProject)
+			var firstConnection = Workspace.CurrentProject?.Connections.FirstOrDefault();
+			_compiler = firstConnection != null
+				? await CompilerServiceFactory.CreateFromConnectionAsync(firstConnection)
 				: await CompilerServiceFactory.CreateAsync();
 		}
 		catch (Exception ex)
@@ -131,7 +132,8 @@ public partial class Editor : ComponentBase, IDisposable
 
 	private async Task RefreshSchemaAsync()
 	{
-		if (!Workspace.IsProjectOpen || Workspace.CurrentProject?.QueryGenerator is null)
+		var firstConnection = Workspace.CurrentProject?.Connections.FirstOrDefault();
+		if (!Workspace.IsProjectOpen || firstConnection?.QueryGenerator is null)
 		{
 			Snackbar.Add("No database connection configured for this project.", Severity.Warning);
 			return;
@@ -143,7 +145,7 @@ public partial class Editor : ComponentBase, IDisposable
 		try
 		{
 			var oldCompiler = _compiler;
-			_compiler = await CompilerServiceFactory.CreateFromProjectAsync(Workspace.CurrentProject!);
+			_compiler = await CompilerServiceFactory.CreateFromConnectionAsync(firstConnection!);
 			oldCompiler?.Dispose();
 			Snackbar.Add("Schema refreshed. IntelliSense updated.", Severity.Success);
 		}

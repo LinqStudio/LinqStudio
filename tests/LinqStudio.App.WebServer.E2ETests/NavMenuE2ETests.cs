@@ -315,7 +315,8 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		Assert.NotNull(project);
 
 		// Verify connection string was saved
-		Assert.Equal("Server=localhost;Database=TestDb;Integrated Security=true;", project.ConnectionString);
+		Assert.Single(project.Connections);
+		Assert.Equal("Server=localhost;Database=TestDb;Integrated Security=true;", project.Connections[0].ConnectionString);
 
 		// Verify unsaved indicator is cleared after save
 		await Expect(projectGroup).Not.ToContainTextAsync("*");

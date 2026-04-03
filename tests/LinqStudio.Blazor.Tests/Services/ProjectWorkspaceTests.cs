@@ -119,7 +119,7 @@ public class ProjectWorkspaceTests : IDisposable
 
 		// Make a change
 		var updatedProject = _workspace.CurrentProject!;
-		updatedProject.ConnectionString = "Server=newhost;";
+		updatedProject.Connections.Add(new ServerConnection { ConnectionString = "Server=newhost;" });
 		_workspace.Update(_workspace.CurrentProject!);
 
 		// Act
@@ -131,7 +131,8 @@ public class ProjectWorkspaceTests : IDisposable
 		// Verify the file was actually saved
 		var loadedProject = await _projectService.LoadProjectAsync(Path.Combine(_testDirectory, "save_test.linq"));
 		Assert.NotNull(loadedProject);
-		Assert.Equal("Server=newhost;", loadedProject.ConnectionString);
+		Assert.Single(loadedProject.Connections);
+		Assert.Equal("Server=newhost;", loadedProject.Connections[0].ConnectionString);
 	}
 
 	[Fact]
@@ -243,13 +244,13 @@ public class ProjectWorkspaceTests : IDisposable
 		// Arrange
 		await _workspace.CreateNewAsync("Test");
 		var updatedProject = _workspace.CurrentProject!;
-		updatedProject.ConnectionString = "Updated";
+		updatedProject.Connections.Add(new ServerConnection { ConnectionString = "Updated" });
 
 		// Act
 		_workspace.Update(updatedProject);
 
 		// Assert
-		Assert.Equal("Updated", _workspace.CurrentProject!.ConnectionString);
+		Assert.Equal("Updated", _workspace.CurrentProject!.Connections[0].ConnectionString);
 		Assert.True(_workspace.HasUnsavedChanges);
 	}
 
@@ -261,7 +262,6 @@ public class ProjectWorkspaceTests : IDisposable
 		{
 			Id = Guid.NewGuid(),
 			Name = "Test",
-			ConnectionString = "",
 			CreatedDate = DateTimeOffset.UtcNow,
 			ModifiedDate = DateTimeOffset.UtcNow,
 			SchemaVersion = 1
@@ -307,7 +307,7 @@ public class ProjectWorkspaceTests : IDisposable
 		Assert.False(_workspace.HasUnsavedChanges);
 
 		var updatedProject = _workspace.CurrentProject!;
-		updatedProject.ConnectionString = "Updated";
+		updatedProject.Connections.Add(new ServerConnection { ConnectionString = "Updated" });
 
 		// Act
 		_workspace.Update(updatedProject);

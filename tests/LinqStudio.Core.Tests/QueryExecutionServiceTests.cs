@@ -120,10 +120,10 @@ public class QueryExecutionServiceTests
 		var settings = CreateSettings();
 		var service = new QueryExecutionService(mockGenerator, new RoslynWorkspaceService(), settings);
 		var query = "context.Users.ToList()";
-		var project = new Project { ConnectionString = null };
+		var connection = new ServerConnection { ConnectionString = null };
 
 		// Act
-		var result = await service.ExecuteQueryAsync(query, project);
+		var result = await service.ExecuteQueryAsync(query, connection);
 
 		// Assert
 		Assert.NotNull(result);
@@ -142,10 +142,10 @@ public class QueryExecutionServiceTests
 		var settings = CreateSettings();
 		var service = new QueryExecutionService(mockGenerator, new RoslynWorkspaceService(), settings);
 		var query = "context.Users.ToList()";
-		var project = new Project { ConnectionString = "" };
+		var connection = new ServerConnection { ConnectionString = "" };
 
 		// Act
-		var result = await service.ExecuteQueryAsync(query, project);
+		var result = await service.ExecuteQueryAsync(query, connection);
 
 		// Assert
 		Assert.NotNull(result);
@@ -161,12 +161,12 @@ public class QueryExecutionServiceTests
 		var mockGenerator = new MockDbContextGenerator();
 		var settings = CreateSettings();
 		var service = new QueryExecutionService(mockGenerator, new RoslynWorkspaceService(), settings);
-		var project = new Project { ConnectionString = "Server=test" };
+		var connection = new ServerConnection { ConnectionString = "Server=test" };
 		using var cts = new CancellationTokenSource();
 		cts.Cancel();
 
 		// Act
-		var result = await service.ExecuteQueryAsync("query", project, cts.Token);
+		var result = await service.ExecuteQueryAsync("query", connection, cts.Token);
 
 		// Assert - Returns error result when cancelled
 		Assert.NotNull(result);

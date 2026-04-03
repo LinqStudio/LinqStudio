@@ -366,8 +366,9 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 		{
 			try
 			{
-				_localCompiler = Workspace.CurrentProject != null
-					? await CompilerServiceFactory.CreateFromProjectAsync(Workspace.CurrentProject)
+				var firstConnection = Workspace.CurrentProject?.Connections.FirstOrDefault();
+				_localCompiler = firstConnection != null
+					? await CompilerServiceFactory.CreateFromConnectionAsync(firstConnection)
 					: await CompilerServiceFactory.CreateAsync();
 			}
 			catch (Exception ex)
@@ -611,6 +612,18 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 			return;
 		}
 
+		// Resolve which connection to use: the one associated with this query, or the first available.
+		var currentQuery = Workspace.Queries.GetCurrentQuery();
+		var connection = currentQuery?.ConnectionId is Guid connId
+			? Workspace.CurrentProject.Connections.FirstOrDefault(c => c.Id == connId)
+			: Workspace.CurrentProject.Connections.FirstOrDefault();
+
+		if (connection is null)
+		{
+			Snackbar.Add("No database connection configured. Add a connection via the tree view.", Severity.Warning);
+			return;
+		}
+
 		var queryText = await _editor.GetValue();
 		if (string.IsNullOrWhiteSpace(queryText))
 		{
@@ -632,7 +645,7 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 
 		try
 		{
-			var result = await QueryExecutionService.ExecuteQueryAsync(queryText, Workspace.CurrentProject, _executionCts.Token);
+			var result = await QueryExecutionService.ExecuteQueryAsync(queryText, connection, _executionCts.Token);
 			_result = result;
 
 			if (result.Success)

@@ -25,30 +25,30 @@ public class ProjectServiceTests : IDisposable
 		var service = new ProjectService(versionConfig);
 
 		// Act
-		var project = service.CreateNew("Test Project", "Server=localhost;Database=Test;");
+		var project = service.CreateNew("Test Project");
 
 		// Assert
 		Assert.Equal(versionConfig.CurrentSchemaVersion, project.SchemaVersion);
 		Assert.Equal("Test Project", project.Name);
-		Assert.Equal("Server=localhost;Database=Test;", project.ConnectionString);
+		Assert.Empty(project.Connections);
 		Assert.NotEqual(Guid.Empty, project.Id);
 		Assert.True(project.CreatedDate <= DateTimeOffset.UtcNow);
 		Assert.True(project.ModifiedDate <= DateTimeOffset.UtcNow);
 	}
 
 	[Fact]
-	public void CreateNew_WithEmptyStrings_DoesNotThrow()
+	public void CreateNew_WithEmptyName_DoesNotThrow()
 	{
 		// Arrange
 		var service = new ProjectService();
 
 		// Act
-		var project = service.CreateNew(string.Empty, string.Empty);
+		var project = service.CreateNew(string.Empty);
 
 		// Assert
 		Assert.NotNull(project);
 		Assert.Equal(string.Empty, project.Name);
-		Assert.Equal(string.Empty, project.ConnectionString);
+		Assert.Empty(project.Connections);
 	}
 
 	#endregion
@@ -61,7 +61,8 @@ public class ProjectServiceTests : IDisposable
 		// Arrange
 		var service = new ProjectService();
 		var filePath = Path.Combine(_testDirectory, "test_save.linq");
-		var project = service.CreateNew("Save Test", "Server=localhost;");
+		var project = service.CreateNew("Save Test");
+		project.Connections.Add(new ServerConnection { ConnectionString = "Server=localhost;" });
 
 		// Act
 		await service.SaveProjectAsync(project, filePath);
@@ -87,7 +88,6 @@ public class ProjectServiceTests : IDisposable
 		{
 			Id = Guid.NewGuid(),
 			Name = "Old Version Project",
-			ConnectionString = "Server=localhost;",
 			CreatedDate = DateTimeOffset.UtcNow,
 			ModifiedDate = DateTimeOffset.UtcNow,
 			SchemaVersion = 0 // Simulate old version
@@ -118,7 +118,6 @@ public class ProjectServiceTests : IDisposable
 		{
 			Id = Guid.NewGuid(),
 			Name = "Date Test",
-			ConnectionString = "Server=localhost;",
 			CreatedDate = originalDate,
 			ModifiedDate = originalDate,
 			SchemaVersion = 1
@@ -143,8 +142,10 @@ public class ProjectServiceTests : IDisposable
 		var service = new ProjectService();
 		var filePath = Path.Combine(_testDirectory, "overwrite.linq");
 
-		var project1 = service.CreateNew("First Version", "Connection1");
-		var project2 = service.CreateNew("Second Version", "Connection2");
+		var project1 = service.CreateNew("First Version");
+		var project2 = service.CreateNew("Second Version");
+		project1.Connections.Add(new ServerConnection { ConnectionString = "Connection1" });
+		project2.Connections.Add(new ServerConnection { ConnectionString = "Connection2" });
 
 		// Act
 		await service.SaveProjectAsync(project1, filePath);
@@ -155,7 +156,8 @@ public class ProjectServiceTests : IDisposable
 		// Assert
 		Assert.NotNull(loaded);
 		Assert.Equal("Second Version", loaded.Name);
-		Assert.Equal("Connection2", loaded.ConnectionString);
+		Assert.Single(loaded.Connections);
+		Assert.Equal("Connection2", loaded.Connections[0].ConnectionString);
 	}
 
 	[Fact]
@@ -165,7 +167,7 @@ public class ProjectServiceTests : IDisposable
 		var service = new ProjectService();
 		var filePath = Path.Combine(_testDirectory, "optional_props.linq");
 
-		var project = service.CreateNew("Test", "Server=localhost;");
+		var project = service.CreateNew("Test");
 		project.Models = new Dictionary<string, string> { ["Person.cs"] = "public class Person { }" };
 		project.DbContextCode = "public class TestContext : DbContext { }";
 		var projectWithOptionals = project;
@@ -189,7 +191,7 @@ public class ProjectServiceTests : IDisposable
 		var service = new ProjectService();
 		var subDir = Path.Combine(_testDirectory, "auto_created_folder");
 		var filePath = Path.Combine(subDir, "test.linq");
-		var project = service.CreateNew("Test", "Connection");
+		var project = service.CreateNew("Test");
 
 		try
 		{
@@ -231,7 +233,8 @@ public class ProjectServiceTests : IDisposable
 		var service = new ProjectService();
 		var filePath = Path.Combine(_testDirectory, "valid_project.linq");
 
-		var project = service.CreateNew("Valid Project", "Server=localhost;Database=MyDb;");
+		var project = service.CreateNew("Valid Project");
+		project.Connections.Add(new ServerConnection { ConnectionString = "Server=localhost;Database=MyDb;" });
 		await service.SaveProjectAsync(project, filePath);
 
 		// Act
@@ -241,7 +244,8 @@ public class ProjectServiceTests : IDisposable
 		Assert.NotNull(loadedProject);
 		Assert.Equal(project.Id, loadedProject.Id);
 		Assert.Equal("Valid Project", loadedProject.Name);
-		Assert.Equal("Server=localhost;Database=MyDb;", loadedProject.ConnectionString);
+		Assert.Single(loadedProject.Connections);
+		Assert.Equal("Server=localhost;Database=MyDb;", loadedProject.Connections[0].ConnectionString);
 		Assert.Equal(project.SchemaVersion, loadedProject.SchemaVersion);
 	}
 
@@ -252,7 +256,7 @@ public class ProjectServiceTests : IDisposable
 		var service = new ProjectService();
 		var filePath = Path.Combine(_testDirectory, "full_project.linq");
 
-		var originalProject = service.CreateNew("Full Project", "Server=localhost;");
+		var originalProject = service.CreateNew("Full Project");
 		originalProject.Models = new Dictionary<string, string>
 		{
 			["Person.cs"] = "namespace Test; public class Person { public int Id { get; set; } }",
@@ -293,7 +297,7 @@ public class ProjectServiceTests : IDisposable
 		{
 			Id = Guid.NewGuid(),
 			Name = "Future Project",
-			ConnectionString = "Server=localhost;",
+			
 			CreatedDate = DateTimeOffset.UtcNow,
 			ModifiedDate = DateTimeOffset.UtcNow,
 			SchemaVersion = 999 // Future version
@@ -326,7 +330,7 @@ public class ProjectServiceTests : IDisposable
 		{
 			Id = Guid.NewGuid(),
 			Name = "Old Project",
-			ConnectionString = "Server=localhost;",
+			
 			CreatedDate = DateTimeOffset.UtcNow,
 			ModifiedDate = DateTimeOffset.UtcNow,
 			SchemaVersion = 1 // Too old
@@ -359,7 +363,7 @@ public class ProjectServiceTests : IDisposable
 		{
 			Id = Guid.NewGuid(),
 			Name = "Compatible Project",
-			ConnectionString = "Server=localhost;",
+			
 			CreatedDate = DateTimeOffset.UtcNow,
 			ModifiedDate = DateTimeOffset.UtcNow,
 			SchemaVersion = 4
@@ -391,7 +395,7 @@ public class ProjectServiceTests : IDisposable
 		var filePath = Path.Combine(_testDirectory, "long_name.linq");
 		var longName = new string('A', 1000);
 
-		var project = service.CreateNew(longName, "Connection");
+		var project = service.CreateNew(longName);
 
 		// Act
 		await service.SaveProjectAsync(project, filePath);
@@ -410,9 +414,9 @@ public class ProjectServiceTests : IDisposable
 		var filePath = Path.Combine(_testDirectory, "special_chars.linq");
 
 		var project = service.CreateNew(
-			"Test \"Project\" with 'quotes' and\nnewlines\ttabs",
-			"Server=localhost;Password=P@ssw0rd!#$%"
+			"Test \"Project\" with 'quotes' and\nnewlines\ttabs"
 		);
+		project.Connections.Add(new ServerConnection { ConnectionString = "Server=localhost;Password=P@ssw0rd!#$%" });
 
 		// Act
 		await service.SaveProjectAsync(project, filePath);
@@ -421,7 +425,8 @@ public class ProjectServiceTests : IDisposable
 		// Assert
 		Assert.NotNull(loaded);
 		Assert.Equal(project.Name, loaded.Name);
-		Assert.Equal(project.ConnectionString, loaded.ConnectionString);
+		Assert.Single(loaded.Connections);
+		Assert.Equal("Server=localhost;Password=P@ssw0rd!#$%", loaded.Connections[0].ConnectionString);
 	}
 
 	#endregion

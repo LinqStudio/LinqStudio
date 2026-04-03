@@ -1,0 +1,7 @@
+.connection-node {
+    margin-bottom: 2px;
+}
+
+::deep .mud-treeview-item-content {
+    padding-left: 4px;
+}

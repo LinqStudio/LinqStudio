@@ -108,7 +108,7 @@
 							   Size="Size.Small"
 							   Variant="Variant.Text"
 							   OnClick="@(() => OnRefreshSchemaRequested.InvokeAsync())"
-							   Disabled="@(IsRefreshingSchema || Workspace.CurrentProject?.QueryGenerator is null)"
+							   Disabled="@(IsRefreshingSchema || !(Workspace.CurrentProject?.Connections.Any(c => c.QueryGenerator != null) ?? false))"
 							   data-testid="refresh-schema-btn">
 						@if (IsRefreshingSchema)
 						{

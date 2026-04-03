@@ -81,23 +81,23 @@ public class TestDbContext : DbContext
 	}
 
 	/// <summary>
-	/// Creates a CompilerService initialized from the given project's live database schema.
-	/// Falls back to the demo model when no database connection is configured on the project.
+	/// Creates a CompilerService initialized from the given server connection's live database schema.
+	/// Falls back to the demo model when no database connection is configured.
 	/// </summary>
-	/// <param name="project">The project whose database schema drives EF Core code generation.</param>
+	/// <param name="connection">The server connection whose database schema drives EF Core code generation.</param>
 	/// <param name="cancellationToken">Token to cancel the schema generation step.</param>
 	/// <returns>
-	/// A fully initialized <see cref="CompilerService"/> reflecting the project's schema,
-	/// or the demo-model service if <paramref name="project"/> has no generator configured.
+	/// A fully initialized <see cref="CompilerService"/> reflecting the connection's schema,
+	/// or the demo-model service if <paramref name="connection"/> has no generator configured.
 	/// </returns>
-	public async Task<CompilerService> CreateFromProjectAsync(Project project, CancellationToken cancellationToken = default)
+	public async Task<CompilerService> CreateFromConnectionAsync(ServerConnection connection, CancellationToken cancellationToken = default)
 	{
-		if (generator is null || project.QueryGenerator is null)
+		if (generator is null || connection.QueryGenerator is null)
 		{
 			return await CreateAsync();
 		}
 
-		var result = await generator.GenerateAsync(project.QueryGenerator, cancellationToken);
+		var result = await generator.GenerateAsync(connection.QueryGenerator, cancellationToken);
 		var svc = new CompilerService(result.ContextTypeName, result.Namespace, _roslynWorkspaceService, logger);
 		await svc.Initialize(result.ModelFiles, result.DbContextCode);
 		return svc;

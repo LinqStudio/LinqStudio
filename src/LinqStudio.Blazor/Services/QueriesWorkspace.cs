@@ -209,12 +209,16 @@ public class QueriesWorkspace
 	/// defaults to <c>"Query"</c>. A numeric suffix is appended automatically if the name
 	/// conflicts with an existing query (case-insensitive).
 	/// </param>
+	/// <param name="connectionId">
+	/// The <see cref="ServerConnection.Id"/> this query should execute against.
+	/// When <see langword="null"/> the first available connection is used at execution time.
+	/// </param>
 	/// <returns>The <see cref="Guid"/> assigned to the newly created query.</returns>
 	/// <remarks>
 	/// The new query's <see cref="OpenQueryState.HasUnsavedChanges"/> is set to
 	/// <see langword="true"/> immediately because it has never been persisted.
 	/// </remarks>
-	public Guid CreateNewQuery(string? name = null)
+	public Guid CreateNewQuery(string? name = null, Guid? connectionId = null)
 	{
 		var baseName = !string.IsNullOrWhiteSpace(name) ? name : "Query";
 		var finalName = GetUniqueQueryName(baseName);
@@ -223,7 +227,8 @@ public class QueriesWorkspace
 		{
 			Name = finalName,
 			QueryText = "// Write your LINQ query here\ncontext.",
-			CreatedDate = DateTimeOffset.UtcNow
+			CreatedDate = DateTimeOffset.UtcNow,
+			ConnectionId = connectionId
 		};
 
 		_allQueries[newQuery.Id] = newQuery;

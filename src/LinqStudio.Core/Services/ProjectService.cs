@@ -33,14 +33,12 @@ public class ProjectService
 	/// The name is typically derived from the file name.
 	/// </summary>
 	/// <param name="name">Display name for the project, usually derived from the chosen file name.</param>
-	/// <param name="connectionString">Optional database connection string; empty string if not yet configured.</param>
 	/// <returns>A new <see cref="Project"/> stamped with the current schema version.</returns>
-	public Project CreateNew(string name, string connectionString = "")
+	public Project CreateNew(string name)
 	{
 		return new Project
 		{
 			Name = name,
-			ConnectionString = connectionString,
 			SchemaVersion = _versionConfig.CurrentSchemaVersion
 		};
 	}

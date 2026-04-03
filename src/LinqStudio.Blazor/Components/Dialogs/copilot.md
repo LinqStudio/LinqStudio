@@ -4,14 +4,20 @@ MudBlazor dialog components for user interactions.
 
 ## EditProjectDialog
 
-Allows editing a project's database connection settings (type + connection string).
+Allows editing a single `ServerConnection`'s database settings (type + connection string).
+
+**Key parameter:** `[Parameter] ServerConnection Connection` — replaces the old `Project` parameter.
 
 **Key methods:**
-- `OnInitialized()`: Reads both `Project.ConnectionString` AND `Project.DatabaseType` into local state
-- `Save()`: Calls `Project.UpdateConnection(_databaseType, _connectionString)` — always updates BOTH type and connection string atomically
-- `ValidateConnection()`: Tests the connection using `Project.TestConnectionAsync` before saving
+- `OnInitialized()`: Reads `Connection.ConnectionString` AND `Connection.DatabaseType` into local state.
+- `Save()`: Calls `Connection.UpdateConnection(_databaseType, _connectionString)` and returns the updated `ServerConnection` via `DialogResult.Ok(Connection)`.
+- `ValidateConnection()`: Tests the connection using `Connection.TestConnectionAsync` before saving.
 
-**Important**: Always call `Project.UpdateConnection(databaseType, connectionString)` rather than setting `Project.ConnectionString` directly. The `UpdateConnection` method correctly updates both `DatabaseType` and `ConnectionString`, which resets the `QueryGenerator` cache and triggers the `DatabaseTreeView` to reload.
+**Usage patterns:**
+- **New connection**: Caller creates `new ServerConnection { Id = Guid.NewGuid() }`, opens dialog, then adds result to `Project.Connections`.
+- **Edit existing**: Caller opens dialog with existing `ServerConnection`, replaces in `Project.Connections` with returned result.
+
+**Always** call `Connection.UpdateConnection(databaseType, connectionString)` rather than setting properties directly. The method resets the `QueryGenerator` cache.
 
 ## ProjectBrowserDialog
 

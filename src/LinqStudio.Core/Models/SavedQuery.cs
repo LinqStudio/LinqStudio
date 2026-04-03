@@ -33,6 +33,12 @@ public class SavedQuery
 	public DateTimeOffset CreatedDate { get; init; }
 
 	/// <summary>
+	/// The ID of the <see cref="ServerConnection"/> this query runs against.
+	/// When <see langword="null"/> the first connection in the project is used as a fallback.
+	/// </summary>
+	public Guid? ConnectionId { get; set; }
+
+	/// <summary>
 	/// File path where this query is saved. <see langword="null"/> if the query has never been persisted to disk.
 	/// </summary>
 	public string? FilePath { get; set; }

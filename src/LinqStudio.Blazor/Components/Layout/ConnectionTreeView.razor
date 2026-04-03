@@ -1,0 +1,182 @@
+@using LinqStudio.Abstractions.Models
+@using LinqStudio.Blazor.Services
+@using LinqStudio.Core.Models
+
+<div class="mt-2" data-testid="connection-tree-view-container">
+	@if (Workspace.IsProjectOpen)
+	{
+		<div class="d-flex align-center mb-1 px-2">
+			<MudIcon Icon="@Icons.Material.Filled.AccountTree" Class="mr-2" Size="Size.Small" />
+			<MudText Typo="Typo.subtitle2" Class="flex-grow-1">Servers</MudText>
+			<MudMenu Icon="@Icons.Material.Filled.MoreVert"
+					 Size="Size.Small"
+					 Dense="true"
+					 AnchorOrigin="Origin.BottomLeft"
+					 TransformOrigin="Origin.TopLeft"
+					 data-testid="servers-root-menu">
+				<MudMenuItem OnClick="AddNewConnection" data-testid="menu-new-connection">
+					<MudIcon Icon="@Icons.Material.Filled.Add" Class="mr-2" Size="Size.Small" />
+					New Connection
+				</MudMenuItem>
+			</MudMenu>
+		</div>
+
+		@if (!Workspace.CurrentProject!.Connections.Any())
+		{
+			<MudText Typo="Typo.caption" Class="mud-text-secondary px-4" data-testid="db-tree-placeholder">
+				No connections configured. Use the menu above to add one.
+			</MudText>
+		}
+
+		@foreach (var connection in Workspace.CurrentProject.Connections)
+		{
+			var conn = connection;
+			var isLoading = _loadingStates.GetValueOrDefault(conn.Id, false);
+			var loadError = _loadErrors.GetValueOrDefault(conn.Id);
+			_tableDetailsCache.TryGetValue(conn.Id, out var tableDetails);
+
+			<div @key="conn.Id" data-testid="@($"server-node-{conn.Id}")">
+				<MudTreeView T="string" Dense="true" Hover="true">
+					@* Server node *@
+					<MudTreeViewItem T="string"
+									 Value="@conn.Id.ToString()"
+									 Icon="@Icons.Material.Filled.Storage"
+									 IconColor="Color.Primary"
+									 Expanded="true">
+						<Content>
+							<div class="d-flex align-center flex-grow-1">
+								<MudText Typo="Typo.body2" Class="flex-grow-1">@conn.GetServerDisplayName()</MudText>
+								<MudMenu Icon="@Icons.Material.Filled.MoreVert"
+										 Size="Size.Small"
+										 Dense="true"
+										 AnchorOrigin="Origin.BottomLeft"
+										 TransformOrigin="Origin.TopLeft"
+										 data-testid="@($"server-menu-{conn.Id}")">
+									<MudMenuItem OnClick="@(() => EditConnection(conn))" data-testid="@($"menu-connection-props-{conn.Id}")">
+										<MudIcon Icon="@Icons.Material.Filled.Edit" Class="mr-2" Size="Size.Small" />
+										Connection Properties
+									</MudMenuItem>
+									<MudMenuItem OnClick="@(() => DisconnectAsync(conn))" data-testid="@($"menu-disconnect-{conn.Id}")">
+										<MudIcon Icon="@Icons.Material.Filled.LinkOff" Class="mr-2" Size="Size.Small" />
+										Disconnect
+									</MudMenuItem>
+								</MudMenu>
+							</div>
+						</Content>
+						<ChildContent>
+							@* Database node *@
+							<MudTreeViewItem T="string"
+											 Value="@($"db-{conn.Id}")"
+											 Icon="@Icons.Material.Filled.FolderSpecial"
+											 IconColor="Color.Warning"
+											 Expanded="true">
+								<Content>
+									<div class="d-flex align-center flex-grow-1">
+										<MudText Typo="Typo.body2" Class="flex-grow-1">@conn.GetDatabaseName()</MudText>
+										<MudMenu Icon="@Icons.Material.Filled.MoreVert"
+												 Size="Size.Small"
+												 Dense="true"
+												 AnchorOrigin="Origin.BottomLeft"
+												 TransformOrigin="Origin.TopLeft"
+												 data-testid="@($"db-menu-{conn.Id}")">
+											<MudMenuItem OnClick="@(() => CreateNewQuery(conn))" data-testid="@($"menu-new-query-{conn.Id}")">
+												<MudIcon Icon="@Icons.Material.Filled.Add" Class="mr-2" Size="Size.Small" />
+												New Query
+											</MudMenuItem>
+										</MudMenu>
+									</div>
+								</Content>
+								<ChildContent>
+									@* Loading state *@
+									@if (isLoading)
+									{
+										<MudTreeViewItem T="string" Value="@($"loading-{conn.Id}")" CanExpand="false">
+											<Content>
+												<div class="d-flex align-center">
+													<MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" data-testid="db-tree-loading" />
+													<MudText Typo="Typo.caption">Loading tables...</MudText>
+												</div>
+											</Content>
+										</MudTreeViewItem>
+									}
+									else if (loadError != null)
+									{
+										<MudTreeViewItem T="string" Value="@($"error-{conn.Id}")" CanExpand="false">
+											<Content>
+												<MudText Typo="Typo.caption" Color="Color.Error">@loadError</MudText>
+											</Content>
+										</MudTreeViewItem>
+									}
+									else if (tableDetails != null)
+									{
+										@if (tableDetails.Count == 0)
+										{
+											<MudTreeViewItem T="string" Value="@($"empty-{conn.Id}")" CanExpand="false">
+												<Content>
+													<MudText Typo="Typo.caption" Class="mud-text-secondary">No tables found</MudText>
+												</Content>
+											</MudTreeViewItem>
+										}
+
+										@foreach (var tableDetail in tableDetails)
+										{
+											var td = tableDetail;
+											<MudTreeViewItem T="string"
+															 Value="@td.FullName"
+															 Icon="@Icons.Material.Filled.TableChart"
+															 data-testid="@($"table-{td.FullName}")">
+												<Content>
+													<MudText Typo="Typo.body2">@td.FullName</MudText>
+												</Content>
+												<ChildContent>
+													@* Columns folder *@
+													<MudTreeViewItem T="string"
+																	 Value="@($"cols-{td.FullName}")"
+																	 Icon="@Icons.Material.Outlined.ViewColumn"
+																	 Text="Columns">
+														<ChildContent>
+															@foreach (var col in td.Columns)
+															{
+																var column = col;
+																<MudTreeViewItem T="string"
+																				 Value="@($"{td.FullName}-{column.Name}")"
+																				 CanExpand="false"
+																				 data-testid="@($"column-{td.FullName}-{column.Name}")">
+																	<Content>
+																		<div class="d-flex align-center">
+																			<MudIcon Icon="@GetColumnIcon(column)"
+																					 Color="@GetColumnIconColor(column)"
+																					 Size="Size.Small" Class="mr-1" />
+																			<MudText Typo="Typo.body2">@column.Name</MudText>
+																			<MudText Typo="Typo.caption" Class="mud-text-secondary ml-2">@FormatColumnType(column)</MudText>
+																		</div>
+																	</Content>
+																</MudTreeViewItem>
+															}
+														</ChildContent>
+													</MudTreeViewItem>
+												</ChildContent>
+											</MudTreeViewItem>
+										}
+									}
+								</ChildContent>
+							</MudTreeViewItem>
+						</ChildContent>
+					</MudTreeViewItem>
+				</MudTreeView>
+			</div>
+		}
+	}
+	else
+	{
+		<div class="px-2">
+			<div class="d-flex align-center mb-2">
+				<MudIcon Icon="@Icons.Material.Outlined.Storage" Class="mr-2" Size="Size.Small" Color="Color.Default" />
+				<MudText Typo="Typo.subtitle2">Servers</MudText>
+			</div>
+			<MudText Typo="Typo.caption" Class="mud-text-secondary" data-testid="db-tree-placeholder">
+				Open a project to explore database tables
+			</MudText>
+		</div>
+	}
+</div>

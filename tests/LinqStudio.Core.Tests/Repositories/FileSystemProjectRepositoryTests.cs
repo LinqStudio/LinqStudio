@@ -166,14 +166,15 @@ public class FileSystemProjectRepositoryTests : IDisposable
 		// Arrange
 		var project = new Project { Name = "Overwrite" };
 		await _repository.SaveProjectAsync(project);
-		project.ConnectionString = "Server=updated";
+		project.Connections.Add(new ServerConnection { ConnectionString = "Server=updated" });
 
 		// Act
 		await _repository.SaveProjectAsync(project);
 
 		// Assert — should not throw, file should contain updated data
 		var loaded = await _repository.LoadProjectAsync("Overwrite");
-		Assert.Equal("Server=updated", loaded.ConnectionString);
+		Assert.Single(loaded.Connections);
+		Assert.Equal("Server=updated", loaded.Connections[0].ConnectionString);
 	}
 
 	[Fact]

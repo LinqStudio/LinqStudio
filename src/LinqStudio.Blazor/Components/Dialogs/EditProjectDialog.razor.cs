@@ -13,7 +13,7 @@ public partial class EditProjectDialog : ComponentBase
 	private IMudDialogInstance MudDialog { get; set; } = null!;
 
 	[Parameter, EditorRequired]
-	public Project Project { get; set; }
+	public ServerConnection Connection { get; set; } = null!;
 
 	private string? _connectionString;
 	private DatabaseType _databaseType = DatabaseType.Mssql;
@@ -22,8 +22,8 @@ public partial class EditProjectDialog : ComponentBase
 
 	protected override void OnInitialized()
 	{
-		_connectionString = Project.ConnectionString;
-		_databaseType = Project.DatabaseType;
+		_connectionString = Connection.ConnectionString;
+		_databaseType = Connection.DatabaseType;
 	}
 
 	private void Cancel() => MudDialog.Cancel();
@@ -36,8 +36,8 @@ public partial class EditProjectDialog : ComponentBase
 			return;
 		}
 
-		Project.UpdateConnection(_databaseType, _connectionString);
-		MudDialog.Close(DialogResult.Ok(Project));
+		Connection.UpdateConnection(_databaseType, _connectionString);
+		MudDialog.Close(DialogResult.Ok(Connection));
 	}
 
 	private async Task ValidateConnection()
@@ -53,7 +53,7 @@ public partial class EditProjectDialog : ComponentBase
 
 		try
 		{
-			await Project.TestConnectionAsync(_databaseType, _connectionString, _timeoutSeconds);
+			await Connection.TestConnectionAsync(_databaseType, _connectionString, _timeoutSeconds);
 			Snackbar.Add(SharedResource.ConnectionSettings_Message_ValidationSuccess, Severity.Success);
 		}
 		catch (OperationCanceledException)

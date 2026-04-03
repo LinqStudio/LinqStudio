@@ -35,7 +35,7 @@ public class MockQueryExecutionService : IQueryExecutionService
 
 	public async Task<QueryExecutionResult> ExecuteQueryAsync(
 		string userQuery,
-		Project project,
+		ServerConnection connection,
 		CancellationToken cancellationToken = default)
 	{
 		// Real async delay so Blazor can render the IsExecuting=true state before we return.

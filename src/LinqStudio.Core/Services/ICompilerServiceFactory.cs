@@ -25,16 +25,16 @@ public interface ICompilerServiceFactory
     Task<CompilerService> CreateAsync();
 
     /// <summary>
-    /// Creates and initializes a <see cref="CompilerService"/> from the given project's
+    /// Creates and initializes a <see cref="CompilerService"/> from a server connection's
     /// live database schema. Falls back to <see cref="CreateAsync"/> (demo model) when
-    /// the project has no database generator configured or when no
+    /// the connection has no database generator configured or when no
     /// <see cref="LinqStudio.Abstractions.IDbContextGenerator"/> is registered in DI.
     /// </summary>
-    /// <param name="project">The project whose database schema drives EF Core code generation.</param>
+    /// <param name="connection">The server connection whose database schema drives EF Core code generation.</param>
     /// <param name="cancellationToken">Token to cancel the schema generation step.</param>
     /// <returns>
-    /// A fully initialized <see cref="CompilerService"/> reflecting the project's schema,
+    /// A fully initialized <see cref="CompilerService"/> reflecting the connection's schema,
     /// or the demo-model service if no database is configured.
     /// </returns>
-    Task<CompilerService> CreateFromProjectAsync(Project project, CancellationToken cancellationToken = default);
+    Task<CompilerService> CreateFromConnectionAsync(ServerConnection connection, CancellationToken cancellationToken = default);
 }

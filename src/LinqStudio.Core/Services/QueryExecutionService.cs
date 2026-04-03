@@ -28,19 +28,19 @@ public class QueryExecutionService(
 	private readonly IOptionsMonitor<QueryExecutionSettings> _settings = settings;
 	private readonly ILogger<QueryExecutionService>? _logger = logger;
 
-	public async Task<QueryExecutionResult> ExecuteQueryAsync(string userQuery, Models.Project project, CancellationToken cancellationToken = default)
+	public async Task<QueryExecutionResult> ExecuteQueryAsync(string userQuery, Models.ServerConnection connection, CancellationToken cancellationToken = default)
 	{ 
 		var stopwatch = Stopwatch.StartNew();
 		try
 		{
-			// Validate project has connection configured
-			if (string.IsNullOrWhiteSpace(project.ConnectionString))
+			// Validate connection has a connection string configured
+			if (string.IsNullOrWhiteSpace(connection.ConnectionString))
 			{
 				return QueryExecutionResult.FromError("No database connection configured", isCompileError: false, stopwatch.Elapsed);
 			}
 
-			// Generate models and DbContext from project's database
-			var generatorResult = await _generator.GenerateAsync(project.QueryGenerator!, cancellationToken);
+			// Generate models and DbContext from connection's database
+			var generatorResult = await _generator.GenerateAsync(connection.QueryGenerator!, cancellationToken);
 
 			// Step 1-2: Wrap user query in QueryContainer
 			var wrappedQuery = _roslynWorkspaceService.WrapQuery(userQuery, generatorResult.ContextTypeName, generatorResult.Namespace);
@@ -64,7 +64,7 @@ public class QueryExecutionService(
 			try
 			{
 				// Step 5: Instantiate DbContext with real connection
-				var dbContextOptions = CreateDbContextOptions(project.DatabaseType, project.ConnectionString);
+				var dbContextOptions = CreateDbContextOptions(connection.DatabaseType, connection.ConnectionString);
 				var dbContextType = assembly.GetType($"{generatorResult.Namespace}.{generatorResult.ContextTypeName}");
 				if (dbContextType == null)
 				{
