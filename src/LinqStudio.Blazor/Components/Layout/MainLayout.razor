@@ -45,7 +45,7 @@
 
                     <MudMenuItem OnClick="EditProject" data-testid="nav-project-properties">
                         <MudIcon Icon="@Icons.Material.Filled.Edit" Class="mr-2" />
-                        Connection Properties
+                        @(Workspace.CurrentProject?.Connections.Count > 0 ? "Connection Properties" : "Add Connection")
                     </MudMenuItem>
 
                     <MudMenuItem OnClick="SaveProject" Disabled="@(!Workspace.HasUnsavedChanges)" data-testid="nav-project-save">

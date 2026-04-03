@@ -614,9 +614,22 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 
 		// Resolve which connection to use: the one associated with this query, or the first available.
 		var currentQuery = Workspace.Queries.GetCurrentQuery();
-		var connection = currentQuery?.ConnectionId is Guid connId
-			? Workspace.CurrentProject.Connections.FirstOrDefault(c => c.Id == connId)
-			: Workspace.CurrentProject.Connections.FirstOrDefault();
+		ServerConnection? connection;
+		if (currentQuery?.ConnectionId is Guid connId)
+		{
+			connection = Workspace.CurrentProject.Connections.FirstOrDefault(c => c.Id == connId);
+			if (connection is null)
+			{
+				Logger.LogWarning("[QueryEditorPanel] ConnectionId {ConnId} not found; falling back to first connection.", connId);
+				connection = Workspace.CurrentProject.Connections.FirstOrDefault();
+				if (connection is not null)
+					Snackbar.Add("Configured connection not found; using first available connection.", Severity.Warning);
+			}
+		}
+		else
+		{
+			connection = Workspace.CurrentProject.Connections.FirstOrDefault();
+		}
 
 		if (connection is null)
 		{

@@ -106,7 +106,6 @@ public partial class ConnectionTreeView : ComponentBase, IDisposable
 
 		_loadingStates[connection.Id] = true;
 		_loadErrors[connection.Id] = null;
-		_loadedConnections.Add(connection.Id);
 		StateHasChanged();
 
 		try
@@ -122,6 +121,7 @@ public partial class ConnectionTreeView : ComponentBase, IDisposable
 			}
 
 			_tableDetailsCache[connection.Id] = tableDetails;
+			_loadedConnections.Add(connection.Id); // Only mark as loaded after successful completion
 			Logger.LogInformation("Loaded columns for {TableCount} tables from connection {ConnectionId}.", tableDetails.Count, connection.Id);
 		}
 		catch (Exception ex)
@@ -129,6 +129,7 @@ public partial class ConnectionTreeView : ComponentBase, IDisposable
 			Logger.LogError(ex, "Failed to load tables for connection {ConnectionId}.", connection.Id);
 			_loadErrors[connection.Id] = $"Failed to load: {ex.Message}";
 			_tableDetailsCache.Remove(connection.Id);
+			// Don't add to _loadedConnections so retry is possible on next WorkspaceChanged
 		}
 		finally
 		{
