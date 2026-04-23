@@ -1,0 +1,48 @@
+/* ── Custom SSMS-style right-click context menu ──────────────────────────────
+   MudMenu is NOT used here because it relies on MudPopover, which:
+   1. Requires <MudPopoverProvider /> in the component tree.
+   2. Creates IAsyncDisposable services (PopoverService, PointerEventsNoneService) that
+      break bUnit's synchronous test teardown.
+   Instead we use a state-driven positioned <div> with a full-screen backdrop.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Zero-opacity full-screen backdrop — captures clicks outside the menu */
+.db-tree-context-backdrop {
+	position: fixed;
+	inset: 0;
+	z-index: 9998;
+	background: transparent;
+	cursor: default;
+}
+
+/* Floating context menu card */
+.db-tree-context-menu {
+	background: var(--mud-palette-surface);
+	border: 1px solid var(--mud-palette-divider);
+	border-radius: 4px;
+	box-shadow: var(--mud-elevation-8, 0 3px 10px rgba(0, 0, 0, .2));
+	min-width: 120px;
+	z-index: 9999;
+	padding: 4px 0;
+	user-select: none;
+}
+
+/* Individual menu item row */
+.db-tree-context-item {
+	padding: 6px 14px;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	font-size: 0.875rem;
+	color: var(--mud-palette-text-primary);
+	white-space: nowrap;
+	transition: background-color 0.1s ease;
+}
+
+	.db-tree-context-item:hover {
+		background-color: var(--mud-palette-action-hover);
+	}
+
+	.db-tree-context-item:active {
+		background-color: var(--mud-palette-action-active-opacity);
+	}
