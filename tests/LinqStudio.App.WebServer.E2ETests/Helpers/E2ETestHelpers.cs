@@ -42,13 +42,19 @@ public static class E2ETestHelpers
 	/// <param name="queryText">Optional text to type into the editor. Defaults to "context."</param>
 	public static async Task CreateQueryAsync(IPage page, AppServerFixture app, string queryText = "context.", int index = 0)
 	{
-		// Right-click the connection node body to open the context menu
+		// Right-click the connection node body to open the context menu.
+		// We dispatch a synthetic contextmenu MouseEvent (isTrusted=false) directly on the element
+		// rather than using a CDP-based right-click (isTrusted=true). Monaco Editor registers
+		// window-level capture event listeners when active on the page; those listeners may
+		// intercept trusted contextmenu events before Blazor's @oncontextmenu handler fires.
+		// Synthetic events are ignored by Monaco's listeners, so they reach Blazor reliably
+		// in both headed (local dev) and headless (CI) modes.
 		var connectionBody = page.GetByTestId("db-tree-connection-body");
-		await Expect(connectionBody).ToBeVisibleAsync(new() { Timeout = 10_000 });
-		await connectionBody.ClickAsync(new() { Button = MouseButton.Right });
-		// Brief pause so Blazor's SignalR round-trip (right-click → server → StateHasChanged → DOM)
-		// can complete before we assert on the context menu item.
-		await Task.Delay(300);
+		await Expect(connectionBody).ToBeVisibleAsync(new() { Timeout = 15_000 });
+		var connBox = await connectionBody.BoundingBoxAsync();
+		await connectionBody.EvaluateAsync(
+			@"(el, {cx, cy}) => el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, composed: true, clientX: cx, clientY: cy, button: 2, buttons: 2 }))",
+			new { cx = (connBox?.X ?? 0) + (connBox?.Width ?? 100) / 2.0, cy = (connBox?.Y ?? 0) + (connBox?.Height ?? 20) / 2.0 });
 
 		// Click "New Query" in the context menu
 		var newQueryItem = page.GetByTestId("db-tree-connection-new-query");
@@ -81,11 +87,11 @@ public static class E2ETestHelpers
 		var connectionBody = page.GetByTestId("db-tree-connection-body");
 		await Expect(connectionBody).ToBeVisibleAsync(new() { Timeout = 15_000 });
 
-		// Right-click the connection node body to open the context menu
-		await connectionBody.ClickAsync(new() { Button = MouseButton.Right });
-		// Brief pause so Blazor's SignalR round-trip (right-click → server → StateHasChanged → DOM)
-		// can complete before we assert on the context menu item.
-		await Task.Delay(300);
+		// Dispatch synthetic contextmenu event — see CreateQueryAsync for rationale.
+		var connBoxSetup = await connectionBody.BoundingBoxAsync();
+		await connectionBody.EvaluateAsync(
+			@"(el, {cx, cy}) => el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, composed: true, clientX: cx, clientY: cy, button: 2, buttons: 2 }))",
+			new { cx = (connBoxSetup?.X ?? 0) + (connBoxSetup?.Width ?? 100) / 2.0, cy = (connBoxSetup?.Y ?? 0) + (connBoxSetup?.Height ?? 20) / 2.0 });
 
 		// Click "New Query" in the context menu
 		var newQueryItem = page.GetByTestId("db-tree-connection-new-query");
@@ -284,13 +290,14 @@ public static class E2ETestHelpers
 	/// </summary>
 	public static async Task CreateAdditionalTabAsync(IPage page, AppServerFixture app)
 	{
-		// Right-click the connection node body to open the context menu
+		// Right-click the connection node body to open the context menu.
+		// Dispatch synthetic contextmenu event — see CreateQueryAsync for rationale.
 		var connectionBody = page.GetByTestId("db-tree-connection-body");
-		await Expect(connectionBody).ToBeVisibleAsync(new() { Timeout = 10_000 });
-		await connectionBody.ClickAsync(new() { Button = MouseButton.Right });
-		// Brief pause so Blazor's SignalR round-trip (right-click → server → StateHasChanged → DOM)
-		// can complete before we assert on the context menu item.
-		await Task.Delay(300);
+		await Expect(connectionBody).ToBeVisibleAsync(new() { Timeout = 15_000 });
+		var connBox = await connectionBody.BoundingBoxAsync();
+		await connectionBody.EvaluateAsync(
+			@"(el, {cx, cy}) => el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, composed: true, clientX: cx, clientY: cy, button: 2, buttons: 2 }))",
+			new { cx = (connBox?.X ?? 0) + (connBox?.Width ?? 100) / 2.0, cy = (connBox?.Y ?? 0) + (connBox?.Height ?? 20) / 2.0 });
 
 		// Capture the current URL before clicking New Query
 		var urlBefore = page.Url;
