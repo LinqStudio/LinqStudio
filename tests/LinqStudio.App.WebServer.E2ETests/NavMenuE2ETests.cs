@@ -62,14 +62,11 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await using var context = await _pw.Browser.NewContextAsync();
 		var page = await context.NewPageAsync();
 
-		// Create a project and make some changes
+		// Create a new project — a new project is dirty (HasUnsavedChanges = true) by default
+		// since it has never been saved.
 		await E2ETestHelpers.CreateNewProjectAsync(page, _app);
-		await E2ETestHelpers.CreateQueryAsync(page, _app, "context.People");
 
-		// Navigate back to home
-		await page.GetByTestId("nav-home").ClickAsync();
-
-		// Verify project shows unsaved indicator
+		// Verify project shows unsaved indicator (new projects are dirty immediately)
 		var projectGroup = page.GetByTestId("nav-project");
 		await Expect(projectGroup).ToContainTextAsync("Untitled *");
 
@@ -98,18 +95,8 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		var confirmBtn = page.GetByTestId("unsaved-changes-confirm-btn");
 		await confirmBtn.ClickAsync();
 
-		// Verify new project was created
-		// New projects are also "Untitled" with unsaved changes (asterisk)
+		// Verify new project was created — it is also "Untitled *" since new projects are dirty
 		await Expect(projectGroup).ToContainTextAsync("Untitled *");
-
-		// Navigate to editor to verify it's a new project with no queries
-		await page.GetByTestId("nav-editor").ClickAsync();
-		await page.WaitForURLAsync($"{_app.BaseUrl}editor");
-
-		// Verify "no queries" message is shown (proving it's a new project)
-		var noQueryAlert = page.GetByTestId("no-query-alert");
-		await Expect(noQueryAlert).ToBeVisibleAsync();
-		await Expect(noQueryAlert).ToContainTextAsync("No queries are currently open");
 	}
 
 	[Fact(Timeout = 60_000)]
@@ -159,14 +146,10 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await using var context = await _pw.Browser.NewContextAsync();
 		var page = await context.NewPageAsync();
 
-		// Create a project and make some changes
+		// Create a new project — it is dirty by default since it has never been saved.
 		await E2ETestHelpers.CreateNewProjectAsync(page, _app);
-		await E2ETestHelpers.CreateQueryAsync(page, _app, "context.People");
 
-		// Navigate back to home
-		await page.GetByTestId("nav-home").ClickAsync();
-
-		// Verify project shows unsaved indicator
+		// Verify project shows unsaved indicator (new projects are dirty immediately)
 		var projectGroup = page.GetByTestId("nav-project");
 		await Expect(projectGroup).ToContainTextAsync("Untitled *");
 
@@ -201,55 +184,31 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 	}
 
 	[Fact(Timeout = 60_000)]
-	public async Task NavMenu_QueriesSection_HiddenWhenNoProject()
+	public async Task Editor_ShowsNoQueryAlert_WhenAllQueriesClosed()
 	{
 		Assert.NotNull(_pw.Browser);
 
 		await using var context = await _pw.Browser.NewContextAsync();
 		var page = await context.NewPageAsync();
 
-		// Navigate to home page
-		await page.GotoAsync(_app.BaseUrl.ToString());
+		// Create a project with a SQLite connection and open one query in the editor
+		await E2ETestHelpers.SetupEditorAsync(page, _app);
 
-		// Verify editor menu is not visible when no project
-		var editorMenu = page.GetByTestId("nav-editor-menu");
-		await Expect(editorMenu).Not.ToBeVisibleAsync();
+		// Close the only open query tab using the close button in the editor toolbar.
+		// New queries have HasUnsavedChanges = true, so a confirmation dialog will appear.
+		var closeBtn = page.GetByTestId("query-close-btn");
+		await Expect(closeBtn).ToBeVisibleAsync();
+		await closeBtn.ClickAsync();
 
-		// Verify editor link is disabled
-		var editorLink = page.GetByTestId("nav-editor-disabled");
-		await Expect(editorLink).ToBeVisibleAsync();
+		// Confirm the unsaved-changes dialog (new query is always unsaved)
+		var confirmBtn = page.GetByTestId("unsaved-changes-confirm-btn");
+		await Expect(confirmBtn).ToBeVisibleAsync();
+		await confirmBtn.ClickAsync();
 
-		// Create a project - need to open menu first
-		await page.GetByTestId("nav-project").ClickAsync();
-		await Task.Delay(100); // Wait for menu to open
-		await page.GetByTestId("nav-project-new").ClickAsync();
-
-		// Verify editor menu is now visible
-		await Expect(editorMenu).ToBeVisibleAsync();
-
-		// Verify disabled editor link is no longer shown
-		await Expect(editorLink).Not.ToBeVisibleAsync();
-	}
-
-	[Fact(Timeout = 60_000)]
-	public async Task NavMenu_QueriesSection_ShowsEmptyMessage()
-	{
-		Assert.NotNull(_pw.Browser);
-
-		await using var context = await _pw.Browser.NewContextAsync();
-		var page = await context.NewPageAsync();
-
-		// Create a project
-		await E2ETestHelpers.CreateNewProjectAsync(page, _app);
-
-		// Navigate to editor page
-		await page.GetByTestId("nav-editor").ClickAsync();
-		await page.WaitForURLAsync($"{_app.BaseUrl}editor");
-
-		// Verify "no queries" message is shown
+		// Verify "no queries" message is shown when all tabs are closed
 		var noQueryAlert = page.GetByTestId("no-query-alert");
-		await Expect(noQueryAlert).ToBeVisibleAsync();
-		await Expect(noQueryAlert).ToContainTextAsync("No queries are currently open");
+		await Expect(noQueryAlert).ToBeVisibleAsync(new() { Timeout = 10_000 });
+		await Expect(noQueryAlert).ToContainTextAsync("Right-click the database connection");
 	}
 
 	[Fact(Timeout = 120_000)]

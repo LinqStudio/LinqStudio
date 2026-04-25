@@ -1,79 +1,174 @@
 @using LinqStudio.Abstractions.Models
+@using LinqStudio.Blazor.Models
 @using LinqStudio.Blazor.Services
+
+@*
+	Note: MudBlazor v8's MudTreeView.Items requires IReadOnlyCollection<TreeItemData<T>> which would
+	require SchemaTreeNode to inherit TreeItemData<SchemaTreeNode>, adding unnecessary coupling between
+	the view-model and the UI framework. We use ChildContent with explicit tree traversal instead,
+	which keeps SchemaTreeNode as a pure view-model class and matches the existing component pattern.
+
+	Note: MudMenu is NOT used for context menus here. MudMenu internally uses MudPopover, which
+	requires <MudPopoverProvider /> to be present and triggers IAsyncDisposable-only services that
+	break bUnit's synchronous test teardown. Instead, we use a native @oncontextmenu handler with a
+	state-driven positioned div, which is fully bUnit-compatible and provides the same SSMS-style UX.
+*@
+
+@* Backdrop: closes the context menu when user clicks outside it *@
+@if (_contextMenuNode != null)
+{
+	<div class="db-tree-context-backdrop"
+		 @onclick="CloseContextMenu"
+		 @oncontextmenu="CloseContextMenu"
+		 @oncontextmenu:preventDefault="true" />
+	<div class="db-tree-context-menu" style="@ContextMenuStyle">
+		@if (_contextMenuNode.NodeType == SchemaTreeNodeType.TablesFolder)
+		{
+			<div class="db-tree-context-item"
+				 @onclick="HandleTablesFolderRefreshAsync"
+				 data-testid="db-tree-tables-folder-refresh">
+				<MudIcon Icon="@Icons.Material.Filled.Refresh" Size="Size.Small" Class="mr-2" />
+				@SharedResource.DatabaseTreeView_ContextMenu_Refresh
+			</div>
+		}
+		else if (_contextMenuNode.NodeType == SchemaTreeNodeType.Table)
+		{
+			<div class="db-tree-context-item"
+				 @onclick="@(async () => await HandleTableRefreshAsync(_contextMenuNode))"
+				 data-testid="@($"db-tree-table-refresh-{_contextMenuNode.TableName?.FullName}")">
+				<MudIcon Icon="@Icons.Material.Filled.Refresh" Size="Size.Small" Class="mr-2" />
+				@SharedResource.DatabaseTreeView_ContextMenu_Refresh
+			</div>
+		}
+		else if (_contextMenuNode.NodeType == SchemaTreeNodeType.Connection)
+		{
+			<div class="db-tree-context-item"
+				 @onclick="HandleConnectionNewQuery"
+				 data-testid="db-tree-connection-new-query">
+				<MudIcon Icon="@Icons.Material.Filled.Add" Size="Size.Small" Class="mr-2" />
+				@SharedResource.DatabaseTreeView_ContextMenu_NewQuery
+			</div>
+		}
+	</div>
+}
 
 <div class="mt-4">
 	@if (Workspace.IsProjectOpen && Workspace.CurrentProject?.QueryGenerator != null)
 	{
-		<div class="d-flex align-center mb-2">
-			<MudIcon Icon="@Icons.Material.Filled.Storage" Class="mr-2" Size="Size.Small" />
-			<MudText Typo="Typo.subtitle2" Class="flex-grow-1">Database Explorer</MudText>
-			<MudTooltip Text="Refresh tables">
-				<MudIconButton Icon="@Icons.Material.Filled.Refresh" 
-							   Size="Size.Small" 
-							   OnClick="RefreshTables" 
-							   data-testid="db-tree-refresh" />
-			</MudTooltip>
-		</div>
-
-		@if (_isLoading && _tables.Count == 0)
+		@if (_isLoading && _rootNodes.Count == 0)
 		{
 			<MudProgressLinear Indeterminate="true" data-testid="db-tree-loading" />
 		}
-		else if (_tables.Count > 0)
+		else
 		{
 			<div data-testid="db-tree-view">
-				<MudTreeView T="string" Dense="true" Hover="true">
-					@foreach (var table in _tables)
+				<MudTreeView T="SchemaTreeNode" Dense="true" Hover="true">
+					@foreach (var connNode in _rootNodes)
 					{
-						<MudTreeViewItem T="string" 
-										 Value="@table.FullName"
-										 Text="@table.FullName"
-										 Icon="@Icons.Material.Filled.TableChart"
-										 Expanded="@_expandedStates.GetValueOrDefault(table.FullName, false)"
-									 ExpandedChanged="@(v => OnTableExpandedChanged(table, v))"
-										 data-testid="@($"table-{table.FullName}")">
-							@if (_expandedStates.GetValueOrDefault(table.FullName, false))
+						<MudTreeViewItem T="SchemaTreeNode"
+										 Value="@connNode"
+										 Icon="@connNode.Icon"
+										 IconColor="@connNode.IconColor"
+										 @key="connNode"
+										 data-testid="db-tree-connection">
+							<BodyContent Context="_">
+								<div @oncontextmenu="@(e => OpenContextMenu(connNode, e))"
+									 @oncontextmenu:preventDefault="true"
+									 @oncontextmenu:stopPropagation="true"
+									 data-testid="db-tree-connection-body">
+									<MudText Typo="Typo.body1" Class="mud-treeview-item-label">@connNode.Label</MudText>
+								</div>
+							</BodyContent>
+							<ChildContent>
+							@if (_tablesFolderNode != null)
 							{
-								@if (_loadingTables.Contains(table.FullName))
-								{
-									<MudTreeViewItem T="string" Value="@($"{table.FullName}-loading")" Icon="@Icons.Material.Filled.HourglassEmpty">
-										<Content>
-											<div class="d-flex align-center">
-												<MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-												<MudText Typo="Typo.caption">Loading columns...</MudText>
-											</div>
-										</Content>
-									</MudTreeViewItem>
-								}
-								else if (_tableDetailsCache.TryGetValue(table.FullName, out var tableDetail))
-								{
-									@foreach (var column in tableDetail.Columns)
-									{
-										<MudTreeViewItem T="string"
-														 Value="@($"{table.FullName}-{column.Name}")"
-														 CanExpand="false"
-														 data-testid="@($"column-{table.FullName}-{column.Name}")">
-											<Content>
-												<div class="d-flex align-center">
-													<MudIcon Icon="@GetColumnIcon(column)"
-															 Color="@GetColumnIconColor(column)"
-															 Size="Size.Small" Class="mr-1" />
-													<MudText Typo="Typo.body2">@column.Name</MudText>
-													<MudText Typo="Typo.caption" Class="mud-text-secondary ml-2">@FormatColumnType(column)</MudText>
-												</div>
-											</Content>
-										</MudTreeViewItem>
-									}
-								}
+								@* TablesFolder: right-click context menu via BodyContent *@
+								<MudTreeViewItem T="SchemaTreeNode"
+												 Value="@_tablesFolderNode"
+												 Icon="@_tablesFolderNode.Icon"
+												 IconColor="@_tablesFolderNode.IconColor"
+												 @key="_tablesFolderNode"
+												 data-testid="db-tree-tables-folder">
+									<BodyContent Context="_">
+										<div @oncontextmenu="@(e => OpenContextMenu(_tablesFolderNode, e))"
+											 @oncontextmenu:preventDefault="true"
+											 @oncontextmenu:stopPropagation="true">
+											<MudText Typo="Typo.body1"
+													 Class="mud-treeview-item-label">@_tablesFolderNode.Label</MudText>
+										</div>
+									</BodyContent>
+									<ChildContent>
+										@foreach (var tableNode in _tablesFolderNode.Children)
+										{
+											@* Table: right-click context menu + lazy-load columns *@
+											<MudTreeViewItem T="SchemaTreeNode"
+															 Value="@tableNode"
+															 Icon="@tableNode.Icon"
+															 IconColor="@tableNode.IconColor"
+															 @key="tableNode"
+															 ExpandedChanged="@(async v => await OnTableExpandedChanged(tableNode, v))"
+															 data-testid="@($"table-{tableNode.TableName?.FullName}")">
+												<BodyContent Context="_">
+													<div @oncontextmenu="@(e => OpenContextMenu(tableNode, e))"
+														 @oncontextmenu:preventDefault="true"
+														 @oncontextmenu:stopPropagation="true">
+														<MudText Typo="Typo.body1"
+																 Class="mud-treeview-item-label">@tableNode.Label</MudText>
+													</div>
+												</BodyContent>
+												<ChildContent>
+													@if (tableNode.IsLoading)
+													{
+														<MudTreeViewItem T="SchemaTreeNode"
+																		 Value="@_spinnerNode"
+																		 CanExpand="false">
+															<Content>
+																<div class="d-flex align-center">
+																	<MudProgressCircular Size="Size.Small"
+																						 Indeterminate="true"
+																						 Class="mr-2" />
+																	<MudText Typo="Typo.caption">Loading columns...</MudText>
+																</div>
+															</Content>
+														</MudTreeViewItem>
+													}
+													else
+													{
+														@foreach (var colNode in tableNode.Children)
+														{
+															<MudTreeViewItem T="SchemaTreeNode"
+																			 Value="@colNode"
+																			 CanExpand="false"
+																			 @key="colNode"
+																			 data-testid="@($"column-{tableNode.TableName?.FullName}-{colNode.ColumnDetail?.Name}")">
+																<Content>
+																	<div class="d-flex align-center">
+																		<MudIcon Icon="@colNode.Icon"
+																				 Color="@colNode.IconColor"
+																				 Size="Size.Small"
+																				 Class="mr-1" />
+																		<MudText Typo="Typo.body2">@colNode.Label</MudText>
+																		@if (!string.IsNullOrEmpty(colNode.ColumnTypeDisplay))
+																		{
+																			<MudText Typo="Typo.caption"
+																					 Class="mud-text-secondary ml-2">@colNode.ColumnTypeDisplay</MudText>
+																		}
+																	</div>
+																</Content>
+															</MudTreeViewItem>
+														}
+													}
+												</ChildContent>
+											</MudTreeViewItem>
+										}
+									</ChildContent>
+								</MudTreeViewItem>
 							}
+							</ChildContent>
 						</MudTreeViewItem>
 					}
 				</MudTreeView>
 			</div>
-		}
-		else
-		{
-			<MudText Typo="Typo.caption" Class="mud-text-secondary ml-2">No tables found</MudText>
 		}
 	}
 	else

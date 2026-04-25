@@ -1,19 +1,12 @@
 ---
 name: blazor-frontend
-description: Patterns for Blazor Server UI in LinqStudio — component structure, MudBlazor conventions, Monaco editor integration, reactive settings with IOptionsMonitor, CSS scoping, and localization. Use this when working on src/LinqStudio.Blazor or src/LinqStudio.App.WebServer UI code.
+description: Patterns for Blazor Server UI in LinqStudio — component structure, MudBlazor conventions, Monaco editor integration, reactive settings with IOptionsMonitor, CSS scoping, and localization. Use this when working on src/LinqStudio.Blazor or src/LinqStudio.App.WebServer UI code, when creating or modifying .razor/.razor.cs files, or when adding any user-visible string or styling.
 ---
 
-## When to Use This Skill
-
-Read this before:
-- Creating or modifying any `.razor` or `.razor.cs` file
-- Adding Monaco editor instances
-- Working with dark/light mode or user settings UI
-- Adding any string visible to the user (localization)
-- Styling components or fixing layout issues
-- Wiring up reactive settings that respond to changes without page reload
-
 ---
+
+The Frontend of LinqStudio is built with Blazor using the MudBlazor component library. 
+NEVER inspect the nuget package source code for MudBlazor to understand how to use it. Always git clone the a temporary folder and explore the source code locally: https://github.com/MudBlazor/MudBlazor.git
 
 ## Project Layout
 

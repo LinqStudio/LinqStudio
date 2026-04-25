@@ -174,17 +174,25 @@ public class QueryExecutionE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await using var context = await _pw.Browser.NewContextAsync();
 		var page = await context.NewPageAsync();
 
-		// Setup: Create a new project but DON'T create a query
-		await E2ETestHelpers.CreateNewProjectAsync(page, _app);
+		// Setup: Open the editor with one query, then close it to reach the "no query" state.
+		// A project with a database connection is required to create queries via the right-click
+		// context menu; SetupEditorAsync creates such a project and opens one query tab.
+		await E2ETestHelpers.SetupEditorAsync(page, _app);
 
-		// Navigate to editor via SPA navigation (NOT GotoAsync, which resets the Blazor circuit
-		// and loses workspace state, causing a redirect to home)
-		await page.GetByTestId("nav-editor").ClickAsync();
-		await page.WaitForURLAsync($"{_app.BaseUrl}editor");
+		// Close the open query tab to reach the "no query" state.
+		// New queries have HasUnsavedChanges = true, so a confirmation dialog will appear.
+		var closeBtn = page.GetByTestId("query-close-btn");
+		await Expect(closeBtn).ToBeVisibleAsync();
+		await closeBtn.ClickAsync();
+
+		// Confirm the unsaved-changes dialog (new query is always unsaved)
+		var confirmBtn = page.GetByTestId("unsaved-changes-confirm-btn");
+		await Expect(confirmBtn).ToBeVisibleAsync();
+		await confirmBtn.ClickAsync();
 
 		// Wait for the "no query" alert
 		var noQueryAlert = page.GetByTestId("no-query-alert");
-		await Expect(noQueryAlert).ToBeVisibleAsync();
+		await Expect(noQueryAlert).ToBeVisibleAsync(new() { Timeout = 10_000 });
 
 		// The execute button should NOT be visible when no query is open
 		// (The entire query-execution-bar is not rendered when CurrentQueryId is null)

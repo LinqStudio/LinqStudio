@@ -296,22 +296,6 @@ public partial class NavMenu : ComponentBase, IDisposable
 	}
 
 	/// <summary>
-	/// Creates a new query in the current project's workspace and navigates to the editor.
-	/// Does nothing if no project is open.
-	/// </summary>
-	private void CreateNewQuery()
-	{
-		if (!Workspace.IsProjectOpen || Workspace.CurrentProject == null)
-		{
-			return;
-		}
-
-		var queryId = Workspace.Queries.CreateNewQuery();
-		Logger.LogInformation("New query {QueryId} created.", queryId);
-		NavigationManager.NavigateTo($"/editor/{queryId}");
-	}
-
-	/// <summary>
 	/// Unsubscribes from <see cref="ProjectWorkspace.WorkspaceChanged"/> to prevent
 	/// callbacks from reaching a disposed component.
 	/// </summary>
