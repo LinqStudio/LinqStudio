@@ -13,6 +13,7 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 	[Inject] private ILogger<DatabaseTreeView> Logger { get; set; } = null!;
 	[Inject] private ProjectWorkspace Workspace { get; set; } = null!;
 	[Inject] private ErrorHandlingService ErrorHandlingService { get; set; } = null!;
+	[Inject] private NavigationManager NavigationManager { get; set; } = null!;
 
 	// ── Tree state ──────────────────────────────────────────────────────────
 
@@ -303,6 +304,17 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 	{
 		CloseContextMenu();
 		await RefreshTableNodeAsync(tableNode);
+	}
+
+	private void HandleConnectionNewQuery()
+	{
+		if (!Workspace.IsProjectOpen || Workspace.CurrentProject == null)
+			return;
+
+		CloseContextMenu();
+		var queryId = Workspace.Queries.CreateNewQuery();
+		Logger.LogInformation("New query {QueryId} created from DB context menu.", queryId);
+		NavigationManager.NavigateTo($"/editor/{queryId}");
 	}
 
 	// ── Context menu actions ──────────────────────────────────────────────────

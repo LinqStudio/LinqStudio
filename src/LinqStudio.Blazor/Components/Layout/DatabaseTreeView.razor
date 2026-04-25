@@ -40,6 +40,15 @@
 				Refresh
 			</div>
 		}
+		else if (_contextMenuNode.NodeType == SchemaTreeNodeType.Connection)
+		{
+			<div class="db-tree-context-item"
+				 @onclick="HandleConnectionNewQuery"
+				 data-testid="db-tree-connection-new-query">
+				<MudIcon Icon="@Icons.Material.Filled.Add" Size="Size.Small" Class="mr-2" />
+				New Query
+			</div>
+		}
 	</div>
 }
 
@@ -60,9 +69,17 @@
 										 Value="@connNode"
 										 Icon="@connNode.Icon"
 										 IconColor="@connNode.IconColor"
-										 Text="@connNode.Label"
 										 @key="connNode"
 										 data-testid="db-tree-connection">
+							<BodyContent Context="_">
+								<div @oncontextmenu="@(e => OpenContextMenu(connNode, e))"
+									 @oncontextmenu:preventDefault="true"
+									 @oncontextmenu:stopPropagation="true"
+									 data-testid="db-tree-connection-body">
+									<MudText Typo="Typo.body1" Class="mud-treeview-item-label">@connNode.Label</MudText>
+								</div>
+							</BodyContent>
+							<ChildContent>
 							@if (_tablesFolderNode != null)
 							{
 								@* TablesFolder: right-click context menu via BodyContent *@
@@ -147,6 +164,7 @@
 									</ChildContent>
 								</MudTreeViewItem>
 							}
+							</ChildContent>
 						</MudTreeViewItem>
 					}
 				</MudTreeView>

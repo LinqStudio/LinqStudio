@@ -388,4 +388,65 @@ public class DatabaseTreeViewComponentTests : BunitContext
 			Assert.NotNull(cut.Find("[data-testid='table-dbo.Orders']"));
 		}, TimeSpan.FromSeconds(3));
 	}
+
+	[Fact]
+	public async Task DatabaseTreeView_ConnectionNode_ContextMenu_ShowsNewQueryOption()
+	{
+		// Arrange
+		SetupServices();
+		var workspace = Services.GetRequiredService<ProjectWorkspace>();
+		await workspace.CreateNewAsync("MyApp");
+
+		var mockGen = CreateMockGenerator([]);
+		SetQueryGenerator(workspace.CurrentProject!, mockGen.Object);
+
+		var cut = Render<DatabaseTreeView>();
+
+		// Wait for connection node to appear
+		cut.WaitForAssertion(() =>
+		{
+			Assert.NotNull(cut.Find("[data-testid='db-tree-connection']"));
+		}, TimeSpan.FromSeconds(3));
+
+		// Act — right-click the connection node BodyContent div to open the context menu
+		var connNodeDiv = cut.Find("[data-testid='db-tree-connection-body']");
+		connNodeDiv.TriggerEvent("oncontextmenu", new MouseEventArgs { ClientX = 100, ClientY = 100 });
+
+		// Assert — "New Query" item is rendered in the context menu
+		cut.WaitForAssertion(() =>
+		{
+			Assert.NotNull(cut.Find("[data-testid='db-tree-connection-new-query']"));
+		}, TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task DatabaseTreeView_ConnectionNode_NewQuery_CreatesQueryInWorkspace()
+	{
+		// Arrange
+		SetupServices();
+		var workspace = Services.GetRequiredService<ProjectWorkspace>();
+		await workspace.CreateNewAsync("MyApp");
+
+		var mockGen = CreateMockGenerator([]);
+		SetQueryGenerator(workspace.CurrentProject!, mockGen.Object);
+
+		var cut = Render<DatabaseTreeView>();
+
+		cut.WaitForAssertion(() =>
+		{
+			Assert.NotNull(cut.Find("[data-testid='db-tree-connection']"));
+		}, TimeSpan.FromSeconds(3));
+
+		var initialQueryCount = workspace.Queries.AllQueries.Count;
+
+		// Act — right-click the connection node BodyContent div to open the context menu
+		var connNodeDiv = cut.Find("[data-testid='db-tree-connection-body']");
+		connNodeDiv.TriggerEvent("oncontextmenu", new MouseEventArgs { ClientX = 50, ClientY = 50 });
+
+		var newQueryBtn = cut.Find("[data-testid='db-tree-connection-new-query']");
+		await cut.InvokeAsync(() => newQueryBtn.Click());
+
+		// Assert — one extra query was created in the workspace
+		Assert.Equal(initialQueryCount + 1, workspace.Queries.AllQueries.Count);
+	}
 }

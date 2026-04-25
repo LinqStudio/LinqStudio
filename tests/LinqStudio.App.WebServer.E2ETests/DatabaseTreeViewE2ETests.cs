@@ -303,6 +303,53 @@ public class DatabaseTreeViewE2ETests(AppServerFixture app, PlaywrightFixture pw
 		}
 	}
 
+	[Fact(Timeout = 90_000)]
+	public async Task DatabaseTreeView_ConnectionContextMenu_NewQuery_OpensNewEditorTab()
+	{
+		Assert.NotNull(_pw.Browser);
+
+		var dbPath = CreateTestSQLiteDatabase();
+		try
+		{
+			await using var context = await _pw.Browser.NewContextAsync();
+			var page = await context.NewPageAsync();
+
+			await OpenSQLiteProjectAsync(page, dbPath, "DbTreeNewQueryTest");
+
+			// Wait for tree view to be visible
+			await Expect(page.GetByTestId("db-tree-view")).ToBeVisibleAsync(new() { Timeout = 15_000 });
+
+			// Connection node should be visible
+			var connectionNode = page.GetByTestId("db-tree-connection");
+			await Expect(connectionNode).ToBeVisibleAsync(new() { Timeout = 10_000 });
+
+			// Right-click the connection node BodyContent div to open the context menu
+			var connectionBody = page.GetByTestId("db-tree-connection-body");
+			await Expect(connectionBody).ToBeVisibleAsync(new() { Timeout = 10_000 });
+			await connectionBody.ClickAsync(new() { Button = MouseButton.Right });
+
+			// Context menu "New Query" item should appear
+			var newQueryItem = page.GetByTestId("db-tree-connection-new-query");
+			await Expect(newQueryItem).ToBeVisibleAsync(new() { Timeout = 5_000 });
+			await Expect(newQueryItem).ToContainTextAsync("New Query");
+
+			// Click "New Query"
+			await newQueryItem.ClickAsync();
+
+			// Should navigate to a new editor URL matching /editor/{guid}
+			await page.WaitForURLAsync(
+				new System.Text.RegularExpressions.Regex($@"^{_app.BaseUrl}editor/[0-9a-f-]{{36}}$"),
+				new() { Timeout = 10_000 });
+
+			// Editor page should be visible
+			await Expect(page.GetByTestId("editor-page")).ToBeVisibleAsync();
+		}
+		finally
+		{
+			TryDeleteFile(dbPath);
+		}
+	}
+
 	// ── Private helpers ───────────────────────────────────────────────────────
 
 	/// <summary>
