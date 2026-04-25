@@ -28,7 +28,7 @@
 				 @onclick="HandleTablesFolderRefreshAsync"
 				 data-testid="db-tree-tables-folder-refresh">
 				<MudIcon Icon="@Icons.Material.Filled.Refresh" Size="Size.Small" Class="mr-2" />
-				Refresh
+				@SharedResource.DatabaseTreeView_ContextMenu_Refresh
 			</div>
 		}
 		else if (_contextMenuNode.NodeType == SchemaTreeNodeType.Table)
@@ -37,7 +37,7 @@
 				 @onclick="@(async () => await HandleTableRefreshAsync(_contextMenuNode))"
 				 data-testid="@($"db-tree-table-refresh-{_contextMenuNode.TableName?.FullName}")">
 				<MudIcon Icon="@Icons.Material.Filled.Refresh" Size="Size.Small" Class="mr-2" />
-				Refresh
+				@SharedResource.DatabaseTreeView_ContextMenu_Refresh
 			</div>
 		}
 		else if (_contextMenuNode.NodeType == SchemaTreeNodeType.Connection)
@@ -46,7 +46,7 @@
 				 @onclick="HandleConnectionNewQuery"
 				 data-testid="db-tree-connection-new-query">
 				<MudIcon Icon="@Icons.Material.Filled.Add" Size="Size.Small" Class="mr-2" />
-				New Query
+				@SharedResource.DatabaseTreeView_ContextMenu_NewQuery
 			</div>
 		}
 	</div>

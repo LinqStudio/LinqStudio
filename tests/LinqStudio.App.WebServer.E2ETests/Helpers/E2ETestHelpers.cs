@@ -1,6 +1,10 @@
 using LinqStudio.Abstractions.Models;
 using LinqStudio.App.WebServer.E2ETests.Fixtures;
+using LinqStudio.Blazor.Constants;
+using LinqStudio.Core.Models;
+using Microsoft.Data.Sqlite;
 using Microsoft.Playwright;
+using System.Text.Json;
 using static Microsoft.Playwright.Assertions;
 
 namespace LinqStudio.App.WebServer.E2ETests.Helpers;
@@ -29,19 +33,25 @@ public static class E2ETestHelpers
 	}
 
 	/// <summary>
-	/// Creates a new query and optionally types query text into the Monaco editor.
+	/// Creates a new query via the database connection right-click context menu and optionally
+	/// types query text into the Monaco editor. Requires a project with a database connection to be
+	/// open so that the connection node is visible in the database explorer.
 	/// </summary>
 	/// <param name="page">The Playwright page.</param>
 	/// <param name="app">The app server fixture for URL construction.</param>
 	/// <param name="queryText">Optional text to type into the editor. Defaults to "context."</param>
 	public static async Task CreateQueryAsync(IPage page, AppServerFixture app, string queryText = "context.", int index = 0)
 	{
-		// Open the Editor menu first (MudMenu requires opening before items are visible)
-		await page.GetByTestId("nav-editor").ClickAsync();
-		// Wait briefly for menu to open
-		await Task.Delay(100);
-		// Changed from nav-query-create to nav-editor-new
-		await page.GetByTestId("nav-editor-new").ClickAsync();
+		// Right-click the connection node body to open the context menu
+		var connectionBody = page.GetByTestId("db-tree-connection-body");
+		await Expect(connectionBody).ToBeVisibleAsync(new() { Timeout = 10_000 });
+		await connectionBody.ClickAsync(new() { Button = MouseButton.Right });
+
+		// Click "New Query" in the context menu
+		var newQueryItem = page.GetByTestId("db-tree-connection-new-query");
+		await Expect(newQueryItem).ToBeVisibleAsync(new() { Timeout = 5_000 });
+		await newQueryItem.ClickAsync();
+
 		// Queries now use GUIDs instead of numeric indices, so use a wildcard pattern
 		await page.WaitForURLAsync($"{app.BaseUrl}editor/*");
 		// With KeepPanelsAlive, multiple panels can exist — wait for the visible one
@@ -56,19 +66,25 @@ public static class E2ETestHelpers
 	}
 
 	/// <summary>
-	/// Sets up the editor by creating a new project and navigating to a new query.
+	/// Sets up the editor by creating a new project with a SQLite connection and navigating
+	/// to a new query via the database connection right-click context menu.
 	/// Waits for the Monaco editor to be ready and focused.
 	/// </summary>
 	public static async Task SetupEditorAsync(IPage page, AppServerFixture app)
 	{
-		await CreateNewProjectAsync(page, app);
+		await CreateAndOpenSQLiteProjectAsync(page, app);
 
-		// Open the Editor menu first (MudMenu requires opening before items are visible)
-		await page.GetByTestId("nav-editor").ClickAsync();
-		// Wait briefly for menu to open
-		await Task.Delay(100);
-		// Create a new query - changed from nav-query-create to nav-editor-new
-		await page.GetByTestId("nav-editor-new").ClickAsync();
+		// Wait for the database tree view's connection node body to appear
+		var connectionBody = page.GetByTestId("db-tree-connection-body");
+		await Expect(connectionBody).ToBeVisibleAsync(new() { Timeout = 15_000 });
+
+		// Right-click the connection node body to open the context menu
+		await connectionBody.ClickAsync(new() { Button = MouseButton.Right });
+
+		// Click "New Query" in the context menu
+		var newQueryItem = page.GetByTestId("db-tree-connection-new-query");
+		await Expect(newQueryItem).ToBeVisibleAsync(new() { Timeout = 5_000 });
+		await newQueryItem.ClickAsync();
 
 		// Wait for editor page to load
 		await page.WaitForURLAsync($"{app.BaseUrl}editor/*");
@@ -76,6 +92,61 @@ public static class E2ETestHelpers
 		await Expect(GetActivePanel(page).GetByTestId("monaco-editor-container").First).ToBeVisibleAsync();
 
 		await WaitEditorAndFocusAsync(page);
+	}
+
+	/// <summary>
+	/// Creates a temporary SQLite database and opens it as a project in the app.
+	/// The SQLite file is placed in the OS temp directory and is not cleaned up automatically;
+	/// the OS reclaims temp files on reboot. This method uses a uniquely-named project to
+	/// prevent conflicts across concurrent test runs.
+	/// </summary>
+	private static async Task CreateAndOpenSQLiteProjectAsync(IPage page, AppServerFixture app)
+	{
+		var projectName = $"SetupProject_{Guid.NewGuid():N}";
+
+		// Create a minimal SQLite database file in the OS temp directory.
+		// The People table matches the demo model used by the editor tests, allowing
+		// context.People IntelliSense (hover, completions) tests to continue working.
+		var dbPath = Path.Combine(Path.GetTempPath(), $"linqstudio_e2e_{Guid.NewGuid():N}.db");
+		using (var connection = new SqliteConnection($"Data Source={dbPath}"))
+		{
+			connection.Open();
+			using var cmd = connection.CreateCommand();
+			cmd.CommandText = @"
+				CREATE TABLE People (Id INTEGER PRIMARY KEY, Name TEXT);
+				CREATE TABLE Items (Id INTEGER PRIMARY KEY)";
+			cmd.ExecuteNonQuery();
+		}
+
+		// Write the project JSON into the mock file system directory used by the test server
+		var project = new Project
+		{
+			Name = projectName,
+			DatabaseType = DatabaseType.Sqlite,
+			ConnectionString = $"Data Source={dbPath}",
+		};
+		var projectJson = JsonSerializer.Serialize(project);
+		app.MockFileSystemService.CreateTestFile(
+			$"{projectName}{FileExtensions.Project.WithDot()}", projectJson);
+
+		// Navigate home and open the project via the project browser dialog
+		await page.GotoAsync(app.BaseUrl.ToString());
+		await page.GetByTestId("nav-project").ClickAsync();
+		await Task.Delay(100);
+		await page.GetByTestId("nav-project-open").ClickAsync();
+
+		var browserDialog = page.GetByTestId("project-browser-dialog");
+		await Expect(browserDialog).ToBeVisibleAsync();
+
+		var projectItem = page.GetByTestId("project-list-item")
+			.Filter(new() { HasText = projectName });
+		await Expect(projectItem).ToBeVisibleAsync(new() { Timeout = 10_000 });
+		await projectItem.ClickAsync();
+
+		await page.GetByTestId("project-browser-open-btn").ClickAsync();
+
+		// Verify the project was opened
+		await Expect(page.GetByTestId("nav-project")).ToContainTextAsync(projectName);
 	}
 
 	/// <summary>
@@ -201,12 +272,21 @@ public static class E2ETestHelpers
 	}
 
 	/// <summary>
-	/// Creates a new query tab via the Editor nav menu, then waits for the editor to be ready.
+	/// Creates a new query tab via the database connection right-click context menu,
+	/// then waits for the editor to be ready. Requires a project with a database connection
+	/// to be open so that the connection node is visible in the database explorer.
 	/// </summary>
 	public static async Task CreateAdditionalTabAsync(IPage page, AppServerFixture app)
 	{
-		await page.GetByTestId("nav-editor").ClickAsync();
-		await Task.Delay(100);
+		// Right-click the connection node body to open the context menu
+		var connectionBody = page.GetByTestId("db-tree-connection-body");
+		await Expect(connectionBody).ToBeVisibleAsync(new() { Timeout = 10_000 });
+		await connectionBody.ClickAsync(new() { Button = MouseButton.Right });
+
+		// Capture the current URL before clicking New Query
+		var urlBefore = page.Url;
+
+		// Click "New Query" in the context menu
 		// Blazor's NavigationManager uses pushState for in-app routing — no 'load' event fires.
 		// WaitForURLAsync with its default WaitUntilState.Load therefore hangs until the 30 s
 		// navigation timeout and throws. Capture the URL before clicking, then poll until it
@@ -214,8 +294,9 @@ public static class E2ETestHelpers
 		// Anchored regex (^...$) is required: Playwright's ToHaveURLAsync uses partial/substring
 		// matching, so an unanchored escaped URL would match any URL containing the old URL as a
 		// prefix (e.g. "editor/guid-1" would match "editor/guid-1-something").
-		var urlBefore = page.Url;
-		await page.GetByTestId("nav-editor-new").ClickAsync();
+		var newQueryItem = page.GetByTestId("db-tree-connection-new-query");
+		await Expect(newQueryItem).ToBeVisibleAsync(new() { Timeout = 5_000 });
+		await newQueryItem.ClickAsync();
 		await Expect(page).Not.ToHaveURLAsync(
 			new System.Text.RegularExpressions.Regex(
 				$"^{System.Text.RegularExpressions.Regex.Escape(urlBefore)}$"),

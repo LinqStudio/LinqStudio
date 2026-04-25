@@ -48,13 +48,8 @@ public class DatabaseTreeViewE2ETests(AppServerFixture app, PlaywrightFixture pw
 		// Create a new project (which has no connection string by default)
 		await E2ETestHelpers.CreateNewProjectAsync(page, _app);
 
-		// Navigate to editor
-		await page.GetByTestId("nav-editor").ClickAsync();
-		await Task.Delay(100); // Wait for menu
-		await page.GetByTestId("nav-editor-new").ClickAsync();
-		await page.WaitForURLAsync($"{_app.BaseUrl}editor/*");
-
-		// Assert: Placeholder should still be visible (no connection configured)
+		// The database tree view is visible in the sidebar on all pages.
+		// With no connection configured, it should show a placeholder instead of the tree.
 		var placeholder = page.GetByTestId("db-tree-placeholder");
 		await Expect(placeholder).ToBeVisibleAsync();
 
