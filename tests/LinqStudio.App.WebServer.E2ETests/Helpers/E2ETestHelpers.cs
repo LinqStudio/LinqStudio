@@ -87,7 +87,10 @@ public static class E2ETestHelpers
 		// With KeepPanelsAlive, multiple Monaco editor containers may exist (one per open tab)
 		// Scope to the visible active panel
 		var monacoEditor = GetActivePanel(page).GetByTestId("monaco-editor-container").Locator(".monaco-editor");
-		await Expect(monacoEditor.First).ToBeVisibleAsync();
+		// Use an explicit timeout: Monaco has a known Task.Delay(500) in OnAfterRenderAsync,
+		// meaning it needs at least 500ms + render time before .monaco-editor is in the DOM.
+		// CI (headless, slower) needs more headroom than the Playwright default (~5s).
+		await Expect(monacoEditor.First).ToBeVisibleAsync(new() { Timeout = 15_000 });
 
 		// Click the outer editor div first (triggers Monaco's own focus handler)
 		await monacoEditor.First.ClickAsync();
@@ -177,7 +180,7 @@ public static class E2ETestHelpers
 		// exactly 1 visible panel (the previous tab's panel before the switch), so that check
 		// could pass immediately without confirming the CORRECT panel is now active.
 		await Expect(page.Locator("[role='tabpanel']").Nth(index))
-			.ToBeVisibleAsync(new() { Timeout = 5000 });
+			.ToBeVisibleAsync(new() { Timeout = 15_000 });
 		// Wait for Monaco relayout: OnTabActivatedAsync fires monacoRelayout() after a 300ms delay.
 		// Poll until the editor has non-zero height, confirming layout() has been called and Monaco has rendered.
 		var monacoContainer = GetActivePanel(page).GetByTestId("monaco-editor-container");
