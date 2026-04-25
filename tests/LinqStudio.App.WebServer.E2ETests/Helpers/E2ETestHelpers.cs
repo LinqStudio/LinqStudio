@@ -207,8 +207,19 @@ public static class E2ETestHelpers
 	{
 		await page.GetByTestId("nav-editor").ClickAsync();
 		await Task.Delay(100);
+		// Blazor's NavigationManager uses pushState for in-app routing — no 'load' event fires.
+		// WaitForURLAsync with its default WaitUntilState.Load therefore hangs until the 30 s
+		// navigation timeout and throws. Capture the URL before clicking, then poll until it
+		// changes. This is also race-condition-proof (Expect polls; no event to miss).
+		// Anchored regex (^...$) is required: Playwright's ToHaveURLAsync uses partial/substring
+		// matching, so an unanchored escaped URL would match any URL containing the old URL as a
+		// prefix (e.g. "editor/guid-1" would match "editor/guid-1-something").
+		var urlBefore = page.Url;
 		await page.GetByTestId("nav-editor-new").ClickAsync();
-		await page.WaitForURLAsync($"{app.BaseUrl}editor/*");
+		await Expect(page).Not.ToHaveURLAsync(
+			new System.Text.RegularExpressions.Regex(
+				$"^{System.Text.RegularExpressions.Regex.Escape(urlBefore)}$"),
+			new() { Timeout = 15_000 });
 		await WaitEditorAndFocusAsync(page);
 	}
 
