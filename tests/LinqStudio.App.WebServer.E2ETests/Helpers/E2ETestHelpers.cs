@@ -46,10 +46,13 @@ public static class E2ETestHelpers
 		var connectionBody = page.GetByTestId("db-tree-connection-body");
 		await Expect(connectionBody).ToBeVisibleAsync(new() { Timeout = 10_000 });
 		await connectionBody.ClickAsync(new() { Button = MouseButton.Right });
+		// Brief pause so Blazor's SignalR round-trip (right-click → server → StateHasChanged → DOM)
+		// can complete before we assert on the context menu item.
+		await Task.Delay(300);
 
 		// Click "New Query" in the context menu
 		var newQueryItem = page.GetByTestId("db-tree-connection-new-query");
-		await Expect(newQueryItem).ToBeVisibleAsync(new() { Timeout = 5_000 });
+		await Expect(newQueryItem).ToBeVisibleAsync(new() { Timeout = 15_000 });
 		await newQueryItem.ClickAsync();
 
 		// Queries now use GUIDs instead of numeric indices, so use a wildcard pattern
@@ -80,10 +83,13 @@ public static class E2ETestHelpers
 
 		// Right-click the connection node body to open the context menu
 		await connectionBody.ClickAsync(new() { Button = MouseButton.Right });
+		// Brief pause so Blazor's SignalR round-trip (right-click → server → StateHasChanged → DOM)
+		// can complete before we assert on the context menu item.
+		await Task.Delay(300);
 
 		// Click "New Query" in the context menu
 		var newQueryItem = page.GetByTestId("db-tree-connection-new-query");
-		await Expect(newQueryItem).ToBeVisibleAsync(new() { Timeout = 5_000 });
+		await Expect(newQueryItem).ToBeVisibleAsync(new() { Timeout = 15_000 });
 		await newQueryItem.ClickAsync();
 
 		// Wait for editor page to load
@@ -282,6 +288,9 @@ public static class E2ETestHelpers
 		var connectionBody = page.GetByTestId("db-tree-connection-body");
 		await Expect(connectionBody).ToBeVisibleAsync(new() { Timeout = 10_000 });
 		await connectionBody.ClickAsync(new() { Button = MouseButton.Right });
+		// Brief pause so Blazor's SignalR round-trip (right-click → server → StateHasChanged → DOM)
+		// can complete before we assert on the context menu item.
+		await Task.Delay(300);
 
 		// Capture the current URL before clicking New Query
 		var urlBefore = page.Url;
@@ -295,7 +304,7 @@ public static class E2ETestHelpers
 		// matching, so an unanchored escaped URL would match any URL containing the old URL as a
 		// prefix (e.g. "editor/guid-1" would match "editor/guid-1-something").
 		var newQueryItem = page.GetByTestId("db-tree-connection-new-query");
-		await Expect(newQueryItem).ToBeVisibleAsync(new() { Timeout = 5_000 });
+		await Expect(newQueryItem).ToBeVisibleAsync(new() { Timeout = 15_000 });
 		await newQueryItem.ClickAsync();
 		await Expect(page).Not.ToHaveURLAsync(
 			new System.Text.RegularExpressions.Regex(
