@@ -31,6 +31,27 @@ dotnet run --project src/LinqStudio.AppHost
 dotnet test --filter "FullyQualifiedName~AspireDashboard_ShowsBothDatabases_AsHealthy"
 ```
 
+## Tab-Switch Timing (CI Stability)
+
+`ClickTabAtIndexAsync` in `E2ETestHelpers.cs` uses a three-stage wait after clicking a tab:
+
+1. **Correct panel visibility** — `Expect([role='tabpanel'].Nth(index)).ToBeVisibleAsync(5s)`.
+   This waits for the **specific panel at the clicked index** to become visible. The previous
+   approach (`ToHaveCountAsync(1)`) was unreliable: since there is always exactly 1 visible panel
+   (the *previous* tab before the switch), that check would pass immediately without confirming
+   the correct panel was now active, causing the test to read stale content.
+
+2. **Monaco container height > 0** — polls until the editor container has non-zero height,
+   confirming `monacoRelayout()` has fired and Monaco has laid out.
+
+3. **`.view-lines` visible** — `Expect(GetActivePanel(page).Locator(".view-lines").First).ToBeVisibleAsync(10s)`.
+   Height > 0 does not mean Monaco has finished rendering text on slow CI runners;
+   this waits for the text content to be present in the DOM.
+
+`TabActivationLayoutDelayMs` in `QueryEditorPanel.razor.cs` is set to **300ms** (increased from
+100ms) so `monacoRelayout()` fires after the browser has had enough time to complete the layout
+pass on CI hardware.
+
 ## MudBlazor Interaction Patterns
 
 MudBlazor components (MudSelect, MudMenu) require specific interaction strategies:
@@ -132,7 +153,7 @@ await page.WaitForURLAsync(tab1Url);
 | `Execute_ShowsEmptyResultSet_WhenQueryReturnsNoRows` | "Query returned no results." alert when mock returns empty result |
 
 ### Important Notes
-- **`Execute_Button_IsDisabled_WhenNoQueryOpen`**: Must use SPA navigation (`nav-editor` click), NOT `page.GotoAsync()`. Full page reload resets the Blazor circuit and loses workspace state, causing redirect to home page instead of showing the no-query alert.
+- **`Execute_Button_IsDisabled_WhenNoQueryOpen`**: Uses `SetupEditorAsync` to open a query, then clicks `query-close-btn` to close it and reach the no-query state. This replaces the previous pattern that relied on `nav-editor` SPA navigation (which was removed when the Editor dropdown was deleted from NavMenu).
 - **Race condition prevention**: `Execute_ShowsEmptyResultSet_WhenQueryReturnsNoRows` calls `SetNextResult()` immediately before `executeBtn.ClickAsync()` (not at the start of the test) to minimize the window for other in-flight executions consuming the configured result.
 - **MudBlazor timeout-select**: The MudSelect is wrapped in `<div data-testid="timeout-select">` in Editor.razor because MudSelect's UserAttributes go on a hidden input, making `GetByTestId` find a non-visible element.
 

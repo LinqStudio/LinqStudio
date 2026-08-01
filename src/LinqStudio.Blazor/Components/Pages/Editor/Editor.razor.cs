@@ -11,7 +11,7 @@ public partial class Editor : ComponentBase, IDisposable
 {
 	[Inject] private ILogger<Editor> Logger { get; set; } = null!;
 	[Inject] private ISnackbar Snackbar { get; set; } = null!;
-	[Inject] private CompilerServiceFactory CompilerServiceFactory { get; set; } = null!;
+	[Inject] private ICompilerServiceFactory CompilerServiceFactory { get; set; } = null!;
 	[Inject] private ProjectWorkspace Workspace { get; set; } = null!;
 	[Inject] private NavigationManager NavigationManager { get; set; } = null!;
 

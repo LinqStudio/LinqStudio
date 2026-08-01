@@ -230,25 +230,6 @@ Both emit change events (`WorkspaceChanged`, `QueriesChanged`) for reactive UI. 
 
 ---
 
-## Architecture Decisions Reference
-
-All active architectural decisions live in `.squad/decisions.md`. Key decisions to know:
-
-| # | Decision | File |
-|---|---|---|
-| 1 | Layered architecture with strict dependency flow | decisions.md §1 |
-| 2 | Settings auto-discovery via reflection (`IUserSettingsSection`) | decisions.md §2 |
-| 3 | CompilerService thread safety — `SemaphoreSlim` + query wrapping | decisions.md §3 |
-| 4 | Monaco provider routing via `MonacoProvidersService` | decisions.md §4 |
-| 5 | Workspace pattern for UI state (`ProjectWorkspace` + `QueriesWorkspace`) | decisions.md §5 |
-| 6 | File system abstraction (`IFileSystemService`) | decisions.md §6 |
-| 7 | Error handling three-layer strategy | decisions.md §7 |
-| 8 | Aspire console app exit code handling | decisions.md §8 |
-
-Always read `.squad/decisions.md` before proposing a cross-cutting change — the decision may already be made.
-
----
-
 ## Anti-Patterns
 
 **Never do these:**

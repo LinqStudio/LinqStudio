@@ -2,6 +2,25 @@
 
 Aspire orchestration layer for LinqStudio development environment.
 
+## Selecting Which Apps to Start
+
+Control which apps Aspire starts via `appsettings.json` (or override in `appsettings.Development.json`):
+
+```json
+{
+  "LinqStudio": {
+    "Apps": {
+      "WebServer": true,   // ASP.NET Core Blazor Server (default: true)
+      "Maui": false        // MAUI Blazor Hybrid desktop app, Windows only (default: false)
+    }
+  }
+}
+```
+
+- Any combination is valid (both can run simultaneously).
+- The DB containers and seeder always start regardless of app flags.
+- Only WebServer receives DB connection references (MAUI uses the file system).
+
 ## Database Container Ports
 
 Aspire maps container ports to **random host ports** on each fresh start. The `port:` parameter in `AddSqlServer`/`AddMySql` does NOT reliably control the Docker host port for persistent containers.

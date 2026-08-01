@@ -13,8 +13,7 @@ Load this skill before working on:
 - `src/LinqStudio.Abstractions/` — shared interfaces and models
 - Any code that touches `IUserSettingsSection`, `IDatabaseQueryGenerator`, `IDbContextGenerator`, or `QueryExecutionResult`
 
-For Roslyn-specific workspace work (`AdhocWorkspace`, completions, hover), also read:
-→ `.squad/skills/roslyn-workspace-management/SKILL.md`
+For Roslyn-specific workspace work (`AdhocWorkspace`, completions, hover), also load the `roslyn-workspace-management` skill.
 
 ---
 

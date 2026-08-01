@@ -210,4 +210,13 @@
   <data name="NavMenu.ConnectionSettings" xml:space="preserve">
     <value>Connexion</value>
   </data>
+  <data name="DatabaseTreeView.ContextMenu.NewQuery" xml:space="preserve">
+    <value>Nouvelle requête</value>
+  </data>
+  <data name="DatabaseTreeView.ContextMenu.Refresh" xml:space="preserve">
+    <value>Actualiser</value>
+  </data>
+  <data name="Editor.NoQueryAlert" xml:space="preserve">
+    <value>Aucune requête n'est actuellement ouverte. Faites un clic droit sur la connexion de base de données dans l'explorateur pour créer une nouvelle requête.</value>
+  </data>
 </root>

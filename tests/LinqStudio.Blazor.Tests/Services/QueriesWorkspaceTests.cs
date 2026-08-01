@@ -1,5 +1,6 @@
 using LinqStudio.Blazor.Services;
 using LinqStudio.Core.Models;
+using LinqStudio.Core.Repositories;
 using LinqStudio.Core.Services;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -8,18 +9,21 @@ namespace LinqStudio.Blazor.Tests.Services;
 public class QueriesWorkspaceTests : IDisposable
 {
 	private readonly QueryService _queryService;
+	private readonly FileSystemQueryRepository _queryRepository;
 	private readonly QueriesWorkspace _workspace;
 	private readonly string _testDirectory;
 	private readonly string _testProjectFilePath;
+	private const string TestProjectId = "TestProject";
 
 	public QueriesWorkspaceTests()
 	{
 		_testDirectory = Path.Combine(Path.GetTempPath(), $"LinqStudioTests_{Guid.NewGuid()}");
 		Directory.CreateDirectory(_testDirectory);
-		_testProjectFilePath = Path.Combine(_testDirectory, "TestProject.linq");
+		_testProjectFilePath = Path.Combine(_testDirectory, $"{TestProjectId}.linq");
 
 		_queryService = new QueryService();
-		_workspace = new QueriesWorkspace(_queryService, NullLogger<QueriesWorkspace>.Instance);
+		_queryRepository = new FileSystemQueryRepository(_queryService, new FileSystemStorageOptions { BasePath = _testDirectory });
+		_workspace = new QueriesWorkspace(_queryRepository, NullLogger<QueriesWorkspace>.Instance);
 	}
 
 	public void Dispose()
@@ -36,7 +40,7 @@ public class QueriesWorkspaceTests : IDisposable
 	public async Task InitializeAsync_WithNoQueries_SetsCurrentIndexToNull()
 	{
 		// Act
-		await _workspace.InitializeAsync(_testProjectFilePath);
+		await _workspace.InitializeAsync(TestProjectId);
 
 		// Assert
 		Assert.Null(_workspace.CurrentQueryId);
@@ -47,12 +51,12 @@ public class QueriesWorkspaceTests : IDisposable
 	[Fact]
 	public async Task InitializeAsync_WithQueries_OpensFirstQuery()
 	{
-		// Arrange
+		// Arrange — pre-populate via QueryService using the file path
 		var q1 = new SavedQuery { Name = "Query1", QueryText = "context.People", CreatedDate = DateTimeOffset.UtcNow };
 		await _queryService.SaveQueryAsync(_testProjectFilePath, q1);
 
 		// Act
-		await _workspace.InitializeAsync(_testProjectFilePath);
+		await _workspace.InitializeAsync(TestProjectId);
 
 		// Assert
 		Assert.Equal(q1.Id, _workspace.CurrentQueryId);
@@ -72,7 +76,7 @@ public class QueriesWorkspaceTests : IDisposable
 		var q2 = new SavedQuery { Name = "Query2", QueryText = "context.Orders", CreatedDate = DateTimeOffset.UtcNow };
 		await _queryService.SaveQueryAsync(_testProjectFilePath, q1);
 		await _queryService.SaveQueryAsync(_testProjectFilePath, q2);
-		await _workspace.InitializeAsync(_testProjectFilePath);
+		await _workspace.InitializeAsync(TestProjectId);
 
 		// Act
 		_workspace.OpenQuery(q2.Id);
@@ -90,7 +94,7 @@ public class QueriesWorkspaceTests : IDisposable
 	public async Task CreateNewQuery_CreatesAndOpensQuery()
 	{
 		// Arrange
-		await _workspace.InitializeAsync(_testProjectFilePath);
+		await _workspace.InitializeAsync(TestProjectId);
 
 		// Act
 		var newId = _workspace.CreateNewQuery();
@@ -111,7 +115,7 @@ public class QueriesWorkspaceTests : IDisposable
 		// Arrange
 		var q1 = new SavedQuery { Name = "Query1", QueryText = "original", CreatedDate = DateTimeOffset.UtcNow };
 		await _queryService.SaveQueryAsync(_testProjectFilePath, q1);
-		await _workspace.InitializeAsync(_testProjectFilePath);
+		await _workspace.InitializeAsync(TestProjectId);
 
 		// Act
 		_workspace.UpdateQueryText(q1.Id, "updated");
@@ -129,14 +133,14 @@ public class QueriesWorkspaceTests : IDisposable
 	public async Task SaveQueryAsync_SavesQueryToDisk()
 	{
 		// Arrange
-		await _workspace.InitializeAsync(_testProjectFilePath);
+		await _workspace.InitializeAsync(TestProjectId);
 		var newId = _workspace.CreateNewQuery();
 		_workspace.UpdateQueryText(newId, "new query text");
 
 		// Act
 		await _workspace.SaveQueryAsync(newId);
 
-		// Assert - reload and verify
+		// Assert - reload via QueryService and verify
 		var reloaded = await _queryService.LoadQueriesAsync(_testProjectFilePath);
 		Assert.Single(reloaded);
 		Assert.Equal("new query text", reloaded[0].QueryText);
@@ -152,7 +156,7 @@ public class QueriesWorkspaceTests : IDisposable
 		// Arrange
 		var q1 = new SavedQuery { Name = "Query1", QueryText = "test", CreatedDate = DateTimeOffset.UtcNow };
 		await _queryService.SaveQueryAsync(_testProjectFilePath, q1);
-		await _workspace.InitializeAsync(_testProjectFilePath);
+		await _workspace.InitializeAsync(TestProjectId);
 
 		// Act
 		_workspace.RenameQuery(q1.Id, "NewName");
@@ -171,7 +175,7 @@ public class QueriesWorkspaceTests : IDisposable
 		// Arrange
 		var q1 = new SavedQuery { Name = "Query1", QueryText = "test", CreatedDate = DateTimeOffset.UtcNow };
 		await _queryService.SaveQueryAsync(_testProjectFilePath, q1);
-		await _workspace.InitializeAsync(_testProjectFilePath);
+		await _workspace.InitializeAsync(TestProjectId);
 
 		// Act
 		await _workspace.DeleteQueryAsync(q1.Id);
@@ -182,4 +186,45 @@ public class QueriesWorkspaceTests : IDisposable
 	}
 
 	#endregion
+
+	#region SaveAllToProject Tests
+
+	[Fact]
+	public async Task SaveAllToProjectAsync_SavesAllQueries_IncludingDirtyEdits()
+	{
+		// Arrange - workspace with a saved query and one dirty edit
+		await _workspace.InitializeAsync(TestProjectId);
+		var queryId = _workspace.CreateNewQuery("MyQuery");
+		_workspace.UpdateQueryText(queryId, "context.Items");
+
+		// Act - save all to a different project location
+		const string TargetProjectId = "TargetProject";
+		await _workspace.SaveAllToProjectAsync(TargetProjectId);
+
+		// Assert - queries appear under the target project
+		var targetProjectFilePath = Path.Combine(_testDirectory, $"{TargetProjectId}.linq");
+		var savedQueries = await _queryService.LoadQueriesAsync(targetProjectFilePath);
+		Assert.Single(savedQueries);
+		Assert.Equal("context.Items", savedQueries[0].QueryText);
+	}
+
+	[Fact]
+	public async Task SaveAllToProjectAsync_FlushesUnsavedChanges()
+	{
+		// Arrange
+		await _workspace.InitializeAsync(TestProjectId);
+		var queryId = _workspace.CreateNewQuery();
+		_workspace.UpdateQueryText(queryId, "context.Changed");
+
+		Assert.True(_workspace.HasUnsavedChanges);
+
+		// Act
+		await _workspace.SaveAllToProjectAsync(TestProjectId);
+
+		// Assert - dirty flag cleared after flush
+		Assert.False(_workspace.HasUnsavedChanges);
+	}
+
+	#endregion
 }
+

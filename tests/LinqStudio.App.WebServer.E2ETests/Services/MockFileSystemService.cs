@@ -1,38 +1,18 @@
-using LinqStudio.Blazor.Abstractions;
-using LinqStudio.Blazor.Constants;
-
 namespace LinqStudio.App.WebServer.E2ETests.Services;
 
 /// <summary>
-/// Mock file system service for E2E testing that simulates file dialogs without UI.
+/// Test helper that manages a temporary directory for E2E test file storage.
+/// Used to configure FileSystemStorageOptions.BasePath so repositories write to a temp dir.
 /// </summary>
-public class MockFileSystemService : IFileSystemService
+public class MockFileSystemService
 {
 	private readonly string _testFilesDirectory;
-	private string? _nextOpenFileResult;
-	private string? _nextSaveFileResult;
 
 	public MockFileSystemService()
 	{
 		// Create a temp directory for test files
 		_testFilesDirectory = Path.Combine(Path.GetTempPath(), "LinqStudio.E2ETests", Guid.NewGuid().ToString());
 		Directory.CreateDirectory(_testFilesDirectory);
-	}
-
-	/// <summary>
-	/// Sets the result that will be returned by the next call to PromptOpenFileAsync.
-	/// </summary>
-	public void SetNextOpenFileResult(string fileName)
-	{
-		_nextOpenFileResult = Path.Combine(_testFilesDirectory, fileName);
-	}
-
-	/// <summary>
-	/// Sets the result that will be returned by the next call to PromptSaveFileAsync.
-	/// </summary>
-	public void SetNextSaveFileResult(string fileName)
-	{
-		_nextSaveFileResult = Path.Combine(_testFilesDirectory, fileName);
 	}
 
 	/// <summary>
@@ -69,33 +49,6 @@ public class MockFileSystemService : IFileSystemService
 	public string GetTestFilesDirectory()
 	{
 		return _testFilesDirectory;
-	}
-
-	public Task<string?> PromptOpenFileAsync(string fileExtension = FileExtensions.Project, string? defaultPath = null)
-	{
-		// Return the pre-configured result (simulates user selecting a file)
-		var result = _nextOpenFileResult;
-		_nextOpenFileResult = null; // Reset after use
-		return Task.FromResult(result);
-	}
-
-	public Task<string?> PromptSaveFileAsync(string defaultFileName, string fileExtension = FileExtensions.Project, string? defaultPath = null)
-	{
-		// If a specific result is set, use it
-		if (_nextSaveFileResult != null)
-		{
-			var result = _nextSaveFileResult;
-			_nextSaveFileResult = null; // Reset after use
-			return Task.FromResult<string?>(result);
-		}
-
-		// Otherwise, auto-generate a file path in the test directory
-		var filePath = Path.Combine(_testFilesDirectory, defaultFileName);
-		if (!filePath.EndsWith(fileExtension, StringComparison.OrdinalIgnoreCase))
-		{
-			filePath += "." + fileExtension;
-		}
-		return Task.FromResult<string?>(filePath);
 	}
 
 	/// <summary>

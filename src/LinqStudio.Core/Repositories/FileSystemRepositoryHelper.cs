@@ -1,0 +1,74 @@
+namespace LinqStudio.Core.Repositories;
+
+/// <summary>
+/// Shared path-validation utilities used by file-system repository implementations.
+/// All methods are pure and stateless; no I/O is performed.
+/// </summary>
+internal static class FileSystemRepositoryHelper
+{
+	/// <summary>
+	/// Suffix appended to a project file path to derive its queries directory.
+	/// Example: "MyProject.linq" → "MyProject.linq.queries/"
+	/// </summary>
+	internal const string QueriesDirectorySuffix = ".queries";
+
+	/// <summary>
+	/// Returns the absolute, validated path for a resource identified by <paramref name="id"/>
+	/// inside <paramref name="basePath"/>.
+	/// </summary>
+	/// <remarks>
+	/// Two-stage path-traversal guard:
+	/// <list type="number">
+	///   <item>
+	///     <description>
+	///       An explicit backslash check combined with <c>Path.GetFileName(id) != id</c> — rejects
+	///       any <paramref name="id"/> that contains a directory separator
+	///       (e.g. <c>../secret</c>, <c>sub/file</c>, or <c>..\secret</c>).
+	///       The explicit backslash check is required because on Linux <c>\</c> is a valid filename
+	///       character rather than a separator, so <c>Path.GetFileName</c> alone would not reject it.
+	///     </description>
+	///   </item>
+	///   <item>
+	///     <description>
+	///       The combined path is resolved with <c>Path.GetFullPath</c> (which normalises
+	///       <c>..</c>, symlinks, and redundant separators) and then checked with
+	///       <c>StartsWith(fullBase + DirectorySeparatorChar)</c>. The trailing separator is
+	///       critical: without it, a base of <c>/data/foo</c> would incorrectly allow
+	///       <c>/data/foobar/secret</c> because that string does start with <c>/data/foo</c>.
+	///     </description>
+	///   </item>
+	/// </list>
+	/// Together the two checks prevent path-traversal attacks regardless of OS conventions
+	/// or unusual input encoding.
+	/// </remarks>
+	/// <param name="basePath">The root directory that all resolved paths must remain inside.</param>
+	/// <param name="id">
+	/// A plain filename component (no directory separators). Used as the stem of the resulting path.
+	/// </param>
+	/// <param name="extension">
+	/// File extension to append (including the leading dot, e.g. <c>".linq"</c>).
+	/// </param>
+	/// <returns>The resolved absolute path: <c>{basePath}/{id}{extension}</c>.</returns>
+	/// <exception cref="ArgumentException">
+	/// Thrown when <paramref name="id"/> contains path separators, resolves outside
+	/// <paramref name="basePath"/>, or is otherwise invalid.
+	/// </exception>
+	internal static string GetValidatedPath(string basePath, string id, string extension)
+	{
+		// First check: reject any id that is not a plain filename (contains / or \ or is empty).
+		// Explicitly check for backslash because on Linux '\' is a valid filename character,
+		// not a path separator, so Path.GetFileName alone would not reject it.
+		if (id.Contains('\\') || Path.GetFileName(id) != id)
+			throw new ArgumentException($"Invalid ID '{id}'.", nameof(id));
+
+		var fullBase = Path.GetFullPath(basePath);
+		var fullPath = Path.GetFullPath(Path.Combine(fullBase, $"{id}{extension}"));
+
+		// Second check: after full normalisation, confirm the resolved path is still inside basePath.
+		// The trailing DirectorySeparatorChar prevents "/base/foo" from matching "/base/foobar".
+		if (!fullPath.StartsWith(fullBase + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+			throw new ArgumentException($"Invalid ID '{id}'.", nameof(id));
+
+		return fullPath;
+	}
+}

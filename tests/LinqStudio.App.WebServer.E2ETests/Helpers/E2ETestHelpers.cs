@@ -1,6 +1,10 @@
 using LinqStudio.Abstractions.Models;
 using LinqStudio.App.WebServer.E2ETests.Fixtures;
+using LinqStudio.Blazor.Constants;
+using LinqStudio.Core.Models;
+using Microsoft.Data.Sqlite;
 using Microsoft.Playwright;
+using System.Text.Json;
 using static Microsoft.Playwright.Assertions;
 
 namespace LinqStudio.App.WebServer.E2ETests.Helpers;
@@ -29,19 +33,34 @@ public static class E2ETestHelpers
 	}
 
 	/// <summary>
-	/// Creates a new query and optionally types query text into the Monaco editor.
+	/// Creates a new query via the database connection right-click context menu and optionally
+	/// types query text into the Monaco editor. Requires a project with a database connection to be
+	/// open so that the connection node is visible in the database explorer.
 	/// </summary>
 	/// <param name="page">The Playwright page.</param>
 	/// <param name="app">The app server fixture for URL construction.</param>
 	/// <param name="queryText">Optional text to type into the editor. Defaults to "context."</param>
 	public static async Task CreateQueryAsync(IPage page, AppServerFixture app, string queryText = "context.", int index = 0)
 	{
-		// Open the Editor menu first (MudMenu requires opening before items are visible)
-		await page.GetByTestId("nav-editor").ClickAsync();
-		// Wait briefly for menu to open
-		await Task.Delay(100);
-		// Changed from nav-query-create to nav-editor-new
-		await page.GetByTestId("nav-editor-new").ClickAsync();
+		// Right-click the connection node body to open the context menu.
+		// We dispatch a synthetic contextmenu MouseEvent (isTrusted=false) directly on the element
+		// rather than using a CDP-based right-click (isTrusted=true). Monaco Editor registers
+		// window-level capture event listeners when active on the page; those listeners may
+		// intercept trusted contextmenu events before Blazor's @oncontextmenu handler fires.
+		// Synthetic events are ignored by Monaco's listeners, so they reach Blazor reliably
+		// in both headed (local dev) and headless (CI) modes.
+		var connectionBody = page.GetByTestId("db-tree-connection-body");
+		await Expect(connectionBody).ToBeVisibleAsync(new() { Timeout = 15_000 });
+		var connBox = await connectionBody.BoundingBoxAsync();
+		await connectionBody.EvaluateAsync(
+			@"(el, {cx, cy}) => el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, composed: true, clientX: cx, clientY: cy, button: 2, buttons: 2 }))",
+			new { cx = (connBox?.X ?? 0) + (connBox?.Width ?? 100) / 2.0, cy = (connBox?.Y ?? 0) + (connBox?.Height ?? 20) / 2.0 });
+
+		// Click "New Query" in the context menu
+		var newQueryItem = page.GetByTestId("db-tree-connection-new-query");
+		await Expect(newQueryItem).ToBeVisibleAsync(new() { Timeout = 15_000 });
+		await newQueryItem.ClickAsync();
+
 		// Queries now use GUIDs instead of numeric indices, so use a wildcard pattern
 		await page.WaitForURLAsync($"{app.BaseUrl}editor/*");
 		// With KeepPanelsAlive, multiple panels can exist — wait for the visible one
@@ -56,19 +75,28 @@ public static class E2ETestHelpers
 	}
 
 	/// <summary>
-	/// Sets up the editor by creating a new project and navigating to a new query.
+	/// Sets up the editor by creating a new project with a SQLite connection and navigating
+	/// to a new query via the database connection right-click context menu.
 	/// Waits for the Monaco editor to be ready and focused.
 	/// </summary>
 	public static async Task SetupEditorAsync(IPage page, AppServerFixture app)
 	{
-		await CreateNewProjectAsync(page, app);
+		await CreateAndOpenSQLiteProjectAsync(page, app);
 
-		// Open the Editor menu first (MudMenu requires opening before items are visible)
-		await page.GetByTestId("nav-editor").ClickAsync();
-		// Wait briefly for menu to open
-		await Task.Delay(100);
-		// Create a new query - changed from nav-query-create to nav-editor-new
-		await page.GetByTestId("nav-editor-new").ClickAsync();
+		// Wait for the database tree view's connection node body to appear
+		var connectionBody = page.GetByTestId("db-tree-connection-body");
+		await Expect(connectionBody).ToBeVisibleAsync(new() { Timeout = 15_000 });
+
+		// Dispatch synthetic contextmenu event — see CreateQueryAsync for rationale.
+		var connBoxSetup = await connectionBody.BoundingBoxAsync();
+		await connectionBody.EvaluateAsync(
+			@"(el, {cx, cy}) => el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, composed: true, clientX: cx, clientY: cy, button: 2, buttons: 2 }))",
+			new { cx = (connBoxSetup?.X ?? 0) + (connBoxSetup?.Width ?? 100) / 2.0, cy = (connBoxSetup?.Y ?? 0) + (connBoxSetup?.Height ?? 20) / 2.0 });
+
+		// Click "New Query" in the context menu
+		var newQueryItem = page.GetByTestId("db-tree-connection-new-query");
+		await Expect(newQueryItem).ToBeVisibleAsync(new() { Timeout = 15_000 });
+		await newQueryItem.ClickAsync();
 
 		// Wait for editor page to load
 		await page.WaitForURLAsync($"{app.BaseUrl}editor/*");
@@ -76,6 +104,61 @@ public static class E2ETestHelpers
 		await Expect(GetActivePanel(page).GetByTestId("monaco-editor-container").First).ToBeVisibleAsync();
 
 		await WaitEditorAndFocusAsync(page);
+	}
+
+	/// <summary>
+	/// Creates a temporary SQLite database and opens it as a project in the app.
+	/// The SQLite file is placed in the OS temp directory and is not cleaned up automatically;
+	/// the OS reclaims temp files on reboot. This method uses a uniquely-named project to
+	/// prevent conflicts across concurrent test runs.
+	/// </summary>
+	private static async Task CreateAndOpenSQLiteProjectAsync(IPage page, AppServerFixture app)
+	{
+		var projectName = $"SetupProject_{Guid.NewGuid():N}";
+
+		// Create a minimal SQLite database file in the OS temp directory.
+		// The People table matches the demo model used by the editor tests, allowing
+		// context.People IntelliSense (hover, completions) tests to continue working.
+		var dbPath = Path.Combine(Path.GetTempPath(), $"linqstudio_e2e_{Guid.NewGuid():N}.db");
+		using (var connection = new SqliteConnection($"Data Source={dbPath}"))
+		{
+			connection.Open();
+			using var cmd = connection.CreateCommand();
+			cmd.CommandText = @"
+				CREATE TABLE People (Id INTEGER PRIMARY KEY, Name TEXT);
+				CREATE TABLE Items (Id INTEGER PRIMARY KEY)";
+			cmd.ExecuteNonQuery();
+		}
+
+		// Write the project JSON into the mock file system directory used by the test server
+		var project = new Project
+		{
+			Name = projectName,
+			DatabaseType = DatabaseType.Sqlite,
+			ConnectionString = $"Data Source={dbPath}",
+		};
+		var projectJson = JsonSerializer.Serialize(project);
+		app.MockFileSystemService.CreateTestFile(
+			$"{projectName}{FileExtensions.Project.WithDot()}", projectJson);
+
+		// Navigate home and open the project via the project browser dialog
+		await page.GotoAsync(app.BaseUrl.ToString());
+		await page.GetByTestId("nav-project").ClickAsync();
+		await Task.Delay(100);
+		await page.GetByTestId("nav-project-open").ClickAsync();
+
+		var browserDialog = page.GetByTestId("project-browser-dialog");
+		await Expect(browserDialog).ToBeVisibleAsync();
+
+		var projectItem = page.GetByTestId("project-list-item")
+			.Filter(new() { HasText = projectName });
+		await Expect(projectItem).ToBeVisibleAsync(new() { Timeout = 10_000 });
+		await projectItem.ClickAsync();
+
+		await page.GetByTestId("project-browser-open-btn").ClickAsync();
+
+		// Verify the project was opened
+		await Expect(page.GetByTestId("nav-project")).ToContainTextAsync(projectName);
 	}
 
 	/// <summary>
@@ -87,10 +170,21 @@ public static class E2ETestHelpers
 		// With KeepPanelsAlive, multiple Monaco editor containers may exist (one per open tab)
 		// Scope to the visible active panel
 		var monacoEditor = GetActivePanel(page).GetByTestId("monaco-editor-container").Locator(".monaco-editor");
-		await Expect(monacoEditor.First).ToBeVisibleAsync();
+		// Use an explicit timeout: Monaco has a known Task.Delay(500) in OnAfterRenderAsync,
+		// meaning it needs at least 500ms + render time before .monaco-editor is in the DOM.
+		// CI (headless, slower) needs more headroom than the Playwright default (~5s).
+		await Expect(monacoEditor.First).ToBeVisibleAsync(new() { Timeout = 15_000 });
 
-		// Click to focus the editor
+		// Click the outer editor div first (triggers Monaco's own focus handler)
 		await monacoEditor.First.ClickAsync();
+
+		// Monaco's real keyboard sink is the textarea.inputarea inside each editor instance.
+		// Clicking only the outer div can leave keyboard focus on a previously active editor
+		// (e.g., Tab 1's textarea still holds focus while Tab 2's panel becomes visible).
+		// Force-clicking the inputarea guarantees browser keyboard focus moves to THIS editor.
+		var inputArea = GetActivePanel(page).GetByTestId("monaco-editor-container").Locator("textarea.inputarea");
+		if (await inputArea.CountAsync() > 0)
+			await inputArea.First.ClickAsync(new LocatorClickOptions { Force = true });
 	}
 
 	/// <summary>
@@ -158,15 +252,19 @@ public static class E2ETestHelpers
 
 	/// <summary>
 	/// Clicks a MudTabs tab button by 0-based position and waits for the panel switch to complete.
+	/// Includes additional delay to allow Monaco editor relayout (OnTabActivatedAsync has a 300ms delay).
+	/// Also explicitly focuses the newly active Monaco editor so keyboard events go to the right instance.
 	/// </summary>
 	public static async Task ClickTabAtIndexAsync(IPage page, int index)
 	{
-		// Scope to outer editor query tabs to avoid matching inner Results|C#|SQL tab headers
-		await page.GetByTestId("editor-query-tabs").Locator(".mud-tab").Nth(index).ClickAsync();
-		// Wait for the outer query panel's execution bar to be visible — reliable sync point
-		// that avoids counting issues from nested Results|C#|SQL tabs.
-		await Expect(GetActivePanel(page).GetByTestId("query-execution-bar")).ToBeVisibleAsync(new() { Timeout = 5000 });
-		// Wait for Monaco relayout: OnTabActivatedAsync fires monacoRelayout() after a 100ms delay.
+		await page.Locator(".mud-tab").Nth(index).ClickAsync();
+		// Wait for the SPECIFIC panel at this index to become visible.
+		// Using Nth(index) is critical: ToHaveCountAsync(1) was unreliable because there is always
+		// exactly 1 visible panel (the previous tab's panel before the switch), so that check
+		// could pass immediately without confirming the CORRECT panel is now active.
+		await Expect(page.Locator("[role='tabpanel']").Nth(index))
+			.ToBeVisibleAsync(new() { Timeout = 15_000 });
+		// Wait for Monaco relayout: OnTabActivatedAsync fires monacoRelayout() after a 300ms delay.
 		// Poll until the editor has non-zero height, confirming layout() has been called and Monaco has rendered.
 		var monacoContainer = GetActivePanel(page).GetByTestId("monaco-editor-container");
 		for (var attempt = 0; attempt < 30; attempt++)
@@ -175,6 +273,10 @@ public static class E2ETestHelpers
 			if (box is { Height: > 0 }) break;
 			await Task.Delay(100);
 		}
+		// Wait for Monaco to finish rendering text content (height > 0 is not enough on slow CI runners)
+		await Expect(GetActivePanel(page).Locator(".view-lines").First)
+			.ToBeVisibleAsync(new() { Timeout = 10_000 });
+
 		// Force-focus the active Monaco textarea so keyboard events go to the correct editor instance
 		var inputArea = GetActivePanel(page).Locator("textarea.inputarea");
 		if (await inputArea.CountAsync() > 0)
@@ -182,14 +284,39 @@ public static class E2ETestHelpers
 	}
 
 	/// <summary>
-	/// Creates a new query tab via the Editor nav menu, then waits for the editor to be ready.
+	/// Creates a new query tab via the database connection right-click context menu,
+	/// then waits for the editor to be ready. Requires a project with a database connection
+	/// to be open so that the connection node is visible in the database explorer.
 	/// </summary>
 	public static async Task CreateAdditionalTabAsync(IPage page, AppServerFixture app)
 	{
-		await page.GetByTestId("nav-editor").ClickAsync();
-		await Task.Delay(100);
-		await page.GetByTestId("nav-editor-new").ClickAsync();
-		await page.WaitForURLAsync($"{app.BaseUrl}editor/*");
+		// Right-click the connection node body to open the context menu.
+		// Dispatch synthetic contextmenu event — see CreateQueryAsync for rationale.
+		var connectionBody = page.GetByTestId("db-tree-connection-body");
+		await Expect(connectionBody).ToBeVisibleAsync(new() { Timeout = 15_000 });
+		var connBox = await connectionBody.BoundingBoxAsync();
+		await connectionBody.EvaluateAsync(
+			@"(el, {cx, cy}) => el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, composed: true, clientX: cx, clientY: cy, button: 2, buttons: 2 }))",
+			new { cx = (connBox?.X ?? 0) + (connBox?.Width ?? 100) / 2.0, cy = (connBox?.Y ?? 0) + (connBox?.Height ?? 20) / 2.0 });
+
+		// Capture the current URL before clicking New Query
+		var urlBefore = page.Url;
+
+		// Click "New Query" in the context menu
+		// Blazor's NavigationManager uses pushState for in-app routing — no 'load' event fires.
+		// WaitForURLAsync with its default WaitUntilState.Load therefore hangs until the 30 s
+		// navigation timeout and throws. Capture the URL before clicking, then poll until it
+		// changes. This is also race-condition-proof (Expect polls; no event to miss).
+		// Anchored regex (^...$) is required: Playwright's ToHaveURLAsync uses partial/substring
+		// matching, so an unanchored escaped URL would match any URL containing the old URL as a
+		// prefix (e.g. "editor/guid-1" would match "editor/guid-1-something").
+		var newQueryItem = page.GetByTestId("db-tree-connection-new-query");
+		await Expect(newQueryItem).ToBeVisibleAsync(new() { Timeout = 15_000 });
+		await newQueryItem.ClickAsync();
+		await Expect(page).Not.ToHaveURLAsync(
+			new System.Text.RegularExpressions.Regex(
+				$"^{System.Text.RegularExpressions.Regex.Escape(urlBefore)}$"),
+			new() { Timeout = 15_000 });
 		await WaitEditorAndFocusAsync(page);
 	}
 

@@ -3,6 +3,7 @@ using Nuke.Common.CI.GitHubActions;
 using Nuke.Common.ProjectModel;
 using Nuke.Common.Tooling;
 using Nuke.Common.Tools.DotNet;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using static Nuke.Common.Tools.DotNet.DotNetTasks;
@@ -24,8 +25,13 @@ class Build : NukeBuild
 	[Solution]
 	readonly Solution Solution;
 
-	// Get all projects except the build project itself
-	IEnumerable<Project> BuildableProjects => Solution.AllProjects.Where(p => p != Solution.GetProject("_build"));
+	// MAUI is Windows-only; AppHost references MAUI — both are excluded on non-Windows runners
+	static readonly string[] NonWindowsExcludedProjects = ["LinqStudio.App.Maui", "LinqStudio.AppHost"];
+
+	// Get all projects except the build project itself (and Windows-only projects on non-Windows)
+	IEnumerable<Project> BuildableProjects => Solution.AllProjects
+		.Where(p => p != Solution.GetProject("_build"))
+		.Where(p => EnvironmentInfo.IsWin || !NonWindowsExcludedProjects.Contains(p.Name));
 
 	// Test project discovery
 	IEnumerable<Project> UnitTestProjects => Solution.AllProjects.Where(p => p.Name.EndsWith(".Tests"));
@@ -46,19 +52,46 @@ class Build : NukeBuild
 	Target Restore => _ => _
 		.Executes(() =>
 		{
-			DotNetRestore(s => s
-				.SetProjectFile(Solution)
-				.SetProperty("Configuration", Configuration.ToString()));
+			// On non-Windows, restore per-project to avoid triggering MAUI workload checks
+			if (EnvironmentInfo.IsWin)
+			{
+				DotNetRestore(s => s
+					.SetProjectFile(Solution)
+					.SetProperty("Configuration", Configuration.ToString()));
+			}
+			else
+			{
+				foreach (var project in BuildableProjects)
+				{
+					DotNetRestore(s => s
+						.SetProjectFile(project)
+						.SetProperty("Configuration", Configuration.ToString()));
+				}
+			}
 		});
 
 	Target Compile => _ => _
 		.DependsOn(Restore)
 		.Executes(() =>
 		{
-			DotNetBuild(s => s
-			   .SetProjectFile(Solution)
-			   .SetConfiguration(Configuration)
-			   .EnableNoRestore());
+			// On non-Windows, build per-project to avoid MAUI projects that can't target Linux
+			if (EnvironmentInfo.IsWin)
+			{
+				DotNetBuild(s => s
+				   .SetProjectFile(Solution)
+				   .SetConfiguration(Configuration)
+				   .EnableNoRestore());
+			}
+			else
+			{
+				foreach (var project in BuildableProjects)
+				{
+					DotNetBuild(s => s
+					   .SetProjectFile(project)
+					   .SetConfiguration(Configuration)
+					   .EnableNoRestore());
+				}
+			}
 		});
 
 	// Install Playwright browsers for E2E tests using the built-in script

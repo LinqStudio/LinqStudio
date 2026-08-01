@@ -320,5 +320,32 @@ namespace LinqStudio.Core.Resources {
                 return ResourceManager.GetString("NavMenu.ConnectionSettings", resourceCulture);
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to New Query.
+        /// </summary>
+        public static string DatabaseTreeView_ContextMenu_NewQuery {
+            get {
+                return ResourceManager.GetString("DatabaseTreeView.ContextMenu.NewQuery", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Refresh.
+        /// </summary>
+        public static string DatabaseTreeView_ContextMenu_Refresh {
+            get {
+                return ResourceManager.GetString("DatabaseTreeView.ContextMenu.Refresh", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No queries are currently open. Right-click the database connection in the explorer to create a new query.
+        /// </summary>
+        public static string Editor_NoQueryAlert {
+            get {
+                return ResourceManager.GetString("Editor.NoQueryAlert", resourceCulture);
+            }
+        }
     }
 }
