@@ -58,7 +58,7 @@
 	<div class="resize-splitter" id="@SplitterId" data-testid="editor-results-splitter"></div>
 
 	<!-- Query Result Grid -->
-	<div class="results-bottom" id="@ResultsPanelId" style="height:calc(60% - 5px); overflow:auto" data-testid="query-result-container">
+	<div class="results-bottom" id="@ResultsPanelId" style="height:calc(60% - 5px)" data-testid="query-result-container">
 		<!-- Query Execution Actions -->
 		<MudPaper Class="pa-2" Elevation="1" data-testid="query-execution-bar">
 			<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
@@ -124,7 +124,45 @@
 			</MudStack>
 		</MudPaper>
 
-		<QueryResultGrid Result="@_result"
-						 IsExecuting="@_isExecuting" />
+		<MudTabs KeepPanelsAlive="true" Class="results-tabs" data-testid="results-tabs">
+			<MudTabPanel Text="Results" Icon="@Icons.Material.Filled.TableChart" data-testid="results-tab-panel">
+				<QueryResultGrid Result="@_result"
+								 IsExecuting="@_isExecuting" />
+			</MudTabPanel>
+
+			<MudTabPanel Text="C#" Icon="@Icons.Material.Filled.Code" data-testid="csharp-tab-panel">
+				@if (!_delay && _result?.GeneratedCSharp is not null)
+				{
+					<StandaloneCodeEditor @ref="_csharpEditor"
+										  CssClass="code-viewer"
+										  ConstructionOptions="CSharpViewerConstructionOptions" />
+				}
+				else if (!_isExecuting && _result is null)
+				{
+					<MudText Class="pa-4" Color="Color.Secondary">Run a query to see the generated C# code.</MudText>
+				}
+				else if (_result?.GeneratedCSharp is null && _result is not null)
+				{
+					<MudText Class="pa-4" Color="Color.Secondary">C# is not available for this query.</MudText>
+				}
+			</MudTabPanel>
+
+			<MudTabPanel Text="SQL" Icon="@Icons.Material.Filled.Storage" data-testid="sql-tab-panel">
+				@if (!_delay && _result?.GeneratedSql is not null)
+				{
+					<StandaloneCodeEditor @ref="_sqlEditor"
+										  CssClass="code-viewer"
+										  ConstructionOptions="SqlViewerConstructionOptions" />
+				}
+				else if (!_isExecuting && _result is null)
+				{
+					<MudText Class="pa-4" Color="Color.Secondary">Run a query to see the generated SQL.</MudText>
+				}
+				else if (_result?.GeneratedSql is null && _result is not null)
+				{
+					<MudText Class="pa-4" Color="Color.Secondary">SQL is not available for this query.</MudText>
+				}
+			</MudTabPanel>
+		</MudTabs>
 	</div>
 </div>

@@ -140,9 +140,10 @@ public class TabBehaviorE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await E2ETestHelpers.CreateAdditionalTabAsync(page, _app);
 		await E2ETestHelpers.CreateAdditionalTabAsync(page, _app);
 
-		// Verify 3 tabs exist in the tab strip
-		var tabStrip = page.Locator(".mud-tab");
-		await Expect(tabStrip).ToHaveCountAsync(3, new() { Timeout = 5_000 });
+		// Verify 3 tabs exist — one query-execution-bar per open query panel (works with KeepPanelsAlive)
+		// Avoids counting .mud-tab which also includes inner Results|C#|SQL tab buttons
+		var queryPanelCount = page.GetByTestId("query-execution-bar");
+		await Expect(queryPanelCount).ToHaveCountAsync(3, new() { Timeout = 5_000 });
 
 		// Switch to the middle tab, type content to mark it as having unsaved changes
 		await E2ETestHelpers.ClickTabAtIndexAsync(page, 1);
@@ -162,7 +163,7 @@ public class TabBehaviorE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await page.WaitForURLAsync($"{_app.BaseUrl}editor/**", new() { Timeout = 5_000 });
 
 		// Verify only 2 tabs remain
-		await Expect(tabStrip).ToHaveCountAsync(2, new() { Timeout = 5_000 });
+		await Expect(queryPanelCount).ToHaveCountAsync(2, new() { Timeout = 5_000 });
 
 		// Verify both remaining tabs can be focused and their editors are visible
 		await E2ETestHelpers.ClickTabAtIndexAsync(page, 0);

@@ -288,8 +288,11 @@ public class DatabaseTreeViewE2ETests(AppServerFixture app, PlaywrightFixture pw
 
 			// After refresh: tables folder children are cleared and reloaded.
 			// Re-expand the tables folder to verify both tables are still present.
-			await ExpandTreeItemAsync(tablesFolder);
-			await Expect(page.GetByTestId("table-main.Customers")).ToBeVisibleAsync(new() { Timeout = 15_000 });
+			var customersTable = page.GetByTestId("table-main.Customers");
+			if (!await customersTable.IsVisibleAsync())
+				await ExpandTreeItemAsync(tablesFolder);
+
+			await Expect(customersTable).ToBeVisibleAsync(new() { Timeout = 15_000 });
 			await Expect(page.GetByTestId("table-main.Orders")).ToBeVisibleAsync(new() { Timeout = 5_000 });
 		}
 		finally
@@ -441,4 +444,3 @@ public class DatabaseTreeViewE2ETests(AppServerFixture app, PlaywrightFixture pw
 		}
 	}
 }
-

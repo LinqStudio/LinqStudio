@@ -16,7 +16,7 @@ public class MySqlDatabaseFixture : IAsyncLifetime
 
 	public async Task InitializeAsync()
 	{
-		_container = new MySqlBuilder()
+		_container = new MySqlBuilder("mysql:8.4")
 			.WithPassword("StrongPassword123!")
 			.Build();
 

@@ -106,6 +106,11 @@ public class QueryExecutionService(
 				var queryable = await queryTask;
 
 				// Step 7: Materialize results
+				// Capture the SQL before materializing — ToQueryString() is only available before execution
+				string? generatedSql = null;
+				try { generatedSql = queryable.ToQueryString(); }
+				catch { /* Some queries (e.g. raw SQL, projections) may not support ToQueryString */ }
+
 				// Apply timeout if configured
 				var timeoutSeconds = _settings.CurrentValue.TimeoutSeconds;
 				if (timeoutSeconds > 0)
@@ -120,7 +125,9 @@ public class QueryExecutionService(
 					{
 						Rows = rows,
 						ColumnNames = columnNames,
-						Elapsed = stopwatch.Elapsed
+						Elapsed = stopwatch.Elapsed,
+						GeneratedCSharp = wrappedQuery,
+						GeneratedSql = generatedSql
 					};
 				}
 				else
@@ -133,7 +140,9 @@ public class QueryExecutionService(
 					{
 						Rows = rows,
 						ColumnNames = columnNames,
-						Elapsed = stopwatch.Elapsed
+						Elapsed = stopwatch.Elapsed,
+						GeneratedCSharp = wrappedQuery,
+						GeneratedSql = generatedSql
 					};
 				}
 			}

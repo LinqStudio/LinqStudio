@@ -18,7 +18,7 @@ public class MssqlDatabaseFixture : IAsyncLifetime
 
 	public async Task InitializeAsync()
 	{
-		_container = new MsSqlBuilder()
+		_container = new MsSqlBuilder("mcr.microsoft.com/mssql/server:2025-latest")
 			.WithPassword("StrongPassword123!")
 			.Build();
 

@@ -108,6 +108,28 @@ public class QueryExecutionServiceTests
 		Assert.NotNull(result.ErrorMessage);
 	}
 
+	[Fact]
+	public void QueryExecutionResult_FromError_HasNullGeneratedCSharpAndSql()
+	{
+		// Arrange & Act
+		var result = QueryExecutionResult.FromError("compile error", isCompileError: true, TimeSpan.Zero);
+
+		// Assert
+		Assert.Null(result.GeneratedCSharp);
+		Assert.Null(result.GeneratedSql);
+	}
+
+	[Fact]
+	public void QueryExecutionResult_Empty_HasNullGeneratedCSharpAndSql()
+	{
+		// Arrange & Act
+		var result = QueryExecutionResult.Empty(TimeSpan.FromSeconds(1));
+
+		// Assert
+		Assert.Null(result.GeneratedCSharp);
+		Assert.Null(result.GeneratedSql);
+	}
+
 	#endregion
 
 	#region ExecuteQueryAsync Tests (Public Method - Requires Project Parameter)
