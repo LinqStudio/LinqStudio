@@ -34,6 +34,12 @@
 		else if (_contextMenuNode.NodeType == SchemaTreeNodeType.Table)
 		{
 			<div class="db-tree-context-item"
+				 @onclick="@(async () => await HandleTableSelectTop1000Async(_contextMenuNode))"
+				 data-testid="@($"db-tree-table-select-top-1000-{_contextMenuNode.TableName?.FullName}")">
+				<MudIcon Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small" Class="mr-2" />
+				@SharedResource.DatabaseTreeView_ContextMenu_SelectTop1000
+			</div>
+			<div class="db-tree-context-item"
 				 @onclick="@(async () => await HandleTableRefreshAsync(_contextMenuNode))"
 				 data-testid="@($"db-tree-table-refresh-{_contextMenuNode.TableName?.FullName}")">
 				<MudIcon Icon="@Icons.Material.Filled.Refresh" Size="Size.Small" Class="mr-2" />
@@ -111,7 +117,8 @@
 												<BodyContent Context="_">
 													<div @oncontextmenu="@(e => OpenContextMenu(tableNode, e))"
 														 @oncontextmenu:preventDefault="true"
-														 @oncontextmenu:stopPropagation="true">
+														 @oncontextmenu:stopPropagation="true"
+														 data-testid="@($"db-tree-table-body-{tableNode.TableName?.FullName}")">
 														<MudText Typo="Typo.body1"
 																 Class="mud-treeview-item-label">@tableNode.Label</MudText>
 													</div>

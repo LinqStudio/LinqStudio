@@ -213,6 +213,9 @@
   <data name="DatabaseTreeView.ContextMenu.NewQuery" xml:space="preserve">
     <value>New Query</value>
   </data>
+  <data name="DatabaseTreeView.ContextMenu.SelectTop1000" xml:space="preserve">
+    <value>Select top 1000</value>
+  </data>
   <data name="DatabaseTreeView.ContextMenu.Refresh" xml:space="preserve">
     <value>Refresh</value>
   </data>

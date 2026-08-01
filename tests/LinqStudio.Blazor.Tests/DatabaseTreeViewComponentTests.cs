@@ -449,4 +449,35 @@ public class DatabaseTreeViewComponentTests : BunitContext
 		// Assert — one extra query was created in the workspace
 		Assert.Equal(initialQueryCount + 1, workspace.Queries.AllQueries.Count);
 	}
+
+	[Fact]
+	public async Task DatabaseTreeView_TableNode_SelectTop1000_CreatesQueryAndNavigates()
+	{
+		// Arrange
+		SetupServices();
+		var workspace = Services.GetRequiredService<ProjectWorkspace>();
+		await workspace.CreateNewAsync("MyApp");
+
+		var table = new DatabaseTableName { Schema = "dbo", Name = "sales_orders" };
+		var mockGen = CreateMockGenerator([table]);
+		SetQueryGenerator(workspace.CurrentProject!, mockGen.Object);
+
+		var cut = Render<DatabaseTreeView>();
+		cut.WaitForAssertion(() =>
+		{
+			Assert.NotNull(cut.Find("[data-testid='table-dbo.sales_orders']"));
+		}, TimeSpan.FromSeconds(3));
+
+		// Act
+		var tableNodeDiv = cut.Find("[data-testid='db-tree-table-body-dbo.sales_orders']");
+		tableNodeDiv.TriggerEvent("oncontextmenu", new MouseEventArgs { ClientX = 50, ClientY = 50 });
+		var selectButton = cut.Find("[data-testid='db-tree-table-select-top-1000-dbo.sales_orders']");
+		await cut.InvokeAsync(() => selectButton.Click());
+
+		// Assert
+		var query = workspace.Queries.GetCurrentQuery();
+		Assert.NotNull(query);
+		Assert.Equal("context.SalesOrders.Take(1000)", query.QueryText);
+		Assert.True(workspace.Queries.CurrentQueryState!.ExecuteOnOpen);
+	}
 }

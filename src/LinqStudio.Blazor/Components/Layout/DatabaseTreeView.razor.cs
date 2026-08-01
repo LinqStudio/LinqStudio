@@ -306,6 +306,26 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 		await RefreshTableNodeAsync(tableNode);
 	}
 
+	private Task HandleTableSelectTop1000Async(SchemaTreeNode tableNode)
+	{
+		if (!Workspace.IsProjectOpen || Workspace.CurrentProject == null || tableNode.TableName == null)
+			return Task.CompletedTask;
+
+		CloseContextMenu();
+		var entitySetName = ToPascalCase(tableNode.TableName.Name);
+		var queryText = $"context.{entitySetName}.Take(1000)";
+		var queryId = Workspace.Queries.CreateNewQuery(
+			$"Select top 1000 - {tableNode.TableName.Name}",
+			queryText,
+			executeOnOpen: true);
+
+		Logger.LogInformation(
+			"Created select-top query {QueryId} for table '{TableName}'.",
+			queryId, tableNode.TableName.FullName);
+		NavigationManager.NavigateTo($"/editor/{queryId}");
+		return Task.CompletedTask;
+	}
+
 	private void HandleConnectionNewQuery()
 	{
 		if (!Workspace.IsProjectOpen || Workspace.CurrentProject == null)
@@ -315,6 +335,15 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 		var queryId = Workspace.Queries.CreateNewQuery();
 		Logger.LogInformation("New query {QueryId} created from DB context menu.", queryId);
 		NavigationManager.NavigateTo($"/editor/{queryId}");
+	}
+
+	private static string ToPascalCase(string name)
+	{
+		if (string.IsNullOrEmpty(name))
+			return name;
+
+		var parts = name.Split('_', StringSplitOptions.RemoveEmptyEntries);
+		return string.Concat(parts.Select(part => char.ToUpperInvariant(part[0]) + part[1..]));
 	}
 
 	// ── Context menu actions ──────────────────────────────────────────────────

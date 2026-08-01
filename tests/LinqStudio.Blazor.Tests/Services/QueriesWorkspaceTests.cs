@@ -105,6 +105,22 @@ public class QueriesWorkspaceTests : IDisposable
 		Assert.Equal(newId, _workspace.CurrentQueryId);
 	}
 
+	[Fact]
+	public async Task CreateNewQuery_WithInitialTextAndExecuteOnOpen_SetsQueryState()
+	{
+		// Arrange
+		await _workspace.InitializeAsync(TestProjectId);
+
+		// Act
+		var queryId = _workspace.CreateNewQuery("Users", "context.Users.Take(1000)", executeOnOpen: true);
+
+		// Assert
+		Assert.Equal("context.Users.Take(1000)", _workspace.GetCurrentQuery()!.QueryText);
+		Assert.Equal("context.Users.Take(1000)", _workspace.CurrentQueryState!.CurrentText);
+		Assert.True(_workspace.CurrentQueryState.ExecuteOnOpen);
+		Assert.Equal(queryId, _workspace.CurrentQueryId);
+	}
+
 	#endregion
 
 	#region UpdateQueryText Tests
@@ -227,4 +243,3 @@ public class QueriesWorkspaceTests : IDisposable
 
 	#endregion
 }
-
