@@ -209,12 +209,17 @@ public class QueriesWorkspace
 	/// defaults to <c>"Query"</c>. A numeric suffix is appended automatically if the name
 	/// conflicts with an existing query (case-insensitive).
 	/// </param>
+	/// <param name="queryText">The initial query text, or the default placeholder when omitted.</param>
+	/// <param name="executeOnOpen">Whether the query should execute once after its editor initializes.</param>
 	/// <returns>The <see cref="Guid"/> assigned to the newly created query.</returns>
 	/// <remarks>
 	/// The new query's <see cref="OpenQueryState.HasUnsavedChanges"/> is set to
 	/// <see langword="true"/> immediately because it has never been persisted.
 	/// </remarks>
-	public Guid CreateNewQuery(string? name = null)
+	public Guid CreateNewQuery(
+		string? name = null,
+		string? queryText = null,
+		bool executeOnOpen = false)
 	{
 		var baseName = !string.IsNullOrWhiteSpace(name) ? name : "Query";
 		var finalName = GetUniqueQueryName(baseName);
@@ -222,7 +227,7 @@ public class QueriesWorkspace
 		var newQuery = new SavedQuery
 		{
 			Name = finalName,
-			QueryText = "// Write your LINQ query here\ncontext.",
+			QueryText = queryText ?? "// Write your LINQ query here\ncontext.",
 			CreatedDate = DateTimeOffset.UtcNow
 		};
 
@@ -237,6 +242,7 @@ public class QueriesWorkspace
 				QueryId = newQuery.Id,
 				CurrentText = newQuery.QueryText,
 				HasUnsavedChanges = true, // Mark as unsaved since it's a new query
+				ExecuteOnOpen = executeOnOpen,
 				LastModified = DateTimeOffset.UtcNow
 			};
 		}

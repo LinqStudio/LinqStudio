@@ -329,6 +329,15 @@ namespace LinqStudio.Core.Resources {
                 return ResourceManager.GetString("DatabaseTreeView.ContextMenu.NewQuery", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Select top 1000.
+        /// </summary>
+        public static string DatabaseTreeView_ContextMenu_SelectTop1000 {
+            get {
+                return ResourceManager.GetString("DatabaseTreeView.ContextMenu.SelectTop1000", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to Refresh.

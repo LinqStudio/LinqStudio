@@ -499,6 +499,13 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 				return null;
 			}
 		});
+
+		if (Workspace.Queries.OpenQueries.TryGetValue(QueryId, out var queryState)
+			&& queryState.ExecuteOnOpen)
+		{
+			queryState.ExecuteOnOpen = false;
+			await ExecuteQueryAsync();
+		}
 	}
 
 	/// <summary>

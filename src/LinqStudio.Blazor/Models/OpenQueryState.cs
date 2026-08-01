@@ -21,6 +21,11 @@ public class OpenQueryState
 	public bool HasUnsavedChanges { get; set; }
 
 	/// <summary>
+	/// Whether the query should execute once after its editor has initialized.
+	/// </summary>
+	public bool ExecuteOnOpen { get; set; }
+
+	/// <summary>
 	/// When this query was last modified in the editor.
 	/// </summary>
 	public DateTimeOffset LastModified { get; set; }
