@@ -153,7 +153,7 @@ await page.WaitForURLAsync(tab1Url);
 | `Execute_ShowsEmptyResultSet_WhenQueryReturnsNoRows` | "Query returned no results." alert when mock returns empty result |
 
 ### Important Notes
-- **`Execute_Button_IsDisabled_WhenNoQueryOpen`**: Must use SPA navigation (`nav-editor` click), NOT `page.GotoAsync()`. Full page reload resets the Blazor circuit and loses workspace state, causing redirect to home page instead of showing the no-query alert.
+- **`Execute_Button_IsDisabled_WhenNoQueryOpen`**: Uses `SetupEditorAsync` to open a query, then clicks `query-close-btn` to close it and reach the no-query state. This replaces the previous pattern that relied on `nav-editor` SPA navigation (which was removed when the Editor dropdown was deleted from NavMenu).
 - **Race condition prevention**: `Execute_ShowsEmptyResultSet_WhenQueryReturnsNoRows` calls `SetNextResult()` immediately before `executeBtn.ClickAsync()` (not at the start of the test) to minimize the window for other in-flight executions consuming the configured result.
 - **MudBlazor timeout-select**: The MudSelect is wrapped in `<div data-testid="timeout-select">` in Editor.razor because MudSelect's UserAttributes go on a hidden input, making `GetByTestId` find a non-visible element.
 

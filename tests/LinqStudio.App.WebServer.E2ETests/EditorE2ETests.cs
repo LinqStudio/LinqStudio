@@ -58,10 +58,12 @@ public class EditorE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		// Hover over the token
 		await whereToken.First.HoverAsync();
 
-		// Wait for the hover widget to appear and verify its content
+		// Wait for the hover widget to appear and verify its content.
+		// Use a longer timeout because Roslyn initialization from the SQLite schema takes additional
+		// time compared to the demo model, and the hover widget briefly shows "Loading..." first.
 		var hoverContent = page.Locator(".monaco-hover .hover-contents");
 		await Expect(hoverContent).ToBeVisibleAsync();
-		await Expect(hoverContent).ToContainTextAsync("Where", new() { IgnoreCase = true });
+		await Expect(hoverContent).ToContainTextAsync("Where", new() { IgnoreCase = true, Timeout = 20_000 });
 	}
 
 	[Fact(Timeout = 60_000)]

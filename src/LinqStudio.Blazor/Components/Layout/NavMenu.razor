@@ -51,27 +51,4 @@
 		</MudMenu>
 	</div>
 
-	@if (Workspace.IsProjectOpen)
-	{
-		<div>
-			<MudMenu Dense="true" AnchorOrigin="Origin.TopRight" TransformOrigin="Origin.TopLeft" data-testid="nav-editor-menu" FullWidth="true">
-				<ActivatorContent>
-					<MudNavLink Icon="@Icons.Material.Filled.Code" Href="/editor" data-testid="nav-editor">
-						Editor
-					</MudNavLink>
-				</ActivatorContent>
-
-				<ChildContent>
-					<MudMenuItem OnClick="CreateNewQuery" data-testid="nav-editor-new">
-						<MudIcon Icon="@Icons.Material.Filled.Add" Class="mr-2" />
-						New Query
-					</MudMenuItem>
-				</ChildContent>
-			</MudMenu>
-		</div>
-	}
-	else
-	{
-		<MudNavLink Icon="@Icons.Material.Filled.Code" Disabled="true" data-testid="nav-editor-disabled">Editor</MudNavLink>
-	}
 </MudNavMenu>
