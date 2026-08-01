@@ -17,7 +17,7 @@ using Microsoft.Extensions.Options;
 
 namespace LinqStudio.Core.Services;
 
-public class QueryExecutionService(
+public sealed class QueryExecutionService(
 	IDbContextGenerator generator,
 	RoslynWorkspaceService roslynWorkspaceService,
 	IOptionsMonitor<QueryExecutionSettings> settings,
@@ -28,11 +28,16 @@ public class QueryExecutionService(
 	private readonly IOptionsMonitor<QueryExecutionSettings> _settings = settings;
 	private readonly ILogger<QueryExecutionService>? _logger = logger;
 
+	private AssemblyLoadContext? _lastAssemblyLoadContext;
+	private DbContext? _lastDbContext;
+
 	public async Task<QueryExecutionResult> ExecuteQueryAsync(string userQuery, Models.Project project, CancellationToken cancellationToken = default)
 	{ 
 		var stopwatch = Stopwatch.StartNew();
 		try
 		{
+			await CleanupExecutionResourcesAsync();
+
 			// Validate project has connection configured
 			if (string.IsNullOrWhiteSpace(project.ConnectionString))
 			{
@@ -60,7 +65,8 @@ public class QueryExecutionService(
 				return QueryExecutionResult.FromError(errorMessage, isCompileError: true, stopwatch.Elapsed);
 			}
 
-			// All assembly-dependent execution is wrapped so alc.Unload() runs after results are materialized
+			_lastAssemblyLoadContext = alc;
+			var retainExecutionResources = false;
 			try
 			{
 				// Step 5: Instantiate DbContext with real connection
@@ -71,11 +77,13 @@ public class QueryExecutionService(
 					return QueryExecutionResult.FromError($"Could not find DbContext type {generatorResult.ContextTypeName}", isCompileError: false, stopwatch.Elapsed);
 				}
 
-				await using var dbContext = Activator.CreateInstance(dbContextType, dbContextOptions) as DbContext;
+				var dbContext = Activator.CreateInstance(dbContextType, dbContextOptions) as DbContext;
 				if (dbContext == null)
 				{
 					return QueryExecutionResult.FromError("Failed to instantiate DbContext", isCompileError: false, stopwatch.Elapsed);
 				}
+
+				_lastDbContext = dbContext;
 
 				// Step 6: Invoke QueryContainer.Query(dbContext)
 				var queryContainerType = assembly.GetType($"{generatorResult.Namespace}.QueryContainer");
@@ -121,6 +129,7 @@ public class QueryExecutionService(
 					var items = await queryable.ToListAsync(linkedCts.Token);
 					var (columnNames, rows) = ExtractResults(items);
 
+					retainExecutionResources = true;
 					return new QueryExecutionResult
 					{
 						Rows = rows,
@@ -136,6 +145,7 @@ public class QueryExecutionService(
 					var items = await queryable.ToListAsync(cancellationToken);
 					var (columnNames, rows) = ExtractResults(items);
 
+					retainExecutionResources = true;
 					return new QueryExecutionResult
 					{
 						Rows = rows,
@@ -148,9 +158,13 @@ public class QueryExecutionService(
 			}
 			finally
 			{
-				alc?.Unload();
+				if (!retainExecutionResources)
+				{
+					await CleanupExecutionResourcesAsync();
+				}
 			}
 		}
+
 		catch (OperationCanceledException)
 		{
 			_logger?.LogWarning("Query execution cancelled");
@@ -161,6 +175,44 @@ public class QueryExecutionService(
 			_logger?.LogError(ex, "Query execution failed with runtime error");
 			return QueryExecutionResult.FromError(ex.Message, isCompileError: false, stopwatch.Elapsed);
 		}
+	}
+
+	public void Dispose()
+	{
+		DisposeExecutionResources();
+		GC.SuppressFinalize(this);
+	}
+
+	public async ValueTask DisposeAsync()
+	{
+		await CleanupExecutionResourcesAsync();
+		GC.SuppressFinalize(this);
+	}
+
+	private async ValueTask CleanupExecutionResourcesAsync()
+	{
+		var dbContext = _lastDbContext;
+		var assemblyLoadContext = _lastAssemblyLoadContext;
+		_lastDbContext = null;
+		_lastAssemblyLoadContext = null;
+
+		if (dbContext is not null)
+		{
+			await dbContext.DisposeAsync();
+		}
+
+		assemblyLoadContext?.Unload();
+	}
+
+	private void DisposeExecutionResources()
+	{
+		var dbContext = _lastDbContext;
+		var assemblyLoadContext = _lastAssemblyLoadContext;
+		_lastDbContext = null;
+		_lastAssemblyLoadContext = null;
+
+		dbContext?.Dispose();
+		assemblyLoadContext?.Unload();
 	}
 
 	private DbContextOptions CreateDbContextOptions(DatabaseType databaseType, string connectionString)

@@ -78,7 +78,7 @@ await connectionService.TestConnectionAsync(DatabaseType.Mssql, connectionString
 - E2E tests in `tests/LinqStudio.App.WebServer.E2ETests/ConnectionE2ETests.cs`
 
 ## QueryExecutionService
-Scoped service that executes user LINQ queries against a database and returns results (Phase 1b).
+Query execution is created per `QueryEditorPanel` through `IQueryExecutionServiceFactory`. A successful execution retains its collectible assembly load context and generated `DbContext` for future row-editing operations; the previous pair is asynchronously disposed and unloaded before the next execution, and the service cleans up on disposal.
 
 ### Key Features
 - Compiles LINQ queries to IL using Roslyn

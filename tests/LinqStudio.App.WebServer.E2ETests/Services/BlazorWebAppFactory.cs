@@ -30,12 +30,12 @@ internal class BlazorWebAppFactory : WebApplicationFactory<Program>
 				services.Remove(storageDescriptor);
 			services.AddSingleton(new FileSystemStorageOptions { BasePath = MockFileSystemService.GetTestFilesDirectory() });
 
-			// Replace IQueryExecutionService with mock so tests get a real async delay,
+			// Replace the per-panel factory with a mock so tests get a real async delay,
 			// allowing Blazor to render the IsExecuting=true state before execution completes.
-			var qeDescriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IQueryExecutionService));
+			var qeDescriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IQueryExecutionServiceFactory));
 			if (qeDescriptor is not null)
 				services.Remove(qeDescriptor);
-			services.AddSingleton<IQueryExecutionService>(MockQueryExecutionService);
+			services.AddSingleton<IQueryExecutionServiceFactory>(MockQueryExecutionService);
 		});
 	}
 

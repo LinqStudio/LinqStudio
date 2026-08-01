@@ -6,7 +6,7 @@ namespace LinqStudio.Core.Services;
 /// <summary>
 /// Service for executing LINQ queries against a database and returning results.
 /// </summary>
-public interface IQueryExecutionService
+public interface IQueryExecutionService : IDisposable, IAsyncDisposable
 {
 	/// <summary>
 	/// Executes a user-provided LINQ query string and returns the results.

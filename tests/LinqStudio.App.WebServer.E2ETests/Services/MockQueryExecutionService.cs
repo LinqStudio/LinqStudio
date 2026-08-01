@@ -9,7 +9,7 @@ namespace LinqStudio.App.WebServer.E2ETests.Services;
 /// Provides a configurable delay to allow Blazor's loading state to be visible to Playwright,
 /// and a configurable result to test different UI states without a real database.
 /// </summary>
-public class MockQueryExecutionService : IQueryExecutionService
+public class MockQueryExecutionService : IQueryExecutionService, IQueryExecutionServiceFactory
 {
 	private QueryExecutionResult? _nextResult;
 	private readonly object _lock = new();
@@ -58,4 +58,12 @@ public class MockQueryExecutionService : IQueryExecutionService
 			isCompileError: false,
 			elapsed: SimulatedDelay);
 	}
+
+	public IQueryExecutionService Create() => this;
+
+	public void Dispose()
+	{
+	}
+
+	public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 }

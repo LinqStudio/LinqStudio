@@ -87,8 +87,8 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 	/// <summary>Gets or sets the MudBlazor dialog service for unsaved-changes confirmation.</summary>
 	[Inject] private IDialogService DialogService { get; set; } = null!;
 
-	/// <summary>Gets or sets the service that compiles and executes LINQ queries.</summary>
-	[Inject] private IQueryExecutionService QueryExecutionService { get; set; } = null!;
+	/// <summary>Gets or sets the factory used to create the per-panel query execution service.</summary>
+	[Inject] private IQueryExecutionServiceFactory QueryExecutionServiceFactory { get; set; } = null!;
 
 	/// <summary>Gets or sets the JS runtime for Monaco relayout and splitter interop calls.</summary>
 	[Inject] private IJSRuntime JSRuntime { get; set; } = null!;
@@ -114,6 +114,7 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 	private bool _isExecuting;
 	private CancellationTokenSource? _executionCts;
 	private int _selectedTimeout = 30;
+	private IQueryExecutionService? _queryExecutionService;
 
 	private bool _delay = true;
 	private bool _splitterInitialized;
@@ -194,6 +195,7 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 	protected override void OnInitialized()
 	{
 		_selectedTimeout = QueryExecutionSettings.CurrentValue.TimeoutSeconds;
+		_queryExecutionService = QueryExecutionServiceFactory.Create();
 	}
 
 	/// <summary>
@@ -663,7 +665,7 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 
 		try
 		{
-			var result = await QueryExecutionService.ExecuteQueryAsync(queryText, Workspace.CurrentProject, _executionCts.Token);
+			var result = await _queryExecutionService!.ExecuteQueryAsync(queryText, Workspace.CurrentProject, _executionCts.Token);
 			_result = result;
 
 			// Update viewer editors if they are already mounted (e.g. user ran a second query
@@ -733,6 +735,11 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 	/// </remarks>
 	public async ValueTask DisposeAsync()
 	{
+		if(_disposed)
+		{
+			return;
+		}
+
 		// Must be first — guards all in-flight awaited continuations (OnTabActivatedAsync, OnAfterRenderAsync).
 		_disposed = true;
 
@@ -748,7 +755,18 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 			}
 		}
 
-		Dispose();
+		_providerDisposable?.Dispose();
+		_hoverProviderDisposable?.Dispose();
+		_debounceTokenSource?.Cancel();
+		_debounceTokenSource?.Dispose();
+		_executionCts?.Cancel();
+		_executionCts?.Dispose();
+		_localCompiler?.Dispose();
+		if (_queryExecutionService is not null)
+		{
+			await _queryExecutionService.DisposeAsync();
+		}
+		_queryExecutionService = null;
 		GC.SuppressFinalize(this);
 	}
 
@@ -762,6 +780,11 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 	/// </remarks>
 	public void Dispose()
 	{
+		if(_disposed)
+		{
+			return;
+		}
+
 		// Ensure the disposed flag is set even when called directly (not via DisposeAsync).
 		_disposed = true;
 
@@ -775,5 +798,7 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 		_executionCts?.Dispose();
 
 		_localCompiler?.Dispose();
+		_queryExecutionService?.Dispose();
+		_queryExecutionService = null;
 	}
 }
