@@ -19,7 +19,7 @@ public class PostgreSqlDatabaseFixture : IAsyncLifetime
 		// Configure Npgsql to use legacy timestamp behavior
 		AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
-		_container = new PostgreSqlBuilder()
+		_container = new PostgreSqlBuilder("postgres:latest")
 			.WithPassword("StrongPassword123!")
 			.Build();
 

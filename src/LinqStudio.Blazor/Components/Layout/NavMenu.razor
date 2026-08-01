@@ -6,10 +6,12 @@
 	<!-- Project Menu -->
 	<div>
 		<MudMenu Dense="true" AnchorOrigin="Origin.TopRight" TransformOrigin="Origin.TopLeft" data-testid="nav-project-menu" FullWidth="true">
-			<ActivatorContent>
-				<MudNavLink Icon="@Icons.Material.Filled.Folder" data-testid="nav-project">
-					@GetProjectTitle()
-				</MudNavLink>
+			<ActivatorContent Context="menuContext">
+				<div @onclick="menuContext.ToggleAsync">
+					<MudNavLink Icon="@Icons.Material.Filled.Folder" data-testid="nav-project">
+						@GetProjectTitle()
+					</MudNavLink>
+				</div>
 			</ActivatorContent>
 
 			<ChildContent>

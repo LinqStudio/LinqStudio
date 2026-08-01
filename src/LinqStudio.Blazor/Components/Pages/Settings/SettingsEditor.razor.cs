@@ -67,7 +67,7 @@ public partial class SettingsEditor : ComponentBase, IDisposable
 				bool? result = true;
 				if (!UISettings.CurrentValue.AlwaysReloadSettingsInSettingsPage)
 				{
-					result = await DialogService.ShowMessageBox(
+					result = await DialogService.ShowMessageBoxAsync(
 						SharedResource.SettingsPage_MessageBox_ReloadTitle,
 						SharedResource.SettingsPage_MessageBox_ReloadSettings,
 						yesText: SharedResource.Global_MessageBox_Yes, noText: SharedResource.SettingsPage_MessageBox_Always, cancelText: SharedResource.Global_MessageBox_No);
