@@ -26,9 +26,15 @@
     min-height: 0;
 }
 
-::deep .mud-tab-panel {
+::deep [role="tabpanel"].mud-tab-panel {
     flex: 1;
     display: flex;
     flex-direction: column;
     min-height: 0;
+}
+
+/* KeepPanelsAlive retains inactive panels in the DOM. The flex rule above must not
+   override MudBlazor's hidden state, otherwise every result view is displayed. */
+::deep [role="tabpanel"].mud-tab-panel:not(.mud-tab-panel-active) {
+    display: none;
 }

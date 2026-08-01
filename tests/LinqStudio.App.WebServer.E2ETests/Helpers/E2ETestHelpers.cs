@@ -59,10 +59,12 @@ public static class E2ETestHelpers
 		// Click "New Query" in the context menu
 		var newQueryItem = page.GetByTestId("db-tree-connection-new-query");
 		await Expect(newQueryItem).ToBeVisibleAsync(new() { Timeout = 15_000 });
+		var urlBefore = page.Url;
 		await newQueryItem.ClickAsync();
 
-		// Queries now use GUIDs instead of numeric indices, so use a wildcard pattern
-		await page.WaitForURLAsync($"{app.BaseUrl}editor/*");
+		// Blazor uses pushState for in-app routing, so wait for the URL to change
+		// instead of waiting for a full page-load event that never fires.
+		await Expect(page).Not.ToHaveURLAsync(urlBefore, new() { Timeout = 15_000 });
 		// With KeepPanelsAlive, multiple panels can exist — wait for the visible one
 		await Expect(GetActivePanel(page).GetByTestId("monaco-editor-container").First).ToBeVisibleAsync();
 
@@ -96,10 +98,12 @@ public static class E2ETestHelpers
 		// Click "New Query" in the context menu
 		var newQueryItem = page.GetByTestId("db-tree-connection-new-query");
 		await Expect(newQueryItem).ToBeVisibleAsync(new() { Timeout = 15_000 });
+		var urlBefore = page.Url;
 		await newQueryItem.ClickAsync();
 
-		// Wait for editor page to load
-		await page.WaitForURLAsync($"{app.BaseUrl}editor/*");
+		// Blazor uses pushState for in-app routing, so wait for the URL to change
+		// instead of waiting for a full page-load event that never fires.
+		await Expect(page).Not.ToHaveURLAsync(urlBefore, new() { Timeout = 15_000 });
 		// With KeepPanelsAlive, scope to the visible (active) panel
 		await Expect(GetActivePanel(page).GetByTestId("monaco-editor-container").First).ToBeVisibleAsync();
 
@@ -193,7 +197,8 @@ public static class E2ETestHelpers
 	/// </summary>
 	public static ILocator GetActivePanel(IPage page)
 	{
-		return page.Locator("[role='tabpanel']").Filter(new() { Visible = true });
+		return page.Locator("[role='tabpanel']")
+			.Filter(new() { Has = page.GetByTestId("query-execution-bar"), Visible = true });
 	}
 
 	/// <summary>
@@ -262,7 +267,9 @@ public static class E2ETestHelpers
 		// Using Nth(index) is critical: ToHaveCountAsync(1) was unreliable because there is always
 		// exactly 1 visible panel (the previous tab's panel before the switch), so that check
 		// could pass immediately without confirming the CORRECT panel is now active.
-		await Expect(page.Locator("[role='tabpanel']").Nth(index))
+		var queryPanels = page.GetByTestId("query-execution-bar")
+			.Locator("xpath=ancestor::*[@role='tabpanel'][1]");
+		await Expect(queryPanels.Nth(index))
 			.ToBeVisibleAsync(new() { Timeout = 15_000 });
 		// Wait for Monaco relayout: OnTabActivatedAsync fires monacoRelayout() after a 300ms delay.
 		// Poll until the editor has non-zero height, confirming layout() has been called and Monaco has rendered.

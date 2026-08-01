@@ -43,8 +43,8 @@
     min-height: 200px;
 }
 
-/* KeepPanelsAlive retains inactive panels in the DOM. The flex rule above must not
-   override MudBlazor's hidden state, otherwise every result view is displayed. */
-::deep .mud-tabs-panels .mud-tab-panel:not(.mud-tab-panel-active) {
+/* Keep inactive result panels hidden without matching MudBlazor tab buttons,
+   which may also carry the mud-tab-panel class. */
+::deep [role="tabpanel"].mud-tab-panel:not(.mud-tab-panel-active) {
     display: none;
 }

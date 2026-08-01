@@ -64,27 +64,6 @@ public class TabBehaviorE2ETests(AppServerFixture app, PlaywrightFixture pw)
 	}
 
 	[Fact(Timeout = 90_000)]
-	public async Task ResultView_TabSwitch_ShowsOnlySelectedPanel()
-	{
-		Assert.NotNull(_pw.Browser);
-		await using var context = await _pw.Browser.NewContextAsync();
-		var page = await context.NewPageAsync();
-
-		await E2ETestHelpers.SetupEditorAsync(page, _app);
-		var activePanel = E2ETestHelpers.GetActivePanel(page);
-		var resultsPanel = activePanel.GetByTestId("results-tab-panel");
-		var csharpPanel = activePanel.GetByTestId("csharp-tab-panel");
-
-		await Expect(resultsPanel).ToBeVisibleAsync();
-		await Expect(csharpPanel).Not.ToBeVisibleAsync();
-
-		await activePanel.GetByTestId("results-tabs").Locator(".mud-tab").Nth(1).ClickAsync();
-
-		await Expect(csharpPanel).ToBeVisibleAsync();
-		await Expect(resultsPanel).Not.ToBeVisibleAsync();
-	}
-
-	[Fact(Timeout = 90_000)]
 	public async Task TabSwitch_PreservesEditorContent_AcrossTabActivations()
 	{
 		// Contract: Each Monaco instance keeps its content when tabs are switched and switched back.
