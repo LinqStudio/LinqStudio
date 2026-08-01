@@ -80,6 +80,7 @@ Key implementation notes:
 - No `ActivePanelIndexChanged` handler on the inner `MudTabs` — `AutomaticLayout = true` on both viewer editors means Monaco self-relayouts when the panel becomes visible
 - `SQL` tab shows "not available" message when `GeneratedSql` is null (e.g. queries not translatable to SQL)
 - `QueryExecutionResult.GeneratedCSharp` and `QueryExecutionResult.GeneratedSql` are always null on error results
+- `QueryEditorPanel.razor.css` explicitly hides `.mud-tab-panel-hidden`; the shared flex rule otherwise overrides MudBlazor's inactive-panel state when `KeepPanelsAlive` is enabled.
 
 ## Monaco Height in Results Tabs (C# / SQL)
 
@@ -101,4 +102,3 @@ Adding nested `MudTabs` (Results|C#|SQL) inside `QueryEditorPanel` affects E2E t
 - `[role='tabpanel']:visible` now returns **2** (outer query panel + inner results panel) — updated `ClickTabAtIndexAsync` to use `query-execution-bar` as the sync point instead of panel count
 - `.mud-tab` count includes inner Results/C#/SQL buttons — `TabClose` test updated to use `query-execution-bar` count instead
 - Outer `MudTabs` has `data-testid="editor-query-tabs"` — use `GetByTestId("editor-query-tabs").Locator(".mud-tab")` when needing to scope to outer tab buttons only
-
