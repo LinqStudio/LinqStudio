@@ -9,6 +9,11 @@ public class Customer
 	public required string FirstName { get; set; }
 	public required string LastName { get; set; }
 	public required string Email { get; set; }
+	public DateOnly BirthDate { get; set; }
+	public TimeSpan PreferredContactTime { get; set; }
+	public bool IsActive { get; set; }
+	public short LoyaltyTier { get; set; }
+	public long LifetimePoints { get; set; }
 	public DateTime CreatedDate { get; set; }
 	public ICollection<Order> Orders { get; set; } = new List<Order>();
 }
@@ -35,6 +40,8 @@ public class Product
 	public int Id { get; set; }
 	public required string Name { get; set; }
 	public required string Description { get; set; }
+	public Guid Sku { get; set; }
+	public double WeightKg { get; set; }
 	public decimal Price { get; set; }
 	public int StockQuantity { get; set; }
 	public ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
