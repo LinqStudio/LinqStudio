@@ -153,11 +153,11 @@ public class MySqlTypeMapperTests : IClassFixture<MySqlDatabaseFixture>
 	}
 
 	[Theory]
-	[InlineData("date", DbColumnType.DateTime)]
+	[InlineData("date", DbColumnType.DateOnly)]
 	[InlineData("datetime", DbColumnType.DateTime)]
 	[InlineData("timestamp", DbColumnType.DateTime)]
 	[InlineData("year", DbColumnType.DateTime)]
-	[InlineData("DATE", DbColumnType.DateTime)]
+	[InlineData("DATE", DbColumnType.DateOnly)]
 	[InlineData("DATETIME", DbColumnType.DateTime)]
 	public void MapToGenericType_DateTimeTypes_ReturnsDateTime(string mysqlType, DbColumnType expected)
 	{

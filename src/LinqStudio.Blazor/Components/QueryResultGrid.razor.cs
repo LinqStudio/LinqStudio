@@ -97,7 +97,9 @@ public partial class QueryResultGrid : ComponentBase
 			|| type == typeof(float)
 			|| type == typeof(double)
 			|| type == typeof(decimal)
-			|| type == typeof(DateTime);
+			|| type == typeof(DateOnly)
+			|| type == typeof(DateTime)
+			|| type == typeof(TimeSpan);
 	}
 
 	private object? GetCellValue(object item, string columnName)

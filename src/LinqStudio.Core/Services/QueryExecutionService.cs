@@ -362,7 +362,8 @@ public sealed class QueryExecutionService(
 
 		// Check if it's a primitive/simple type
 		if (type.IsPrimitive || type == typeof(string) || type == typeof(decimal)
-			|| type == typeof(DateTime) || type == typeof(DateTimeOffset) || type == typeof(Guid))
+			|| type == typeof(DateOnly) || type == typeof(DateTime)
+			|| type == typeof(DateTimeOffset) || type == typeof(Guid))
 		{
 			var columns = new[] { "Value" };
 			return columns;
@@ -387,6 +388,7 @@ public sealed class QueryExecutionService(
 		return underlyingType == typeof(string)
 			|| underlyingType.IsPrimitive
 			|| underlyingType == typeof(decimal)
+			|| underlyingType == typeof(DateOnly)
 			|| underlyingType == typeof(DateTime)
 			|| underlyingType == typeof(DateTimeOffset)
 			|| underlyingType == typeof(TimeSpan)
@@ -414,6 +416,9 @@ public sealed class QueryExecutionService(
 
 		if (conversionType == typeof(DateTime))
 			return DateTime.Parse(value, CultureInfo.CurrentCulture);
+
+		if (conversionType == typeof(DateOnly))
+			return DateOnly.Parse(value, CultureInfo.CurrentCulture);
 
 		if (conversionType == typeof(DateTimeOffset))
 			return DateTimeOffset.Parse(value, CultureInfo.CurrentCulture);

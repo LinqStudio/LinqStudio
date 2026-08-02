@@ -17,9 +17,17 @@ public partial class DynamicPropertyColumn<TProperty> : ComponentBase
 
 	private Expression<Func<object, TProperty>> Property { get; set; } = null!;
 
+	private bool IsDateOnlyProperty
+		=> typeof(TProperty) == typeof(DateOnly)
+			|| Nullable.GetUnderlyingType(typeof(TProperty)) == typeof(DateOnly);
+
 	private bool IsDateTimeProperty
 		=> typeof(TProperty) == typeof(DateTime)
 			|| Nullable.GetUnderlyingType(typeof(TProperty)) == typeof(DateTime);
+
+	private bool IsTimeSpanProperty
+		=> typeof(TProperty) == typeof(TimeSpan)
+			|| Nullable.GetUnderlyingType(typeof(TProperty)) == typeof(TimeSpan);
 
 	protected override void OnParametersSet()
 	{
@@ -32,12 +40,71 @@ public partial class DynamicPropertyColumn<TProperty> : ComponentBase
 			item);
 	}
 
-	private TProperty GetValue(object item)
-		=> (TProperty)(PropertyInfo.GetValue(item) ?? default(TProperty)!);
+	private DateTime? GetDateOnlyValue(object item)
+		=> PropertyInfo.GetValue(item) is DateOnly value
+			? value.ToDateTime(TimeOnly.MinValue)
+			: null;
 
-	private Task OnValueChanged(object item, TProperty value)
+	private DateTime? GetDateValue(object item)
+		=> PropertyInfo.GetValue(item) is DateTime value ? value : null;
+
+	private TimeSpan? GetTimeValue(object item)
+		=> PropertyInfo.GetValue(item) is TimeSpan value ? value : null;
+
+	private Task OnDateOnlyChanged(object item, DateTime? date)
 	{
-		PropertyInfo.SetValue(item, value);
+		if (date is null)
+		{
+			if (Nullable.GetUnderlyingType(typeof(TProperty)) is not null)
+				PropertyInfo.SetValue(item, null);
+			return Task.CompletedTask;
+		}
+
+		SetValue(item, DateOnly.FromDateTime(date.Value));
 		return Task.CompletedTask;
 	}
+
+	private Task OnDateChanged(object item, DateTime? date)
+	{
+		if (date is null)
+		{
+			if (Nullable.GetUnderlyingType(typeof(TProperty)) is not null)
+				PropertyInfo.SetValue(item, null);
+			return Task.CompletedTask;
+		}
+
+		var currentTime = GetDateValue(item)?.TimeOfDay ?? TimeSpan.Zero;
+		SetValue(item, date.Value.Date.Add(currentTime));
+		return Task.CompletedTask;
+	}
+
+	private Task OnTimeChanged(object item, TimeSpan? time)
+	{
+		if (time is null)
+		{
+			if (Nullable.GetUnderlyingType(typeof(TProperty)) is not null)
+				PropertyInfo.SetValue(item, null);
+			return Task.CompletedTask;
+		}
+
+		var currentDate = GetDateValue(item)?.Date ?? DateTime.Today;
+		SetValue(item, currentDate.Add(time.Value));
+		return Task.CompletedTask;
+	}
+
+	private Task OnTimeSpanChanged(object item, TimeSpan? time)
+	{
+		if (time is null)
+		{
+			if (Nullable.GetUnderlyingType(typeof(TProperty)) is not null)
+				PropertyInfo.SetValue(item, null);
+			return Task.CompletedTask;
+		}
+
+		SetValue(item, time.Value);
+		return Task.CompletedTask;
+	}
+
+	private void SetValue(object item, object value)
+		=> PropertyInfo.SetValue(item, value);
 }

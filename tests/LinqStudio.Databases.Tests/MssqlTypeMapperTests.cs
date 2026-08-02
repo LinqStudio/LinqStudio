@@ -108,11 +108,11 @@ public class MssqlTypeMapperTests : IClassFixture<MssqlDatabaseFixture>
 	}
 
 	[Theory]
-	[InlineData("date", DbColumnType.DateTime)]
+	[InlineData("date", DbColumnType.DateOnly)]
 	[InlineData("datetime", DbColumnType.DateTime)]
 	[InlineData("datetime2", DbColumnType.DateTime)]
 	[InlineData("smalldatetime", DbColumnType.DateTime)]
-	[InlineData("DATE", DbColumnType.DateTime)]
+	[InlineData("DATE", DbColumnType.DateOnly)]
 	[InlineData("DATETIME", DbColumnType.DateTime)]
 	public void MapToGenericType_DateTimeTypes_ReturnsDateTime(string sqlType, DbColumnType expected)
 	{

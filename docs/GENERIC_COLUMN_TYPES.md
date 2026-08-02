@@ -13,7 +13,7 @@ The `DbColumnType` enum (in `LinqStudio.Abstractions.Models`) defines generic ty
 - `Int16`, `UInt16`, `Int32`, `UInt32`, `Int64`, `UInt64` → `short`, `ushort`, `int`, `uint`, `long`, `ulong`
 - `Float`, `Double`, `Decimal` → `float`, `double`, `decimal`
 - `String` → `string`
-- `DateTime`, `DateTimeOffset`, `TimeSpan` → `DateTime`, `DateTimeOffset`, `TimeSpan`
+- `DateOnly`, `DateTime`, `DateTimeOffset`, `TimeSpan` → `DateOnly`, `DateTime`, `DateTimeOffset`, `TimeSpan`
 - `Guid` → `Guid`
 - `Binary` → `byte[]`
 - `Xml`, `Json` → `string` (specialized)
@@ -34,7 +34,7 @@ Each database generator implements `MapToGenericType(string dataType)` from `IDa
 - `float` → `Double`
 - `decimal`, `numeric`, `money`, `smallmoney` → `Decimal`
 - `char`, `nchar`, `varchar`, `nvarchar`, `text`, `ntext` → `String`
-- `date`, `datetime`, `datetime2`, `smalldatetime` → `DateTime`
+- `date` → `DateOnly`; `datetime`, `datetime2`, `smalldatetime` → `DateTime`
 - `time` → `TimeSpan`
 - `datetimeoffset` → `DateTimeOffset`
 - `uniqueidentifier` → `Guid`
@@ -52,7 +52,7 @@ Each database generator implements `MapToGenericType(string dataType)` from `IDa
 - `double precision`, `float8` → `Double`
 - `numeric`, `decimal`, `money` → `Decimal`
 - `varchar`, `char`, `text` → `String`
-- `timestamp`, `date` → `DateTime`
+- `date` → `DateOnly`; `timestamp` → `DateTime`
 - `timestamptz` → `DateTimeOffset`
 - `time`, `interval` → `TimeSpan`
 - `uuid` → `Guid`
@@ -75,7 +75,7 @@ Each database generator implements `MapToGenericType(string dataType)` from `IDa
 - `double`, `real` → `Double`
 - `decimal`, `numeric` → `Decimal`
 - `char`, `varchar`, `text`, `enum`, `set` → `String`
-- `date`, `datetime`, `timestamp`, `year` → `DateTime`
+- `date` → `DateOnly`; `datetime`, `timestamp`, `year` → `DateTime`
 - `time` → `TimeSpan`
 - `binary`, `varbinary`, `blob` → `Binary`
 - `json` → `Json`
@@ -89,7 +89,6 @@ SQLite uses type affinity, so mappings are based on type name patterns:
 - Types containing `blob` → `Binary`
 - Types containing `real`, `floa`, `doub` → `Double` or `Float`
 - Types containing `numeric`, `decimal` → `Decimal`
-- Types containing `date` or `time` → `DateTime` or `TimeSpan`
+- `date` → `DateOnly`; datetime/timestamp-like declarations → `DateTime`; pure `time` → `TimeSpan`
 - Types containing `bool` → `Boolean`
 - Types containing `guid`, `uuid` → `Guid`
-

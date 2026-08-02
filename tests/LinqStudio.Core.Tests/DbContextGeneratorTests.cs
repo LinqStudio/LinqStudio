@@ -170,6 +170,29 @@ public class DbContextGeneratorTests
 	}
 
 	[Fact]
+	public async Task GenerateAsync_DateOnlyColumn_UsesDateOnlyType()
+	{
+		var table = new DatabaseTableName { Name = "Events" };
+		var detail = new DatabaseTableDetail
+		{
+			Name = "Events",
+			Columns =
+			[
+				new TableColumn { Name = "event_date", DataType = "date", GenericType = DbColumnType.DateOnly, IsNullable = true, IsPrimaryKey = false, IsIdentity = false }
+			],
+			ForeignKeys = []
+		};
+
+		var fake = new FakeGenerator([table], new Dictionary<string, DatabaseTableDetail> { ["Events"] = detail });
+		var result = await _generator.GenerateAsync(fake);
+
+		Assert.Contains("public DateOnly? EventDate", result.ModelFiles["Events.cs"]);
+		Assert.Contains(
+			"modelBuilder.Entity<Events>().Property(e => e.EventDate).HasColumnType(\"date\").HasConversion(v => v.HasValue ? v.Value.ToDateTime(TimeOnly.MinValue) : (DateTime?)null, v => v.HasValue ? DateOnly.FromDateTime(v.Value) : (DateOnly?)null);",
+			result.DbContextCode);
+	}
+
+	[Fact]
 	public async Task GenerateAsync_SchemaPrefix_StrippedFromClassName()
 	{
 		var table = new DatabaseTableName { Schema = "dbo", Name = "OrderItems" };

@@ -45,7 +45,8 @@ public class PostgreSqlGenerator : AdoNetDatabaseGeneratorBase
 			"character varying" or "varchar" or "character" or "char" or "text" or "name" => DbColumnType.String,
 
 			// Date/Time types
-			"timestamp" or "timestamp without time zone" or "date" => DbColumnType.DateTime,
+			"date" => DbColumnType.DateOnly,
+			"timestamp" or "timestamp without time zone" => DbColumnType.DateTime,
 			"timestamp with time zone" or "timestamptz" => DbColumnType.DateTimeOffset,
 			"time" or "time without time zone" or "interval" => DbColumnType.TimeSpan,
 
