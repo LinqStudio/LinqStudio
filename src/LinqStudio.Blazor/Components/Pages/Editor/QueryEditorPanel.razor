@@ -5,7 +5,7 @@
 @using LinqStudio.Blazor.Components
 
 <!-- Query Info Bar -->
-<MudPaper Class="pa-2 mb-1" Elevation="1" data-testid="query-info-bar">
+<MudPaper Class="query-info-bar pa-2 mb-1" Elevation="1" data-testid="query-info-bar">
 	<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
 		<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
 			<MudIcon Icon="@Icons.Material.Filled.Description" Size="Size.Small" />
@@ -60,7 +60,7 @@
 	<!-- Query Result Grid -->
 	<div class="results-bottom" id="@ResultsPanelId" style="height:calc(60% - 5px)" data-testid="query-result-container">
 		<!-- Query Execution Actions -->
-		<MudPaper Class="pa-2" Elevation="1" data-testid="query-execution-bar">
+		<MudPaper Class="query-execution-bar pa-2" Elevation="1" data-testid="query-execution-bar">
 			<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
 				<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
 					@if (_isExecuting)
