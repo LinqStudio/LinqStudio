@@ -22,3 +22,6 @@ Public service contracts are in `Interfaces/`; Core-only generated-schema metada
 - `FileSystemStorageOptions` — configures the `BasePath`.
 - Registered via `services.AddFileSystemRepositories(basePath)` extension in `LinqStudio.Core.Extensions.ServiceCollectionExtensions`.
 - WebServer configures basePath from `LinqStudio:ProjectsPath` config key, defaulting to `~/Documents/LinqStudio/Projects`.
+
+### Custom relationship metadata
+`Project.CustomRelationships` stores user-defined relationship mappings, including composite key pairs, cardinality, navigation names, requiredness, and delete behavior. `Project.DbContextOnConfigureCode` stores manual DbContext configuration until code generation consumes these values.

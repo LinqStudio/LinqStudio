@@ -2,7 +2,7 @@ using System.Text;
 
 namespace LinqStudio.Core.CodeGeneration;
 
-internal static class CodeGenerationNaming
+public static class CodeGenerationNaming
 {
 	public static string ToPascalCase(string name)
 	{

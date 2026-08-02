@@ -1,6 +1,9 @@
 using LinqStudio.Abstractions.Models;
+using LinqStudio.Blazor.Components.Dialogs;
 using LinqStudio.Blazor.Models;
 using LinqStudio.Blazor.Services;
+using LinqStudio.Core.Models;
+using LinqStudio.Core.Resources;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
@@ -14,6 +17,7 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 	[Inject] private ProjectWorkspace Workspace { get; set; } = null!;
 	[Inject] private ErrorHandlingService ErrorHandlingService { get; set; } = null!;
 	[Inject] private NavigationManager NavigationManager { get; set; } = null!;
+	[Inject] private IDialogService DialogService { get; set; } = null!;
 
 	// ── Tree state ──────────────────────────────────────────────────────────
 
@@ -293,6 +297,33 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 	}
 
 	private void CloseContextMenu() => _contextMenuNode = null;
+
+	private async Task OpenCustomRelationshipsAsync()
+	{
+		CloseContextMenu();
+		if (Workspace.CurrentProject is null)
+			return;
+
+		var parameters = new DialogParameters<CustomRelationshipsDialog>
+		{
+			{ x => x.Project, Workspace.CurrentProject }
+		};
+		var options = new DialogOptions
+		{
+			CloseOnEscapeKey = true,
+			MaxWidth = MaxWidth.Large,
+			FullWidth = true,
+			FullScreen = true,
+		};
+		var dialog = await DialogService.ShowAsync<CustomRelationshipsDialog>(
+			Text("CustomRelationships.Title", "Configure relationships"), parameters, options);
+		var result = await dialog.Result;
+		if (result is not null && !result.Canceled && result.Data is Project project)
+			Workspace.Update(project);
+	}
+
+	private static string Text(string key, string fallback)
+		=> SharedResource.ResourceManager.GetString(key, SharedResource.Culture) ?? fallback;
 
 	private async Task HandleTablesFolderRefreshAsync()
 	{

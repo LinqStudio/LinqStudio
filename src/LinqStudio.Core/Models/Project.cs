@@ -40,6 +40,8 @@ public class Project
 	// Future properties
 	public Dictionary<string, string>? Models { get; set; }
 	public string? DbContextCode { get; set; }
+	public string? DbContextOnConfigureCode { get; set; }
+	public List<CustomRelationship> CustomRelationships { get; set; } = [];
 
 
 	#region Connection String handling
@@ -116,4 +118,3 @@ public class Project
 	#endregion
 
 }
-

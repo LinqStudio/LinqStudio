@@ -183,6 +183,36 @@ public class ProjectServiceTests : IDisposable
 	}
 
 	[Fact]
+	public async Task SaveProjectAsync_PreservesCustomRelationships()
+	{
+		var service = new ProjectService();
+		var filePath = Path.Combine(_testDirectory, "custom_relationships.linq");
+		var project = service.CreateNew("Relationships", "Connection");
+		project.DbContextOnConfigureCode = "modelBuilder.Entity<Order>().HasIndex(x => x.Number);";
+		project.CustomRelationships =
+		[
+			new CustomRelationship
+			{
+				PrincipalTable = "dbo.Users",
+				DependentTable = "dbo.Orders",
+				Cardinality = RelationshipCardinality.OneToMany,
+				IsRequired = true,
+				KeyPairs = [new RelationshipKeyPair { PrincipalColumn = "Id", DependentColumn = "UserId" }],
+			},
+		];
+
+		await service.SaveProjectAsync(project, filePath);
+		var loaded = await service.LoadProjectAsync(filePath);
+
+		Assert.NotNull(loaded);
+		Assert.Equal(project.DbContextOnConfigureCode, loaded.DbContextOnConfigureCode);
+		var relationship = Assert.Single(loaded.CustomRelationships);
+		Assert.Equal(RelationshipCardinality.OneToMany, relationship.Cardinality);
+		Assert.Equal("Id", Assert.Single(relationship.KeyPairs).PrincipalColumn);
+		Assert.Equal("UserId", relationship.KeyPairs[0].DependentColumn);
+	}
+
+	[Fact]
 	public async Task SaveProjectAsync_WithNonExistentDirectory_CreatesDirectoryAndSaves()
 	{
 		// Arrange — SaveProjectAsync now creates missing directories instead of throwing.

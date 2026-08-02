@@ -60,3 +60,25 @@ public class OrderItem
 	public Order Order { get; set; } = null!;
 	public Product Product { get; set; } = null!;
 }
+
+/// <summary>
+/// Sample user profile intentionally not linked by a database foreign key.
+/// </summary>
+public class UserProfile
+{
+	public int Id { get; set; }
+	public required string DisplayName { get; set; }
+	public required string Email { get; set; }
+}
+
+/// <summary>
+/// Sample support ticket with a UserId convention that can be configured as a custom relationship.
+/// </summary>
+public class SupportTicket
+{
+	public int Id { get; set; }
+	public int UserId { get; set; }
+	public required string Subject { get; set; }
+	public DateTime OpenedAt { get; set; }
+	public bool IsResolved { get; set; }
+}

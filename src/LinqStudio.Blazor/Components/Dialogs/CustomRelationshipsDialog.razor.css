@@ -1,0 +1,23 @@
+::deep .custom-relationships-dialog .mud-dialog-content {
+	min-height: 520px;
+}
+
+::deep .custom-relationships-dialog .mud-list {
+	max-height: 460px;
+	overflow-y: auto;
+}
+
+::deep .custom-relationship-model.selected {
+	background-color: var(--mud-palette-primary-hover) !important;
+	border-left: 4px solid var(--mud-palette-primary);
+	font-weight: 600;
+}
+
+::deep .custom-relationship-model.selected .mud-list-item-text {
+	color: var(--mud-palette-primary-text);
+}
+
+::deep .key-pair-column-select {
+	flex: 1 1 220px;
+	min-width: 220px;
+}

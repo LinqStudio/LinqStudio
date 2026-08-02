@@ -228,4 +228,40 @@
   <data name="Editor.NoQueryAlert" xml:space="preserve">
     <value>No queries are currently open. Right-click the database connection in the explorer to create a new query.</value>
   </data>
+  <data name="CustomRelationships.Title" xml:space="preserve"><value>Configure relationships</value></data>
+  <data name="CustomRelationships.ContextMenu" xml:space="preserve"><value>Configure relationships</value></data>
+  <data name="CustomRelationships.Tab.DbContext" xml:space="preserve"><value>DbContext</value></data>
+  <data name="CustomRelationships.Tab.Models" xml:space="preserve"><value>Models</value></data>
+  <data name="CustomRelationships.DbContext.Help" xml:space="preserve"><value>Add code that will be placed in OnModelCreating. The preview shows the current final version.</value></data>
+  <data name="CustomRelationships.DbContext.ManualCode" xml:space="preserve"><value>Manual configuration code</value></data>
+  <data name="CustomRelationships.DbContext.FinalVersion" xml:space="preserve"><value>Final version preview</value></data>
+  <data name="CustomRelationships.Models.Models" xml:space="preserve"><value>Models</value></data>
+  <data name="CustomRelationships.Models.SelectModel" xml:space="preserve"><value>Select a model to configure its relationships.</value></data>
+  <data name="CustomRelationships.Form.PrincipalTable" xml:space="preserve"><value>Principal table</value></data>
+  <data name="CustomRelationships.Form.Cardinality" xml:space="preserve"><value>Cardinality</value></data>
+  <data name="CustomRelationships.Form.Required" xml:space="preserve"><value>Each {0} must be linked to a {1}</value></data>
+  <data name="CustomRelationships.Form.PrincipalNavigation" xml:space="preserve"><value>Principal navigation property</value></data>
+  <data name="CustomRelationships.Form.DependentNavigation" xml:space="preserve"><value>Dependent navigation property</value></data>
+  <data name="CustomRelationships.Form.DeleteBehavior" xml:space="preserve"><value>Delete behavior</value></data>
+  <data name="CustomRelationships.Form.KeyPairs" xml:space="preserve"><value>Key pairs</value></data>
+  <data name="CustomRelationships.Form.PrincipalColumn" xml:space="preserve"><value>Principal column</value></data>
+  <data name="CustomRelationships.Form.DependentColumn" xml:space="preserve"><value>Dependent column</value></data>
+  <data name="CustomRelationships.Form.AddKeyPair" xml:space="preserve"><value>Add key pair</value></data>
+  <data name="CustomRelationships.Form.New" xml:space="preserve"><value>New relationship</value></data>
+  <data name="CustomRelationships.Form.Save" xml:space="preserve"><value>Save relationship</value></data>
+  <data name="CustomRelationships.Button.Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="CustomRelationships.Button.Save" xml:space="preserve"><value>Save</value></data>
+  <data name="CustomRelationships.Form.LinkToTable" xml:space="preserve"><value>Link to table</value></data>
+  <data name="CustomRelationships.Form.LinkToTableTooltip" xml:space="preserve"><value>Choose the table that {0} should link to.</value></data>
+  <data name="CustomRelationships.Form.SelectedColumn" xml:space="preserve"><value>Column in {0}</value></data>
+  <data name="CustomRelationships.Form.SelectedColumnTooltip" xml:space="preserve"><value>Pick the column in {0} that contains the link.</value></data>
+  <data name="CustomRelationships.Form.MatchingKey" xml:space="preserve"><value>Matching key in {0}</value></data>
+  <data name="CustomRelationships.Form.MatchingKeyTooltip" xml:space="preserve"><value>Pick the matching key column in {0}.</value></data>
+  <data name="CustomRelationships.Form.PrincipalNavigationTooltip" xml:space="preserve"><value>The property {1} will be added to the {0} class: {2} {1} {{ get; set; }}</value></data>
+  <data name="CustomRelationships.Form.DependentNavigationTooltip" xml:space="preserve"><value>The property {1} will be added to the {0} class: {2} {1} {{ get; set; }}</value></data>
+  <data name="CustomRelationships.Form.Cardinality.OneToOneTooltip" xml:space="preserve"><value>One {0} is linked to one {1}.</value></data>
+  <data name="CustomRelationships.Form.Cardinality.OneToManyTooltip" xml:space="preserve"><value>One {1} can be linked to many {0}.</value></data>
+  <data name="CustomRelationships.Form.Cardinality.ManyToOneTooltip" xml:space="preserve"><value>Many {1} can be linked to one {0}.</value></data>
+  <data name="CustomRelationships.Form.Cardinality.ManyToManyTooltip" xml:space="preserve"><value>Many {0} can be linked to many {1}.</value></data>
+  <data name="CustomRelationships.Form.RequiredTooltip" xml:space="preserve"><value>Turn this on when every {0} must be linked to a {1}.</value></data>
 </root>
