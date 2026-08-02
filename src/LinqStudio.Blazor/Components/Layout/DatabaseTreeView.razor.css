@@ -64,6 +64,45 @@
 		border-bottom: 1px solid var(--ls-color-border);
 	}
 
+.database-explorer-toolbar {
+	display: flex;
+	align-items: center;
+	gap: var(--ls-space-1);
+}
+
+	.database-explorer-toolbar ::deep .mud-input-control {
+		flex: 1;
+		min-width: 0;
+	}
+
+.database-explorer-progress {
+	margin: calc(var(--ls-space-1) * -1) 0 var(--ls-space-1);
+}
+
+.database-explorer-error {
+	margin: var(--ls-space-1) 0;
+}
+
+.database-explorer-empty,
+.database-explorer-node-error {
+	display: block;
+	padding: var(--ls-space-2) var(--ls-space-3);
+	color: var(--ls-color-text-muted);
+}
+
+.database-explorer-node {
+	display: flex;
+	align-items: center;
+	min-width: 0;
+	width: 100%;
+	border-radius: var(--ls-radius-small);
+}
+
+.database-explorer-node-selected {
+	background: var(--ls-color-accent-hover);
+	outline: 1px solid var(--ls-color-accent);
+}
+
 ::deep .mud-treeview-item-content {
 	min-height: var(--ls-control-height-compact);
 	border-radius: var(--ls-radius-small);
@@ -84,4 +123,8 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+
+::deep .mud-treeview-item-content .database-explorer-node {
+	overflow: hidden;
 }

@@ -691,11 +691,110 @@ namespace LinqStudio.Core.Resources {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Editor provides IntelliSense using Roslyn compiler with EF Core support.
+        ///   Looks up a localized string similar to Unable to load columns..
         /// </summary>
-        public static string Editor_Info_IntelliSense {
+        public static string DatabaseTreeView_LoadColumnsError {
             get {
-                return ResourceManager.GetString("Editor.Info.IntelliSense", resourceCulture);
+                return ResourceManager.GetString("DatabaseTreeView.LoadColumnsError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to load table columns..
+        /// </summary>
+        public static string DatabaseTreeView_LoadColumnsErrorDialog {
+            get {
+                return ResourceManager.GetString("DatabaseTreeView.LoadColumnsErrorDialog", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unable to load tables..
+        /// </summary>
+        public static string DatabaseTreeView_LoadError {
+            get {
+                return ResourceManager.GetString("DatabaseTreeView.LoadError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to load database tables..
+        /// </summary>
+        public static string DatabaseTreeView_LoadErrorDialog {
+            get {
+                return ResourceManager.GetString("DatabaseTreeView.LoadErrorDialog", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Loading columns....
+        /// </summary>
+        public static string DatabaseTreeView_LoadingColumns {
+            get {
+                return ResourceManager.GetString("DatabaseTreeView.LoadingColumns", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No tables match this filter..
+        /// </summary>
+        public static string DatabaseTreeView_NoMatches {
+            get {
+                return ResourceManager.GetString("DatabaseTreeView.NoMatches", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Open a project to explore database tables.
+        /// </summary>
+        public static string DatabaseTreeView_Placeholder {
+            get {
+                return ResourceManager.GetString("DatabaseTreeView.Placeholder", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Refresh tables.
+        /// </summary>
+        public static string DatabaseTreeView_Refresh {
+            get {
+                return ResourceManager.GetString("DatabaseTreeView.Refresh", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Retry.
+        /// </summary>
+        public static string DatabaseTreeView_Retry {
+            get {
+                return ResourceManager.GetString("DatabaseTreeView.Retry", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Filter tables.
+        /// </summary>
+        public static string DatabaseTreeView_SearchLabel {
+            get {
+                return ResourceManager.GetString("DatabaseTreeView.SearchLabel", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Search by table or schema.
+        /// </summary>
+        public static string DatabaseTreeView_SearchPlaceholder {
+            get {
+                return ResourceManager.GetString("DatabaseTreeView.SearchPlaceholder", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Tables.
+        /// </summary>
+        public static string DatabaseTreeView_Tables {
+            get {
+                return ResourceManager.GetString("DatabaseTreeView.Tables", resourceCulture);
             }
         }
         

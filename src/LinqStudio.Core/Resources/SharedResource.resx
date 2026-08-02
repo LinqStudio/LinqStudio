@@ -171,9 +171,6 @@
   <data name="Editor.Title" xml:space="preserve">
     <value>Editor - LinqStudio</value>
   </data>
-  <data name="Editor.Info.IntelliSense" xml:space="preserve">
-    <value>Editor provides IntelliSense using Roslyn compiler with EF Core support</value>
-  </data>
   <data name="Editor.NoProjectAlert" xml:space="preserve">
     <value>No project is open. Please create or open a project to start editing queries.</value>
   </data>
@@ -378,60 +375,202 @@
   <data name="DatabaseTreeView.ContextMenu.Refresh" xml:space="preserve">
     <value>Refresh</value>
   </data>
+  <data name="DatabaseTreeView.Tables" xml:space="preserve">
+    <value>Tables</value>
+  </data>
+  <data name="DatabaseTreeView.SearchLabel" xml:space="preserve">
+    <value>Filter tables</value>
+  </data>
+  <data name="DatabaseTreeView.SearchPlaceholder" xml:space="preserve">
+    <value>Search by table or schema</value>
+  </data>
+  <data name="DatabaseTreeView.Refresh" xml:space="preserve">
+    <value>Refresh tables</value>
+  </data>
+  <data name="DatabaseTreeView.LoadingColumns" xml:space="preserve">
+    <value>Loading columns...</value>
+  </data>
+  <data name="DatabaseTreeView.NoMatches" xml:space="preserve">
+    <value>No tables match this filter.</value>
+  </data>
+  <data name="DatabaseTreeView.LoadError" xml:space="preserve">
+    <value>Unable to load tables.</value>
+  </data>
+  <data name="DatabaseTreeView.LoadErrorDialog" xml:space="preserve">
+    <value>Failed to load database tables.</value>
+  </data>
+  <data name="DatabaseTreeView.LoadColumnsError" xml:space="preserve">
+    <value>Unable to load columns.</value>
+  </data>
+  <data name="DatabaseTreeView.LoadColumnsErrorDialog" xml:space="preserve">
+    <value>Failed to load table columns.</value>
+  </data>
+  <data name="DatabaseTreeView.Retry" xml:space="preserve">
+    <value>Retry</value>
+  </data>
+  <data name="DatabaseTreeView.Placeholder" xml:space="preserve">
+    <value>Open a project to explore database tables</value>
+  </data>
   <data name="Editor.NoQueryAlert" xml:space="preserve">
     <value>No queries are currently open. Right-click the database connection in the explorer to create a new query.</value>
   </data>
-  <data name="CustomRelationships.Title" xml:space="preserve"><value>Configure relationships</value></data>
-  <data name="CustomRelationships.ContextMenu" xml:space="preserve"><value>Configure relationships</value></data>
-  <data name="CustomRelationships.Tab.DbContext" xml:space="preserve"><value>DbContext</value></data>
-  <data name="CustomRelationships.Tab.Models" xml:space="preserve"><value>Models</value></data>
-  <data name="CustomRelationships.Tab.GeneratedCode" xml:space="preserve"><value>Generated code</value></data>
-  <data name="CustomRelationships.GeneratedCode.Help" xml:space="preserve"><value>This is the source generated for IntelliSense and query compilation.</value></data>
-  <data name="CustomRelationships.GeneratedCode.Empty" xml:space="preserve"><value>Generated code is unavailable until a database connection is configured.</value></data>
-  <data name="CustomRelationships.GeneratedCode.File" xml:space="preserve"><value>Generated file</value></data>
-  <data name="CustomRelationships.DbContext.Help" xml:space="preserve"><value>Add code that will be placed in OnModelCreating. The preview shows the current final version.</value></data>
-  <data name="CustomRelationships.DbContext.ManualCode" xml:space="preserve"><value>Manual configuration code</value></data>
-  <data name="CustomRelationships.DbContext.FinalVersion" xml:space="preserve"><value>Final version preview</value></data>
-  <data name="CustomRelationships.Models.Models" xml:space="preserve"><value>Models</value></data>
-  <data name="CustomRelationships.Models.SelectModel" xml:space="preserve"><value>Select a model to configure its relationships.</value></data>
-  <data name="CustomRelationships.Models.Editing" xml:space="preserve"><value>Editing model</value></data>
-  <data name="CustomRelationships.Error.LoadModels" xml:space="preserve"><value>Failed to load database models.</value></data>
-  <data name="CustomRelationships.Error.GenerateCode" xml:space="preserve"><value>Failed to generate code preview.</value></data>
-  <data name="CustomRelationships.Form.PrincipalTable" xml:space="preserve"><value>Principal table</value></data>
-  <data name="CustomRelationships.Form.Cardinality" xml:space="preserve"><value>Cardinality</value></data>
-  <data name="CustomRelationships.Form.Cardinality.OneToOne" xml:space="preserve"><value>One-to-one</value></data>
-  <data name="CustomRelationships.Form.Cardinality.OneToMany" xml:space="preserve"><value>One-to-many</value></data>
-  <data name="CustomRelationships.Form.Cardinality.ManyToOne" xml:space="preserve"><value>Many-to-one</value></data>
-  <data name="CustomRelationships.Form.Cardinality.ManyToMany" xml:space="preserve"><value>Many-to-many</value></data>
-  <data name="CustomRelationships.Form.Required" xml:space="preserve"><value>Each {0} must be linked to a {1}</value></data>
-  <data name="CustomRelationships.Form.PrincipalNavigation" xml:space="preserve"><value>Principal navigation property</value></data>
-  <data name="CustomRelationships.Form.DependentNavigation" xml:space="preserve"><value>Dependent navigation property</value></data>
-  <data name="CustomRelationships.Form.Navigation" xml:space="preserve"><value>Navigation properties</value></data>
-  <data name="CustomRelationships.Form.DeleteBehavior" xml:space="preserve"><value>Delete behavior</value></data>
-  <data name="CustomRelationships.Form.DeleteBehavior.ClientSetNull" xml:space="preserve"><value>Client set null</value></data>
-  <data name="CustomRelationships.Form.DeleteBehavior.Cascade" xml:space="preserve"><value>Cascade</value></data>
-  <data name="CustomRelationships.Form.DeleteBehavior.Restrict" xml:space="preserve"><value>Restrict</value></data>
-  <data name="CustomRelationships.Form.DeleteBehavior.NoAction" xml:space="preserve"><value>No action</value></data>
-  <data name="CustomRelationships.Form.DeleteBehaviorTooltip" xml:space="preserve"><value>Choose what happens to linked rows when the principal table row is deleted.</value></data>
-  <data name="CustomRelationships.Form.KeyPairs" xml:space="preserve"><value>Key pairs</value></data>
-  <data name="CustomRelationships.Form.PrincipalColumn" xml:space="preserve"><value>Principal column</value></data>
-  <data name="CustomRelationships.Form.DependentColumn" xml:space="preserve"><value>Dependent column</value></data>
-  <data name="CustomRelationships.Form.AddKeyPair" xml:space="preserve"><value>Add key pair</value></data>
-  <data name="CustomRelationships.Form.New" xml:space="preserve"><value>New relationship</value></data>
-  <data name="CustomRelationships.Form.Save" xml:space="preserve"><value>Save relationship</value></data>
-  <data name="CustomRelationships.Button.Cancel" xml:space="preserve"><value>Cancel</value></data>
-  <data name="CustomRelationships.Button.Save" xml:space="preserve"><value>Save</value></data>
-  <data name="CustomRelationships.Form.LinkToTable" xml:space="preserve"><value>Link to table</value></data>
-  <data name="CustomRelationships.Form.LinkToTableTooltip" xml:space="preserve"><value>Choose the table that {0} should link to.</value></data>
-  <data name="CustomRelationships.Form.SelectedColumn" xml:space="preserve"><value>Column in {0}</value></data>
-  <data name="CustomRelationships.Form.SelectedColumnTooltip" xml:space="preserve"><value>Pick the column in {0} that contains the link.</value></data>
-  <data name="CustomRelationships.Form.MatchingKey" xml:space="preserve"><value>Matching key in {0}</value></data>
-  <data name="CustomRelationships.Form.MatchingKeyTooltip" xml:space="preserve"><value>Pick the matching key column in {0}.</value></data>
-  <data name="CustomRelationships.Form.PrincipalNavigationTooltip" xml:space="preserve"><value>The property {1} will be added to the {0} class: {2} {1} {{ get; set; }}</value></data>
-  <data name="CustomRelationships.Form.DependentNavigationTooltip" xml:space="preserve"><value>The property {1} will be added to the {0} class: {2} {1} {{ get; set; }}</value></data>
-  <data name="CustomRelationships.Form.Cardinality.OneToOneTooltip" xml:space="preserve"><value>One {0} is linked to one {1}.</value></data>
-  <data name="CustomRelationships.Form.Cardinality.OneToManyTooltip" xml:space="preserve"><value>One {1} can be linked to many {0}.</value></data>
-  <data name="CustomRelationships.Form.Cardinality.ManyToOneTooltip" xml:space="preserve"><value>Many {1} can be linked to one {0}.</value></data>
-  <data name="CustomRelationships.Form.Cardinality.ManyToManyTooltip" xml:space="preserve"><value>Many {0} can be linked to many {1}.</value></data>
-  <data name="CustomRelationships.Form.RequiredTooltip" xml:space="preserve"><value>Turn this on when every {0} must be linked to a {1}.</value></data>
+  <data name="CustomRelationships.Title" xml:space="preserve">
+    <value>Configure relationships</value>
+  </data>
+  <data name="CustomRelationships.ContextMenu" xml:space="preserve">
+    <value>Configure relationships</value>
+  </data>
+  <data name="CustomRelationships.Tab.DbContext" xml:space="preserve">
+    <value>DbContext</value>
+  </data>
+  <data name="CustomRelationships.Tab.Models" xml:space="preserve">
+    <value>Models</value>
+  </data>
+  <data name="CustomRelationships.Tab.GeneratedCode" xml:space="preserve">
+    <value>Generated code</value>
+  </data>
+  <data name="CustomRelationships.GeneratedCode.Help" xml:space="preserve">
+    <value>This is the source generated for IntelliSense and query compilation.</value>
+  </data>
+  <data name="CustomRelationships.GeneratedCode.Empty" xml:space="preserve">
+    <value>Generated code is unavailable until a database connection is configured.</value>
+  </data>
+  <data name="CustomRelationships.GeneratedCode.File" xml:space="preserve">
+    <value>Generated file</value>
+  </data>
+  <data name="CustomRelationships.DbContext.Help" xml:space="preserve">
+    <value>Add code that will be placed in OnModelCreating. The preview shows the current final version.</value>
+  </data>
+  <data name="CustomRelationships.DbContext.ManualCode" xml:space="preserve">
+    <value>Manual configuration code</value>
+  </data>
+  <data name="CustomRelationships.DbContext.FinalVersion" xml:space="preserve">
+    <value>Final version preview</value>
+  </data>
+  <data name="CustomRelationships.Models.Models" xml:space="preserve">
+    <value>Models</value>
+  </data>
+  <data name="CustomRelationships.Models.SelectModel" xml:space="preserve">
+    <value>Select a model to configure its relationships.</value>
+  </data>
+  <data name="CustomRelationships.Models.Editing" xml:space="preserve">
+    <value>Editing model</value>
+  </data>
+  <data name="CustomRelationships.Error.LoadModels" xml:space="preserve">
+    <value>Failed to load database models.</value>
+  </data>
+  <data name="CustomRelationships.Error.GenerateCode" xml:space="preserve">
+    <value>Failed to generate code preview.</value>
+  </data>
+  <data name="CustomRelationships.Form.PrincipalTable" xml:space="preserve">
+    <value>Principal table</value>
+  </data>
+  <data name="CustomRelationships.Form.Cardinality" xml:space="preserve">
+    <value>Cardinality</value>
+  </data>
+  <data name="CustomRelationships.Form.Cardinality.OneToOne" xml:space="preserve">
+    <value>One-to-one</value>
+  </data>
+  <data name="CustomRelationships.Form.Cardinality.OneToMany" xml:space="preserve">
+    <value>One-to-many</value>
+  </data>
+  <data name="CustomRelationships.Form.Cardinality.ManyToOne" xml:space="preserve">
+    <value>Many-to-one</value>
+  </data>
+  <data name="CustomRelationships.Form.Cardinality.ManyToMany" xml:space="preserve">
+    <value>Many-to-many</value>
+  </data>
+  <data name="CustomRelationships.Form.Required" xml:space="preserve">
+    <value>Each {0} must be linked to a {1}</value>
+  </data>
+  <data name="CustomRelationships.Form.PrincipalNavigation" xml:space="preserve">
+    <value>Principal navigation property</value>
+  </data>
+  <data name="CustomRelationships.Form.DependentNavigation" xml:space="preserve">
+    <value>Dependent navigation property</value>
+  </data>
+  <data name="CustomRelationships.Form.Navigation" xml:space="preserve">
+    <value>Navigation properties</value>
+  </data>
+  <data name="CustomRelationships.Form.DeleteBehavior" xml:space="preserve">
+    <value>Delete behavior</value>
+  </data>
+  <data name="CustomRelationships.Form.DeleteBehavior.ClientSetNull" xml:space="preserve">
+    <value>Client set null</value>
+  </data>
+  <data name="CustomRelationships.Form.DeleteBehavior.Cascade" xml:space="preserve">
+    <value>Cascade</value>
+  </data>
+  <data name="CustomRelationships.Form.DeleteBehavior.Restrict" xml:space="preserve">
+    <value>Restrict</value>
+  </data>
+  <data name="CustomRelationships.Form.DeleteBehavior.NoAction" xml:space="preserve">
+    <value>No action</value>
+  </data>
+  <data name="CustomRelationships.Form.DeleteBehaviorTooltip" xml:space="preserve">
+    <value>Choose what happens to linked rows when the principal table row is deleted.</value>
+  </data>
+  <data name="CustomRelationships.Form.KeyPairs" xml:space="preserve">
+    <value>Key pairs</value>
+  </data>
+  <data name="CustomRelationships.Form.PrincipalColumn" xml:space="preserve">
+    <value>Principal column</value>
+  </data>
+  <data name="CustomRelationships.Form.DependentColumn" xml:space="preserve">
+    <value>Dependent column</value>
+  </data>
+  <data name="CustomRelationships.Form.AddKeyPair" xml:space="preserve">
+    <value>Add key pair</value>
+  </data>
+  <data name="CustomRelationships.Form.New" xml:space="preserve">
+    <value>New relationship</value>
+  </data>
+  <data name="CustomRelationships.Form.Save" xml:space="preserve">
+    <value>Save relationship</value>
+  </data>
+  <data name="CustomRelationships.Button.Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="CustomRelationships.Button.Save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="CustomRelationships.Form.LinkToTable" xml:space="preserve">
+    <value>Link to table</value>
+  </data>
+  <data name="CustomRelationships.Form.LinkToTableTooltip" xml:space="preserve">
+    <value>Choose the table that {0} should link to.</value>
+  </data>
+  <data name="CustomRelationships.Form.SelectedColumn" xml:space="preserve">
+    <value>Column in {0}</value>
+  </data>
+  <data name="CustomRelationships.Form.SelectedColumnTooltip" xml:space="preserve">
+    <value>Pick the column in {0} that contains the link.</value>
+  </data>
+  <data name="CustomRelationships.Form.MatchingKey" xml:space="preserve">
+    <value>Matching key in {0}</value>
+  </data>
+  <data name="CustomRelationships.Form.MatchingKeyTooltip" xml:space="preserve">
+    <value>Pick the matching key column in {0}.</value>
+  </data>
+  <data name="CustomRelationships.Form.PrincipalNavigationTooltip" xml:space="preserve">
+    <value>The property {1} will be added to the {0} class: {2} {1} {{ get; set; }}</value>
+  </data>
+  <data name="CustomRelationships.Form.DependentNavigationTooltip" xml:space="preserve">
+    <value>The property {1} will be added to the {0} class: {2} {1} {{ get; set; }}</value>
+  </data>
+  <data name="CustomRelationships.Form.Cardinality.OneToOneTooltip" xml:space="preserve">
+    <value>One {0} is linked to one {1}.</value>
+  </data>
+  <data name="CustomRelationships.Form.Cardinality.OneToManyTooltip" xml:space="preserve">
+    <value>One {1} can be linked to many {0}.</value>
+  </data>
+  <data name="CustomRelationships.Form.Cardinality.ManyToOneTooltip" xml:space="preserve">
+    <value>Many {1} can be linked to one {0}.</value>
+  </data>
+  <data name="CustomRelationships.Form.Cardinality.ManyToManyTooltip" xml:space="preserve">
+    <value>Many {0} can be linked to many {1}.</value>
+  </data>
+  <data name="CustomRelationships.Form.RequiredTooltip" xml:space="preserve">
+    <value>Turn this on when every {0} must be linked to a {1}.</value>
+  </data>
 </root>

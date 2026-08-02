@@ -121,6 +121,40 @@ public class DatabaseTreeViewE2ETests(AppServerFixture app, PlaywrightFixture pw
 	}
 
 	[Fact(Timeout = 90_000)]
+	public async Task DatabaseTreeView_SearchFilter_ShowsMatchingTablesOnly()
+	{
+		Assert.NotNull(_pw.Browser);
+
+		var dbPath = CreateTestSQLiteDatabase();
+		try
+		{
+			await using var context = await _pw.Browser.NewContextAsync();
+			var page = await context.NewPageAsync();
+
+			await OpenSQLiteProjectAsync(page, dbPath, "DbTreeSearchTest");
+			await Expect(page.Get_DatabaseTree_View()).ToBeVisibleAsync(new() { Timeout = 15_000 });
+			await page.Get_DatabaseTree_Connection().ExpandDatabaseTreeItemAsync();
+			var tablesFolder = page.Get_DatabaseTree_TablesFolder();
+			await Expect(tablesFolder).ToBeVisibleAsync(new() { Timeout = 10_000 });
+			await tablesFolder.ExpandDatabaseTreeItemAsync();
+
+			var search = page.GetByTestId("db-tree-search");
+			await search.FillAsync("Orders");
+
+			await Expect(page.Get_DatabaseTree_Table("main.Orders")).ToBeVisibleAsync();
+			await Expect(page.Get_DatabaseTree_Table("main.Customers")).Not.ToBeVisibleAsync();
+
+			var ordersBody = page.GetByTestId("db-tree-table-body-main.Orders");
+			await ordersBody.ClickAsync();
+			await Expect(ordersBody).ToHaveClassAsync(new System.Text.RegularExpressions.Regex("database-explorer-node-selected"));
+		}
+		finally
+		{
+			TryDeleteFile(dbPath);
+		}
+	}
+
+	[Fact(Timeout = 90_000)]
 	public async Task DatabaseTreeView_ShowsColumnNodes_AfterExpandingTableNode()
 	{
 		Assert.NotNull(_pw.Browser);
