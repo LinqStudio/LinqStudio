@@ -39,19 +39,18 @@ src/
 ├── LinqStudio.Core/
 │   ├── Extensions/
 │   │   └── ServiceCollectionExtensions.cs  # AddLinqStudio() — main DI entry point
+│   ├── Interfaces/                         # Public Core service contracts
+│   ├── CodeGeneration/                     # Internal schema normalization and source renderers
 │   ├── Settings/
 │   │   ├── UISettings.cs             # IUserSettingsSection impl (dark mode, etc.)
 │   │   └── QueryExecutionSettings.cs # IUserSettingsSection impl (TimeoutSeconds)
 │   └── Services/
 │       ├── SettingsService.cs        # Singleton; serializes writes to usersettings.json
-│       ├── ISettingsService.cs       # Write-only interface (Save)
 │       ├── RoslynWorkspaceService.cs # Singleton; stateless workspace/doc creation
 │       ├── CompilerService.cs        # Scoped; stateful IntelliSense workspace
 │       ├── CompilerServiceFactory.cs # Scoped; creates + initializes CompilerService
-│       ├── ICompilerServiceFactory.cs
 │       ├── DbContextGenerator.cs     # Scoped; schema → C# code generation
 │       ├── QueryExecutionService.cs  # Scoped; compile + run user LINQ query
-│       ├── IQueryExecutionService.cs
 │       ├── QueryService.cs           # Singleton; query CRUD
 │       └── ProjectService.cs        # Singleton; project CRUD
 │
@@ -238,9 +237,12 @@ All generators map their native types to the common `DbColumnType` enum before r
 `DbContextGenerator` is the only implementation. It:
 1. Calls `IDatabaseQueryGenerator.GetTablesAsync()` to get the table list
 2. Calls `GetTableAsync()` for each table to get columns + foreign keys
-3. Generates a C# file per entity model (in namespace `GeneratedModels`)
-4. Generates a `GeneratedDbContext : DbContext` with `DbSet<T>` properties and `OnModelCreating` with `HasKey()` calls
-5. Returns `DbContextGeneratorResult` containing model files dict, DbContext code, context type name, and namespace
+3. Normalizes table names and relationships into an internal `GeneratedSchema`
+4. Generates a C# file per entity model (in namespace `GeneratedModels`)
+5. Generates a `GeneratedDbContext : DbContext` with `DbSet<T>` properties and `OnModelCreating` with `HasKey()` calls
+6. Returns `DbContextGeneratorResult` containing model files dict, DbContext code, context type name, and namespace
+
+The normalization and rendering helpers live in `LinqStudio.Core/CodeGeneration` and are internal implementation details. Keep future project-defined relationships separate from physical `ForeignKey` metadata, merging them at the normalized-schema boundary before rendering.
 
 **The generated code is consumed by:**
 - `CompilerServiceFactory.CreateFromProjectAsync()` → adds files to Roslyn workspace for IntelliSense

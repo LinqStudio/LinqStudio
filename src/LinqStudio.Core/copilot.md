@@ -10,6 +10,9 @@ Fixed: `Project.cs` QueryGenerator property switch expression was missing Postgr
 ### DbContextGenerator (2026-03-14)
 `DbContextGenerator` implements `IDbContextGenerator` and converts live DB schema (via `IDatabaseQueryGenerator`) into C# model classes + `GeneratedDbContext`. Registered as `AddScoped<IDbContextGenerator, DbContextGenerator>()`. Used by `CompilerServiceFactory.CreateFromProjectAsync()` to power real IntelliSense against the user's actual database. Fixed namespace: `GeneratedModels`, fixed context type: `GeneratedDbContext`.
 
+## Internal organization
+Public service contracts are in `Interfaces/`; Core-only generated-schema metadata is in `Models/`; schema normalization and source rendering helpers are in `CodeGeneration/`. Keep these implementation details out of `Services/`.
+
 ## Repositories
 
 ### FileSystemProjectRepository & FileSystemQueryRepository (2026-03-20)

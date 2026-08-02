@@ -53,6 +53,8 @@ Supporting projects (no business logic):
 
 ### LinqStudio.Core
 - All business services: `ProjectService`, `QueryService`, `SettingsService`, `CompilerService`, `QueryExecutionService`, `DbContextGenerator`, `RoslynWorkspaceService`
+- Public Core service contracts live in `LinqStudio.Core/Interfaces`; Core-only schema/code-generation types live in `Models` and `CodeGeneration` and are `internal`
+- `DbContextGenerator` delegates normalized schema construction and source rendering to `CodeGeneration` helpers
 - Settings system (`IUserSettingsSection` auto-discovery via reflection)
 - Roslyn compiler pipeline
 - File system repository implementations (`FileSystemProjectRepository`, `FileSystemQueryRepository`)
