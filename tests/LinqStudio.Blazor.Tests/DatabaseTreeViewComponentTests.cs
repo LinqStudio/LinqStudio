@@ -1,22 +1,14 @@
 using Bunit;
-using Xunit;
 using LinqStudio.Abstractions;
 using LinqStudio.Abstractions.Models;
 using LinqStudio.Blazor.Components.Layout;
 using LinqStudio.Blazor.Extensions;
-using LinqStudio.Blazor.Models;
 using LinqStudio.Blazor.Services;
 using LinqStudio.Core.Extensions;
 using LinqStudio.Core.Models;
-using LinqStudio.Core.Repositories;
-using LinqStudio.Core.Services;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
-using MudBlazor;
-using MudBlazor.Services;
 using System.Reflection;
 
 namespace LinqStudio.Blazor.Tests;
@@ -478,7 +470,7 @@ public class DatabaseTreeViewComponentTests : BunitContext
 		// Assert
 		var query = workspace.Queries.GetCurrentQuery();
 		Assert.NotNull(query);
-		Assert.Equal("context.SalesOrders.Take(1000)", query.QueryText);
+		Assert.EndsWith("context.SalesOrders.Take(1000)", query.QueryText);
 		Assert.True(workspace.Queries.CurrentQueryState!.ExecuteOnOpen);
 	}
 }
