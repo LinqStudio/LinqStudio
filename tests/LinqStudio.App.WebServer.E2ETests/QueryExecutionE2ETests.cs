@@ -30,18 +30,46 @@ public class QueryExecutionE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await E2ETestHelpers.SetupEditorAsync(page, _app);
 
 		// Assert: Execute button is visible in the DOM
-		var executeBtn = page.GetByTestId("execute-query-btn");
+		var executeBtn = page.Get_QueryExecution_ExecuteButton();
 		await Expect(executeBtn).ToBeVisibleAsync();
 		await Expect(executeBtn).ToContainTextAsync("Execute");
 		await Expect(executeBtn).ToBeEnabledAsync();
 
 		// Assert: Timeout dropdown is visible
-		var timeoutSelect = page.GetByTestId("timeout-select");
+		var timeoutSelect = page.Get_QueryExecution_TimeoutSelect();
 		await Expect(timeoutSelect).ToBeVisibleAsync();
 
 		// Assert: Stop button is NOT visible (only shown during execution)
-		var stopBtn = page.GetByTestId("stop-query-btn");
+		var stopBtn = page.Get_QueryExecution_StopButton();
 		await Expect(stopBtn).Not.ToBeVisibleAsync();
+	}
+
+	[Fact(Timeout = 90_000)]
+	public async Task Execute_WorkflowToolbarAndResultsHeader_ShowExecutionContext()
+	{
+		Assert.NotNull(_pw.Browser);
+
+		await using var context = await _pw.Browser.NewContextAsync();
+		var page = await context.NewPageAsync();
+		await E2ETestHelpers.SetupEditorAsync(page, _app);
+
+		_app.MockQueryExecutionService.SetNextResult(E2ETestHelpers.CreateMultiColumnResult(rows: 2));
+		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "context.Items.Take(2)");
+
+		var panel = E2ETestHelpers.GetActivePanel(page);
+		var executionBar = panel.GetByTestId(E2ESelectors.QueryExecutionBar);
+		await Expect(executionBar).ToBeVisibleAsync();
+		await Expect(executionBar.GetByTestId(E2ESelectors.ExecuteQueryButton)).ToBeVisibleAsync();
+		await Expect(executionBar.GetByTestId(E2ESelectors.TimeoutSelect)).ToBeVisibleAsync();
+		await Expect(panel.GetByTestId(E2ESelectors.QueryExecutionStatus)).ToContainTextAsync("Not executed");
+
+		await executionBar.GetByTestId(E2ESelectors.ExecuteQueryButton).ClickAsync();
+
+		var resultContainer = panel.Get_QueryResults_ResultContainer();
+		await Expect(resultContainer.Get_QueryResults_TableFromContainer()).ToBeVisibleAsync(new() { Timeout = 10_000 });
+		await Expect(panel.GetByTestId(E2ESelectors.QueryResultsHeader)).ToBeVisibleAsync();
+		await Expect(panel.GetByTestId(E2ESelectors.QueryResultsRowCount)).ToContainTextAsync("2 rows");
+		await Expect(panel.GetByTestId(E2ESelectors.QueryResultsElapsed)).ToContainTextAsync("Elapsed");
 	}
 
 	[Fact(Timeout = 90_000)]
@@ -62,36 +90,36 @@ public class QueryExecutionE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "context.People.Take(5)");
 
 		// Click Execute button
-		var executeBtn = page.GetByTestId("execute-query-btn");
+		var executeBtn = page.Get_QueryExecution_ExecuteButton();
 		await executeBtn.ClickAsync();
 
 		// Wait for execution to complete — either result table or error alert should appear.
 		// The mock introduces a 600ms delay so Blazor can render the loading state.
-		var resultContainer = page.GetByTestId("query-result-container");
-		var resultOrError = resultContainer.Locator(".mud-table, .mud-alert");
+		var resultContainer = page.Get_QueryResults_ResultContainer();
+		var resultOrError = resultContainer.Get_QueryResults_ResultOrError();
 		await Expect(resultOrError).ToBeVisibleAsync(new() { Timeout = 10000 });
 
 		// Execute button should be restored (no longer executing)
 		await Expect(executeBtn).ToBeVisibleAsync();
 
 		// Check if we got a successful result (MudTable) or an error (MudAlert)
-		var mudTable = resultContainer.Locator(".mud-table");
+		var mudTable = resultContainer.Get_QueryResults_TableFromContainer();
 		var isTableVisible = await mudTable.IsVisibleAsync();
 
 		if (isTableVisible)
 		{
 			// Success case: Assert result table/grid is visible with column headers
 			await Expect(mudTable).ToBeVisibleAsync();
-			var columnHeader = mudTable.Locator("thead th").First;
+			var columnHeader = mudTable.Locator(E2ESelectors.QueryColumnHeader).First;
 			await Expect(columnHeader).ToBeVisibleAsync();
 
-			var rowCountText = resultContainer.Locator("text=/\\d+ rows? ·/");
+			var rowCountText = resultContainer.Get_QueryResults_RowCount();
 			await Expect(rowCountText).ToBeVisibleAsync();
 		}
 		else
 		{
 			// Mock returns an error result (no real DB) — verify error alert is shown
-			var errorAlert = resultContainer.Locator(".mud-alert");
+			var errorAlert = resultContainer.Get_QueryResults_ErrorAlert();
 			await Expect(errorAlert).ToBeVisibleAsync();
 			var errorText = await errorAlert.InnerTextAsync();
 			Assert.NotEmpty(errorText);
@@ -117,12 +145,12 @@ public class QueryExecutionE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "var x = !!!syntax error!!!;");
 
 		// Click Execute button
-		var executeBtn = page.GetByTestId("execute-query-btn");
+		var executeBtn = page.Get_QueryExecution_ExecuteButton();
 		await executeBtn.ClickAsync();
 
 		// Wait for an error alert to appear (mock always returns an error result)
-		var resultContainer = page.GetByTestId("query-result-container");
-		var errorAlert = resultContainer.Locator(".mud-alert");
+		var resultContainer = page.Get_QueryResults_ResultContainer();
+		var errorAlert = resultContainer.Get_QueryResults_ErrorAlert();
 		await Expect(errorAlert).ToBeVisibleAsync(new() { Timeout = 10000 });
 
 		// Assert: Error message is not empty
@@ -145,11 +173,11 @@ public class QueryExecutionE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "context.People.ToList()");
 
 		// Click Execute button
-		var executeBtn = page.GetByTestId("execute-query-btn");
+		var executeBtn = page.Get_QueryExecution_ExecuteButton();
 		await executeBtn.ClickAsync();
 
 		// Wait for execution to start - Stop button should appear
-		var stopBtn = page.GetByTestId("stop-query-btn");
+		var stopBtn = page.Get_QueryExecution_StopButton();
 		await Expect(stopBtn).ToBeVisibleAsync(new() { Timeout = 5000 });
 		await Expect(stopBtn).ToContainTextAsync("Stop");
 
@@ -162,8 +190,13 @@ public class QueryExecutionE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		// Assert: Execute button is back (not executing anymore)
 		await Expect(executeBtn).ToBeVisibleAsync();
 
-		// Note: We don't assert on the result content because cancellation behavior may vary
-		// The key assertion is that the Stop button disappears, indicating execution stopped
+		// Cancellation should remain visible in both the result output and status strip.
+		var resultContainer = page.Get_QueryResults_ResultContainer();
+		await Expect(resultContainer.Get_QueryResults_ErrorAlert()).ToBeVisibleAsync(new() { Timeout = 5000 });
+		await Expect(page.GetByTestId(E2ESelectors.QueryExecutionStatus))
+			.ToContainTextAsync("cancelled", new() { IgnoreCase = true });
+		await Expect(page.GetByTestId("query-results-cancelled"))
+			.ToContainTextAsync("cancelled", new() { IgnoreCase = true });
 	}
 
 	[Fact(Timeout = 60_000)]
@@ -181,22 +214,22 @@ public class QueryExecutionE2ETests(AppServerFixture app, PlaywrightFixture pw)
 
 		// Close the open query tab to reach the "no query" state.
 		// New queries have HasUnsavedChanges = true, so a confirmation dialog will appear.
-		var closeBtn = page.GetByTestId("query-close-btn");
+		var closeBtn = page.Get_QueryEditor_CloseButton();
 		await Expect(closeBtn).ToBeVisibleAsync();
 		await closeBtn.ClickAsync();
 
 		// Confirm the unsaved-changes dialog (new query is always unsaved)
-		var confirmBtn = page.GetByTestId("unsaved-changes-confirm-btn");
+		var confirmBtn = page.Get_Navigation_UnsavedChangesConfirmButton();
 		await Expect(confirmBtn).ToBeVisibleAsync();
 		await confirmBtn.ClickAsync();
 
 		// Wait for the "no query" alert
-		var noQueryAlert = page.GetByTestId("no-query-alert");
+		var noQueryAlert = page.Get_QueryEditor_NoQueryAlert();
 		await Expect(noQueryAlert).ToBeVisibleAsync(new() { Timeout = 10_000 });
 
 		// The execute button should NOT be visible when no query is open
 		// (The entire query-execution-bar is not rendered when CurrentQueryId is null)
-		var executeBtn = page.GetByTestId("execute-query-btn");
+		var executeBtn = page.Get_QueryExecution_ExecuteButton();
 		await Expect(executeBtn).Not.ToBeVisibleAsync();
 	}
 
@@ -215,22 +248,16 @@ public class QueryExecutionE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "context.People.ToList()");
 
 		// Click Execute button
-		var executeBtn = page.GetByTestId("execute-query-btn");
+		var executeBtn = page.Get_QueryExecution_ExecuteButton();
 		await executeBtn.ClickAsync();
 
 		// With MockQueryExecutionService (600ms delay), the loading state IS visible.
-		// Assert: "Executing query..." text appears in result container
-		var resultContainer = page.GetByTestId("query-result-container");
-		var executingText = resultContainer.Locator("text=Executing query...");
-		await Expect(executingText).ToBeVisibleAsync(new() { Timeout = 5000 });
-
-		// Assert: Progress spinner is visible
-		var progressSpinner = resultContainer.Locator(".mud-progress-circular");
-		await Expect(progressSpinner).ToBeVisibleAsync();
+		// Assert: loading text and progress spinner are visible
+		await page.ExpectQueryExecutingAsync();
 
 		// Assert: Execute button is hidden and Stop button is shown
 		await Expect(executeBtn).Not.ToBeVisibleAsync();
-		var stopBtn = page.GetByTestId("stop-query-btn");
+		var stopBtn = page.Get_QueryExecution_StopButton();
 		await Expect(stopBtn).ToBeVisibleAsync();
 	}
 
@@ -249,15 +276,15 @@ public class QueryExecutionE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "context.People.ToList()");
 
 		// Verify timeout select wrapper is visible before execution
-		var timeoutSelect = page.GetByTestId("timeout-select");
+		var timeoutSelect = page.Get_QueryExecution_TimeoutSelect();
 		await Expect(timeoutSelect).ToBeVisibleAsync();
 
 		// Click Execute button
-		var executeBtn = page.GetByTestId("execute-query-btn");
+		var executeBtn = page.Get_QueryExecution_ExecuteButton();
 		await executeBtn.ClickAsync();
 
 		// Wait for execution to start (stop button appears)
-		var stopBtn = page.GetByTestId("stop-query-btn");
+		var stopBtn = page.Get_QueryExecution_StopButton();
 		await Expect(stopBtn).ToBeVisibleAsync(new() { Timeout = 5000 });
 
 		// Assert: Timeout select should now be disabled during execution.
@@ -265,7 +292,7 @@ public class QueryExecutionE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		// When IsExecuting=true, MudBlazor renders the select with disabled styling:
 		// either aria-disabled="true", class="mud-disabled", or input[disabled].
 		// We verify using a locator that checks for any disabled indicator.
-		var disabledIndicator = timeoutSelect.Locator("[aria-disabled='true'], .mud-disabled, input[disabled]");
+		var disabledIndicator = timeoutSelect.Locator(E2ESelectors.QueryDisabledIndicator);
 		var hasDisabledIndicator = await disabledIndicator.CountAsync() > 0;
 
 		// Fallback: if no CSS/aria marker, the fact that stop button IS visible proves
@@ -288,11 +315,11 @@ public class QueryExecutionE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await E2ETestHelpers.SetupEditorAsync(page, _app);
 
 		// Assert: Result container is visible and ready
-		var resultContainer = page.GetByTestId("query-result-container");
+		var resultContainer = page.Get_QueryResults_ResultContainer();
 		await Expect(resultContainer).ToBeVisibleAsync();
 
 		// Initially should be empty (no execution yet)
-		var executingText = resultContainer.Locator("text=Executing query...");
+		var executingText = resultContainer.Get_QueryResults_ExecutingIndicator();
 		await Expect(executingText).Not.ToBeVisibleAsync();
 	}
 
@@ -308,16 +335,16 @@ public class QueryExecutionE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await E2ETestHelpers.SetupEditorAsync(page, _app);
 
 		// Open the timeout dropdown by clicking the MudSelect container
-		var timeoutSelect = page.GetByTestId("timeout-select");
+		var timeoutSelect = page.Get_QueryExecution_TimeoutSelect();
 		await Expect(timeoutSelect).ToBeVisibleAsync();
 		await timeoutSelect.ClickAsync();
 
 		// Wait for the MudSelect popover to appear with list items
-		var firstListItem = page.Locator(".mud-list-item").First;
+		var firstListItem = page.Get_QueryExecution_TimeoutOptions().First;
 		await Expect(firstListItem).ToBeVisibleAsync(new() { Timeout = 5000 });
 
 		// Retrieve all visible list item texts from the popover
-		var listItems = page.Locator(".mud-list-item");
+		var listItems = page.Get_QueryExecution_TimeoutOptions();
 		var allTexts = await listItems.AllInnerTextsAsync();
 
 		// Verify all six expected timeout options are present (from Editor.razor MudSelectItem values)
@@ -356,11 +383,11 @@ public class QueryExecutionE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "context.People.ToList()");
 		// Scope to the active panel (Tab 2) to avoid strict mode violations with 2 tabs
 		var tab2Panel = E2ETestHelpers.GetActivePanel(page);
-		var executeBtn = tab2Panel.GetByTestId("execute-query-btn");
+		var executeBtn = tab2Panel.Get_QueryExecution_ExecuteButton();
 		await executeBtn.ClickAsync();
 
 		// Assert Tab 2 entered executing state (stop button appears)
-		var stopBtn = tab2Panel.GetByTestId("stop-query-btn");
+		var stopBtn = tab2Panel.Get_QueryExecution_StopButton();
 		await Expect(stopBtn).ToBeVisibleAsync(new() { Timeout = 5000 });
 
 		// Switch to Tab 1 by navigating to its URL (SPA navigation via Blazor).
@@ -376,13 +403,13 @@ public class QueryExecutionE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		var tab1Panel = E2ETestHelpers.GetActivePanel(page);
 
 		// Tab 1 should NOT be in executing state — its result container is empty (pristine)
-		var executingText = tab1Panel.GetByTestId("query-result-container").Locator("text=Executing query...");
+		var executingText = tab1Panel.Get_QueryResults_ResultContainer().Get_QueryResults_ExecutingIndicator();
 		await Expect(executingText).Not.ToBeVisibleAsync();
 
 		// Execute button should be visible (not stop button) on Tab 1
-		var tab1ExecuteBtn = tab1Panel.GetByTestId("execute-query-btn");
+		var tab1ExecuteBtn = tab1Panel.Get_QueryExecution_ExecuteButton();
 		await Expect(tab1ExecuteBtn).ToBeVisibleAsync();
-		var tab1StopBtn = tab1Panel.GetByTestId("stop-query-btn");
+		var tab1StopBtn = tab1Panel.Get_QueryExecution_StopButton();
 		await Expect(tab1StopBtn).Not.ToBeVisibleAsync();
 
 		// Wait for the mock execution on Tab 2 to FULLY COMPLETE (>600ms mock delay)
@@ -400,7 +427,7 @@ public class QueryExecutionE2ETests(AppServerFixture app, PlaywrightFixture pw)
 
 		// Tab 2 should have execution results — either an alert (error/info) or a table
 		var tab2ActivePanel = E2ETestHelpers.GetActivePanel(page);
-		var tab2ResultOrError = tab2ActivePanel.GetByTestId("query-result-container").Locator(".mud-alert, .mud-table");
+		var tab2ResultOrError = tab2ActivePanel.Get_QueryResults_ResultContainer().Get_QueryResults_ResultOrError();
 		await Expect(tab2ResultOrError).ToBeVisibleAsync(new() { Timeout = 3000 });
 	}
 
@@ -423,12 +450,12 @@ public class QueryExecutionE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		_app.MockQueryExecutionService.SetNextResult(QueryExecutionResult.Empty(TimeSpan.FromMilliseconds(10)));
 
 		// Execute the query
-		var executeBtn = page.GetByTestId("execute-query-btn");
+		var executeBtn = page.Get_QueryExecution_ExecuteButton();
 		await executeBtn.ClickAsync();
 
 		// Wait for any alert to appear (handles both success-empty and error states)
-		var resultContainer = page.GetByTestId("query-result-container");
-		var anyAlert = resultContainer.Locator(".mud-alert");
+		var resultContainer = page.Get_QueryResults_ResultContainer();
+		var anyAlert = resultContainer.Get_QueryResults_ErrorAlert();
 		await Expect(anyAlert).ToBeVisibleAsync(new() { Timeout = 5000 });
 
 		// The mock returned QueryExecutionResult.Empty → Result.Success=true, Rows.Count=0

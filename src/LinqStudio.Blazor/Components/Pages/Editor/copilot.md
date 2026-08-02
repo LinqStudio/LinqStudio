@@ -15,7 +15,7 @@ The editor info bar contains a "Refresh Schema" button that re-initializes the `
 `QueryEditorPanel.razor` is a self-contained per-tab component that owns everything that was previously singleton in `Editor.razor`:
 - Monaco editor with unique `Id="editor-{QueryId:N}"`
 - Draggable splitter with unique IDs: `editor-top-panel-{QueryId:N}`, `editor-results-splitter-{QueryId:N}`, `results-bottom-panel-{QueryId:N}`  
-- Execution bar (Execute/Stop, timeout selector, Refresh Schema callback)
+- Workflow toolbar above the editor groups Execute/Stop with timeout and schema refresh controls, and exposes the current execution status.
 - `QueryResultGrid` (no sort parameters — state preserved naturally via KeepPanelsAlive)
 - Per-tab execution state: `_result`, `_isExecuting`, `_executionCts`, `_selectedTimeout`
 - All Monaco logic: `_lastQueryText`, `_debounceTokenSource`, `_delay`, `_splitterInitialized`
@@ -82,6 +82,8 @@ Key implementation notes:
 - No `ActivePanelIndexChanged` handler on the inner `MudTabs` — `AutomaticLayout = true` on both viewer editors means Monaco self-relayouts when the panel becomes visible
 - `SQL` tab shows "not available" message when `GeneratedSql` is null (e.g. queries not translatable to SQL)
 - `QueryExecutionResult.GeneratedCSharp` and `QueryExecutionResult.GeneratedSql` are always null on error results
+
+The output panel has a compact header with the current result status, row count, and elapsed time. The editor/results splitter remains the same JS-backed, user-resizable boundary.
 - `QueryEditorPanel.razor.css` explicitly hides `.mud-tab-panel-hidden`; the shared flex rule otherwise overrides MudBlazor's inactive-panel state when `KeepPanelsAlive` is enabled.
 
 ## Monaco Height in Results Tabs (C# / SQL)

@@ -52,7 +52,7 @@
 				 @onclick="OpenCustomRelationshipsAsync"
 				 data-testid="db-tree-connection-custom-relationships">
 				<MudIcon Icon="@Icons.Material.Filled.AccountTree" Size="Size.Small" Class="mr-2" />
-				@Text("CustomRelationships.ContextMenu", "Configure relationships")
+				@SharedResource.CustomRelationships_ContextMenu
 			</div>
 			<div class="db-tree-context-item"
 				 @onclick="HandleConnectionNewQuery"
@@ -64,14 +64,65 @@
 	</div>
 }
 
-<div class="mt-4">
+<div class="database-explorer" data-testid="database-explorer">
+	<div class="database-explorer-header">
+		<div class="d-flex align-center">
+			<MudIcon Icon="@Icons.Material.Filled.AccountTree" Class="mr-2" Size="Size.Small" />
+			<MudText Typo="Typo.subtitle2">@SharedResource.Shell_Explorer_Title</MudText>
+		</div>
+		@if (Workspace.IsProjectOpen && Workspace.CurrentProject?.QueryGenerator != null)
+		{
+			<MudText Typo="Typo.caption" Class="mud-text-secondary">
+				@SharedResource.Shell_Explorer_Subtitle
+			</MudText>
+		}
+	</div>
+
 	@if (Workspace.IsProjectOpen && Workspace.CurrentProject?.QueryGenerator != null)
 	{
-		@if (_isLoading && _rootNodes.Count == 0)
+		<div class="database-explorer-toolbar">
+			<MudTextField T="string"
+						  @bind-Value="_filterText"
+						  Immediate="true"
+						  Label="@SharedResource.DatabaseTreeView_SearchLabel"
+						  Placeholder="@SharedResource.DatabaseTreeView_SearchPlaceholder"
+						  Variant="Variant.Outlined"
+						  Margin="Margin.Dense"
+						  Adornment="Adornment.Start"
+						  AdornmentIcon="@Icons.Material.Filled.Search"
+						  Clearable="true"
+						  data-testid="db-tree-search" />
+			<MudIconButton Icon="@Icons.Material.Filled.Refresh"
+						   Size="Size.Small"
+						   Disabled="@_isLoading"
+						   OnClick="RefreshTablesFolderAsync"
+						   aria-label="@SharedResource.DatabaseTreeView_Refresh"
+						   title="@SharedResource.DatabaseTreeView_Refresh"
+						   data-testid="db-tree-refresh" />
+		</div>
+
+		@if (_isLoading)
 		{
-			<MudProgressLinear Indeterminate="true" data-testid="db-tree-loading" />
+			<MudProgressLinear Indeterminate="true" Class="database-explorer-progress" data-testid="db-tree-loading" />
 		}
-		else
+
+		@if (_loadError != null)
+		{
+			<MudAlert Severity="Severity.Error" Dense="true" Class="database-explorer-error" data-testid="db-tree-error">
+				<div class="d-flex align-center justify-space-between gap-2">
+					<span>@_loadError</span>
+					<MudButton Variant="Variant.Text"
+							   Color="Color.Error"
+							   Size="Size.Small"
+							   OnClick="LoadTablesAsync"
+							   data-testid="db-tree-retry">
+						@SharedResource.DatabaseTreeView_Retry
+					</MudButton>
+				</div>
+			</MudAlert>
+		}
+
+		@if (_rootNodes.Count > 0 && _tablesFolderNode != null)
 		{
 			<div data-testid="db-tree-view">
 				<MudTreeView T="SchemaTreeNode" Dense="true" Hover="true">
@@ -82,11 +133,16 @@
 										 Icon="@connNode.Icon"
 										 IconColor="@connNode.IconColor"
 										 @key="connNode"
+										 Expanded="@connNode.IsExpanded"
+										 ExpandedChanged="@(value => OnNodeExpandedChanged(connNode, value))"
 										 data-testid="db-tree-connection">
 							<BodyContent Context="_">
 								<div @oncontextmenu="@(e => OpenContextMenu(connNode, e))"
 									 @oncontextmenu:preventDefault="true"
 									 @oncontextmenu:stopPropagation="true"
+									 @onclick="() => SelectNode(connNode)"
+									 class="@GetNodeClass(connNode)"
+									 title="@connNode.Label"
 									 data-testid="db-tree-connection-body">
 									<MudText Typo="Typo.body1" Class="mud-treeview-item-label">@connNode.Label</MudText>
 								</div>
@@ -100,17 +156,23 @@
 												 Icon="@_tablesFolderNode.Icon"
 												 IconColor="@_tablesFolderNode.IconColor"
 												 @key="_tablesFolderNode"
+												 Expanded="@_tablesFolderNode.IsExpanded"
+												 ExpandedChanged="@(value => OnNodeExpandedChanged(_tablesFolderNode, value))"
 												 data-testid="db-tree-tables-folder">
 									<BodyContent Context="_">
 										<div @oncontextmenu="@(e => OpenContextMenu(_tablesFolderNode, e))"
 											 @oncontextmenu:preventDefault="true"
 											 @oncontextmenu:stopPropagation="true">
-											<MudText Typo="Typo.body1"
-													 Class="mud-treeview-item-label">@_tablesFolderNode.Label</MudText>
+											<div @onclick="() => SelectNode(_tablesFolderNode)"
+												 class="@GetNodeClass(_tablesFolderNode)"
+												 title="@GetTablesFolderLabel()">
+												<MudText Typo="Typo.body1"
+														 Class="mud-treeview-item-label">@GetTablesFolderLabel()</MudText>
+											</div>
 										</div>
 									</BodyContent>
 									<ChildContent>
-										@foreach (var tableNode in _tablesFolderNode.Children)
+										@foreach (var tableNode in GetVisibleTableNodes())
 										{
 											@* Table: right-click context menu + lazy-load columns *@
 											<MudTreeViewItem T="SchemaTreeNode"
@@ -118,12 +180,16 @@
 															 Icon="@tableNode.Icon"
 															 IconColor="@tableNode.IconColor"
 															 @key="tableNode"
+															 Expanded="@tableNode.IsExpanded"
 															 ExpandedChanged="@(async v => await OnTableExpandedChanged(tableNode, v))"
 															 data-testid="@($"table-{tableNode.TableName?.FullName}")">
 												<BodyContent Context="_">
 													<div @oncontextmenu="@(e => OpenContextMenu(tableNode, e))"
 														 @oncontextmenu:preventDefault="true"
 														 @oncontextmenu:stopPropagation="true"
+														 @onclick="() => SelectNode(tableNode)"
+														 class="@GetNodeClass(tableNode)"
+														 title="@tableNode.Label"
 														 data-testid="@($"db-tree-table-body-{tableNode.TableName?.FullName}")">
 														<MudText Typo="Typo.body1"
 																 Class="mud-treeview-item-label">@tableNode.Label</MudText>
@@ -140,10 +206,19 @@
 																	<MudProgressCircular Size="Size.Small"
 																						 Indeterminate="true"
 																						 Class="mr-2" />
-																	<MudText Typo="Typo.caption">Loading columns...</MudText>
+																	<MudText Typo="Typo.caption">@SharedResource.DatabaseTreeView_LoadingColumns</MudText>
 																</div>
 															</Content>
 														</MudTreeViewItem>
+													}
+													else if (tableNode.LoadError != null)
+													{
+														<MudText Typo="Typo.caption"
+																 Color="Color.Error"
+																 Class="database-explorer-node-error"
+																 data-testid="@($"db-tree-table-error-{tableNode.TableName?.FullName}")">
+															@tableNode.LoadError
+														</MudText>
 													}
 													else
 													{
@@ -155,7 +230,10 @@
 																			 @key="colNode"
 																			 data-testid="@($"column-{tableNode.TableName?.FullName}-{colNode.ColumnDetail?.Name}")">
 																<Content>
-																	<div class="d-flex align-center">
+																	<div @onclick="() => SelectNode(colNode)"
+																		 class="@GetNodeClass(colNode)"
+																		 title="@GetColumnTitle(colNode)"
+																		 data-testid="@($"column-body-{tableNode.TableName?.FullName}-{colNode.ColumnDetail?.Name}")">
 																		<MudIcon Icon="@colNode.Icon"
 																				 Color="@colNode.IconColor"
 																				 Size="Size.Small"
@@ -181,17 +259,21 @@
 						</MudTreeViewItem>
 					}
 				</MudTreeView>
+				@if (!_isLoading && !string.IsNullOrWhiteSpace(_filterText) && !GetVisibleTableNodes().Any())
+				{
+					<MudText Typo="Typo.caption"
+							 Class="database-explorer-empty"
+							 data-testid="db-tree-no-matches">
+						@SharedResource.DatabaseTreeView_NoMatches
+					</MudText>
+				}
 			</div>
 		}
 	}
 	else
 	{
-		<div class="d-flex align-center mb-2">
-			<MudIcon Icon="@Icons.Material.Outlined.Storage" Class="mr-2" Size="Size.Small" Color="Color.Default" />
-			<MudText Typo="Typo.subtitle2">Database Explorer</MudText>
-		</div>
 		<MudText Typo="Typo.caption" Class="mud-text-secondary ml-2" data-testid="db-tree-placeholder">
-			Open a project to explore database tables
+			@SharedResource.DatabaseTreeView_Placeholder
 		</MudText>
 	}
 </div>

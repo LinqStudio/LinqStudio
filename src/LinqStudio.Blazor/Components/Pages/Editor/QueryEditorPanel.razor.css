@@ -2,6 +2,40 @@
     height: 100%
 }
 
+.query-info-bar,
+.query-execution-bar {
+    border: 1px solid var(--ls-color-border);
+    border-radius: var(--ls-radius);
+    background: var(--ls-color-surface);
+    box-shadow: none;
+}
+
+.query-execution-bar {
+    flex-shrink: 0;
+}
+
+.query-info-bar {
+    color: var(--ls-color-text);
+}
+
+.query-workflow-toolbar {
+    min-height: var(--ls-control-height);
+}
+
+.query-toolbar-label {
+    color: var(--ls-color-text-muted);
+    letter-spacing: 0.08em;
+}
+
+.query-execution-actions,
+.query-workflow-status {
+    min-width: 0;
+}
+
+.query-workflow-status {
+    white-space: nowrap;
+}
+
 .editor-results-container {
     display: flex;
     flex-direction: column;
@@ -15,22 +49,42 @@
 }
 
 .resize-splitter {
-    height: 5px;
-    background: var(--mud-palette-divider);
+    height: var(--ls-space-1);
+    background: var(--ls-color-border);
     cursor: row-resize;
     flex-shrink: 0;
     user-select: none;
+    transition: background-color 120ms ease;
 }
 
 .resize-splitter:hover,
 .resize-splitter.dragging {
-    background: var(--mud-palette-primary);
+    background: var(--ls-color-accent);
+}
+
+.resize-splitter:focus-visible {
+    outline: 2px solid var(--ls-color-focus);
+    outline-offset: 1px;
 }
 
 .results-bottom {
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
+}
+
+.results-header {
+    flex-shrink: 0;
+    padding: var(--ls-space-2) var(--ls-space-3);
+    border: 1px solid var(--ls-color-border);
+    border-bottom: 0;
+    border-radius: var(--ls-radius) var(--ls-radius) 0 0;
+    background: var(--ls-color-surface);
+    color: var(--ls-color-text);
+}
+
+.results-metadata {
+    color: var(--ls-color-text-muted);
 }
 
 /* flex: 1 fills the flex parent (.mud-tab-panel); height: 100% would resolve to 0
@@ -47,4 +101,29 @@
    which may also carry the mud-tab-panel class. */
 ::deep [role="tabpanel"].mud-tab-panel:not(.mud-tab-panel-active) {
     display: none;
+}
+
+::deep .results-tabs .mud-tabs-tabbar {
+    border-bottom: 1px solid var(--ls-color-border);
+    background: var(--ls-color-surface-raised);
+}
+
+::deep .results-tabs .mud-tab {
+    min-height: var(--ls-control-height);
+}
+
+@media (max-width: 700px) {
+    .query-workflow-toolbar {
+        align-items: stretch !important;
+        flex-direction: column;
+        gap: var(--ls-space-2);
+    }
+
+    .query-workflow-status {
+        justify-content: space-between;
+    }
+
+    .results-header .mud-stack {
+        flex-wrap: wrap;
+    }
 }

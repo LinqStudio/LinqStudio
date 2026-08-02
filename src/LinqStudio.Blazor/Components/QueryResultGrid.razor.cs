@@ -2,6 +2,7 @@
 
 using LinqStudio.Abstractions.Models;
 using LinqStudio.Blazor.Services;
+using LinqStudio.Core.Resources;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using MudBlazor;
@@ -54,6 +55,13 @@ public partial class QueryResultGrid : ComponentBase
 
 		return $"{elapsed.TotalSeconds:F2}s";
 	}
+
+	private string FormatRowCount(int count)
+		=> string.Format(
+			SharedResource.Culture,
+			SharedResource.QueryResultGrid_RowCount,
+			count,
+			count == 1 ? SharedResource.QueryResultGrid_Row : SharedResource.QueryResultGrid_Rows);
 
 	private IReadOnlyList<object> GridItems
 		=> Result?.Items ?? [];

@@ -26,32 +26,32 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await page.GotoAsync(_app.BaseUrl.ToString());
 
 		// Verify no project is open initially
-		var projectGroup = page.GetByTestId("nav-project");
-		await Expect(projectGroup).ToContainTextAsync("Project");
+		await page.ExpectNoProjectIsOpenAsync();
+		var projectGroup = page.Get_Navigation_ProjectMenu();
 
 		// Open the Project menu and click "New" to create a project
-		await page.GetByTestId("nav-project").ClickAsync();
+		await page.Get_Navigation_ProjectMenu().ClickAsync();
 		await Task.Delay(100); // Wait for menu to open
-		await page.GetByTestId("nav-project-new").ClickAsync();
+		await page.Get_Navigation_ProjectNew().ClickAsync();
 
 		// Verify we're redirected to home
 		await page.WaitForURLAsync(_app.BaseUrl.ToString());
 
 		// Verify snackbar appears with success message
-		var snackbar = page.Locator(".mud-snackbar");
+		var snackbar = page.Get_Navigation_Snackbar();
 		await Expect(snackbar).ToBeVisibleAsync();
 		await Expect(snackbar).ToContainTextAsync("New project created");
 
 		// Verify project title shows "Untitled"
-		await Expect(projectGroup).ToContainTextAsync("Untitled");
+		await page.ExpectProjectIsOpenAsync();
 
 		// Verify project-specific menu items are now visible (need to open menu to see them)
-		await page.GetByTestId("nav-project").ClickAsync();
+		await page.Get_Navigation_ProjectMenu().ClickAsync();
 		await Task.Delay(100); // Wait for menu to open
-		await Expect(page.GetByTestId("nav-project-properties")).ToBeVisibleAsync();
-		await Expect(page.GetByTestId("nav-project-save")).ToBeVisibleAsync();
-		await Expect(page.GetByTestId("nav-project-save-as")).ToBeVisibleAsync();
-		await Expect(page.GetByTestId("nav-project-close")).ToBeVisibleAsync();
+		await Expect(page.Get_Navigation_ProjectProperties()).ToBeVisibleAsync();
+		await Expect(page.Get_Navigation_ProjectSave()).ToBeVisibleAsync();
+		await Expect(page.Get_Navigation_ProjectSaveAs()).ToBeVisibleAsync();
+		await Expect(page.Get_Navigation_ProjectClose()).ToBeVisibleAsync();
 	}
 
 	[Fact(Timeout = 60_000)]
@@ -67,36 +67,36 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await E2ETestHelpers.CreateNewProjectAsync(page, _app);
 
 		// Verify project shows unsaved indicator (new projects are dirty immediately)
-		var projectGroup = page.GetByTestId("nav-project");
-		await Expect(projectGroup).ToContainTextAsync("Untitled *");
+		var projectGroup = page.Get_Navigation_ProjectMenu();
+		await page.ExpectUnsavedProjectAsync();
 
 		// Try to create a new project (should show confirmation dialog) - need to open menu first
-		await page.GetByTestId("nav-project").ClickAsync();
+		await page.Get_Navigation_ProjectMenu().ClickAsync();
 		await Task.Delay(100); // Wait for menu to open
-		await page.GetByTestId("nav-project-new").ClickAsync();
+		await page.Get_Navigation_ProjectNew().ClickAsync();
 
 		// Verify confirmation dialog appears
-		var dialog = page.GetByTestId("unsaved-changes-dialog");
+		var dialog = page.Get_Navigation_UnsavedChangesDialog();
 		await Expect(dialog).ToBeVisibleAsync();
 
 		// Click Cancel
-		var cancelBtn = page.GetByTestId("unsaved-changes-cancel-btn");
+		var cancelBtn = page.Get_Navigation_UnsavedChangesCancelButton();
 		await cancelBtn.ClickAsync();
 
 		// Verify we're still on the same project
-		await Expect(projectGroup).ToContainTextAsync("Untitled *");
+		await page.ExpectUnsavedProjectAsync();
 
 		// Try again and confirm - need to open menu again
-		await page.GetByTestId("nav-project").ClickAsync();
+		await page.Get_Navigation_ProjectMenu().ClickAsync();
 		await Task.Delay(100); // Wait for menu to open
-		await page.GetByTestId("nav-project-new").ClickAsync();
+		await page.Get_Navigation_ProjectNew().ClickAsync();
 		await Expect(dialog).ToBeVisibleAsync();
 
-		var confirmBtn = page.GetByTestId("unsaved-changes-confirm-btn");
+		var confirmBtn = page.Get_Navigation_UnsavedChangesConfirmButton();
 		await confirmBtn.ClickAsync();
 
 		// Verify new project was created — it is also "Untitled *" since new projects are dirty
-		await Expect(projectGroup).ToContainTextAsync("Untitled *");
+		await page.ExpectUnsavedProjectAsync();
 	}
 
 	[Fact(Timeout = 60_000)]
@@ -111,31 +111,31 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await E2ETestHelpers.CreateNewProjectAsync(page, _app);
 
 		// Verify project is open
-		var projectGroup = page.GetByTestId("nav-project");
-		await Expect(projectGroup).ToContainTextAsync("Untitled");
+		var projectGroup = page.Get_Navigation_ProjectMenu();
+		await page.ExpectProjectIsOpenAsync();
 
 		// Close the project (new projects have unsaved changes, so we need to handle the dialog)
 		// Need to open menu first
-		await page.GetByTestId("nav-project").ClickAsync();
+		await page.Get_Navigation_ProjectMenu().ClickAsync();
 		await Task.Delay(100); // Wait for menu to open
-		await page.GetByTestId("nav-project-close").ClickAsync();
+		await page.Get_Navigation_ProjectClose().ClickAsync();
 
 		// Verify confirmation dialog appears (new project is considered unsaved)
-		var dialog = page.GetByTestId("unsaved-changes-dialog");
+		var dialog = page.Get_Navigation_UnsavedChangesDialog();
 		await Expect(dialog).ToBeVisibleAsync();
 
 		// Click Continue to close without saving
-		var confirmBtn = page.GetByTestId("unsaved-changes-confirm-btn");
+		var confirmBtn = page.Get_Navigation_UnsavedChangesConfirmButton();
 		await confirmBtn.ClickAsync();
 
 		// Verify we're redirected to home
 		await page.WaitForURLAsync(_app.BaseUrl.ToString());
 
 		// Verify project-specific menu items are hidden (open menu to check)
-		await page.GetByTestId("nav-project").ClickAsync();
+		await page.Get_Navigation_ProjectMenu().ClickAsync();
 		await Task.Delay(100); // Wait for menu to open
-		await Expect(page.GetByTestId("nav-project-save")).Not.ToBeVisibleAsync();
-		await Expect(page.GetByTestId("nav-project-close")).Not.ToBeVisibleAsync();
+		await Expect(page.Get_Navigation_ProjectSave()).Not.ToBeVisibleAsync();
+		await Expect(page.Get_Navigation_ProjectClose()).Not.ToBeVisibleAsync();
 	}
 
 	[Fact(Timeout = 60_000)]
@@ -150,32 +150,32 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await E2ETestHelpers.CreateNewProjectAsync(page, _app);
 
 		// Verify project shows unsaved indicator (new projects are dirty immediately)
-		var projectGroup = page.GetByTestId("nav-project");
-		await Expect(projectGroup).ToContainTextAsync("Untitled *");
+		var projectGroup = page.Get_Navigation_ProjectMenu();
+		await page.ExpectUnsavedProjectAsync();
 
 		// Try to close the project - need to open menu first
-		await page.GetByTestId("nav-project").ClickAsync();
+		await page.Get_Navigation_ProjectMenu().ClickAsync();
 		await Task.Delay(100); // Wait for menu to open
-		await page.GetByTestId("nav-project-close").ClickAsync();
+		await page.Get_Navigation_ProjectClose().ClickAsync();
 
 		// Verify confirmation dialog appears with Continue/Cancel options
-		var dialog = page.GetByTestId("unsaved-changes-dialog");
+		var dialog = page.Get_Navigation_UnsavedChangesDialog();
 		await Expect(dialog).ToBeVisibleAsync();
 
 		// Click "Cancel" to keep the project open
-		var cancelBtn = page.GetByTestId("unsaved-changes-cancel-btn");
+		var cancelBtn = page.Get_Navigation_UnsavedChangesCancelButton();
 		await cancelBtn.ClickAsync();
 
 		// Verify project is still open
-		await Expect(projectGroup).ToContainTextAsync("Untitled *");
+		await page.ExpectUnsavedProjectAsync();
 
 		// Try again and click "Continue" to close without saving - need to open menu again
-		await page.GetByTestId("nav-project").ClickAsync();
+		await page.Get_Navigation_ProjectMenu().ClickAsync();
 		await Task.Delay(100); // Wait for menu to open
-		await page.GetByTestId("nav-project-close").ClickAsync();
+		await page.Get_Navigation_ProjectClose().ClickAsync();
 		await Expect(dialog).ToBeVisibleAsync();
 
-		var confirmBtn = page.GetByTestId("unsaved-changes-confirm-btn");
+		var confirmBtn = page.Get_Navigation_UnsavedChangesConfirmButton();
 		await confirmBtn.ClickAsync();
 
 		// Verify project was closed
@@ -196,17 +196,17 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 
 		// Close the only open query tab using the close button in the editor toolbar.
 		// New queries have HasUnsavedChanges = true, so a confirmation dialog will appear.
-		var closeBtn = page.GetByTestId("query-close-btn");
+		var closeBtn = page.Get_QueryEditor_CloseButton();
 		await Expect(closeBtn).ToBeVisibleAsync();
 		await closeBtn.ClickAsync();
 
 		// Confirm the unsaved-changes dialog (new query is always unsaved)
-		var confirmBtn = page.GetByTestId("unsaved-changes-confirm-btn");
+		var confirmBtn = page.Get_Navigation_UnsavedChangesConfirmButton();
 		await Expect(confirmBtn).ToBeVisibleAsync();
 		await confirmBtn.ClickAsync();
 
 		// Verify "no queries" message is shown when all tabs are closed
-		var noQueryAlert = page.GetByTestId("no-query-alert");
+		var noQueryAlert = page.Get_QueryEditor_NoQueryAlert();
 		await Expect(noQueryAlert).ToBeVisibleAsync(new() { Timeout = 10_000 });
 		await Expect(noQueryAlert).ToContainTextAsync("Right-click the database connection");
 	}
@@ -223,44 +223,44 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await E2ETestHelpers.CreateNewProjectAsync(page, _app);
 
 		// --- Update connection string via Properties dialog ---
-		await page.GetByTestId("nav-project").ClickAsync();
+		await page.Get_Navigation_ProjectMenu().ClickAsync();
 		await Task.Delay(100);
-		await page.GetByTestId("nav-project-properties").ClickAsync();
+		await page.Get_Navigation_ProjectProperties().ClickAsync();
 
-		var editDialog = page.GetByTestId("edit-project-dialog");
+		var editDialog = page.Get_Navigation_EditProjectDialog();
 		await Expect(editDialog).ToBeVisibleAsync();
 
-		var connectionStringField = page.GetByTestId("project-connection-string-field");
+		var connectionStringField = page.Get_Navigation_ProjectConnectionStringField();
 		await connectionStringField.FillAsync("Server=localhost;Database=TestDb;Integrated Security=true;");
 
-		var saveBtn = page.GetByTestId("edit-project-save-btn");
+		var saveBtn = page.Get_Navigation_EditProjectSaveButton();
 		await saveBtn.ClickAsync();
 
 		await Expect(editDialog).Not.ToBeVisibleAsync();
 
 		// Verify project shows unsaved indicator after properties update
-		var projectGroup = page.GetByTestId("nav-project");
+		var projectGroup = page.Get_Navigation_ProjectMenu();
 		await Expect(projectGroup).ToContainTextAsync("Untitled *");
 
 		// --- Save the project via ProjectBrowserDialog ---
-		await page.GetByTestId("nav-project").ClickAsync();
+		await page.Get_Navigation_ProjectMenu().ClickAsync();
 		await Task.Delay(100);
-		await page.GetByTestId("nav-project-save-as").ClickAsync();
+		await page.Get_Navigation_ProjectSaveAs().ClickAsync();
 
 		// ProjectBrowserDialog should open
-		var browserDialog = page.GetByTestId("project-browser-dialog");
+		var browserDialog = page.Get_Navigation_ProjectBrowserDialog();
 		await Expect(browserDialog).ToBeVisibleAsync();
 
 		// Type the project name
-		var nameInput = page.GetByTestId("project-name-input");
+		var nameInput = page.Get_Navigation_ProjectNameInput();
 		await nameInput.FillAsync("TestProject");
 
 		// Click Save
-		var saveBtnDialog = page.GetByTestId("project-browser-save-btn");
+		var saveBtnDialog = page.Get_Navigation_ProjectBrowserSaveButton();
 		await saveBtnDialog.ClickAsync();
 
 		// Verify snackbar shows success message
-		var snackbar = page.Locator(".mud-snackbar").Last;
+		var snackbar = page.Get_Navigation_Snackbar().Last;
 		await Expect(snackbar).ToBeVisibleAsync();
 		await Expect(snackbar).ToContainTextAsync("Project saved successfully");
 
@@ -280,9 +280,9 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await Expect(projectGroup).Not.ToContainTextAsync("*");
 
 		// Verify Save button is disabled
-		await page.GetByTestId("nav-project").ClickAsync();
+		await page.Get_Navigation_ProjectMenu().ClickAsync();
 		await Task.Delay(100);
-		saveBtn = page.GetByTestId("nav-project-save");
+		saveBtn = page.Get_Navigation_ProjectSave();
 		await Expect(saveBtn).ToHaveAttributeAsync("aria-disabled", "true");
 	}
 
@@ -299,29 +299,29 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		// first so that we can close it cleanly without a confirmation dialog.
 		await E2ETestHelpers.CreateNewProjectAsync(page, _app);
 
-		await page.GetByTestId("nav-project").ClickAsync();
+		await page.Get_Navigation_ProjectMenu().ClickAsync();
 		await Task.Delay(100);
-		await page.GetByTestId("nav-project-save-as").ClickAsync();
+		await page.Get_Navigation_ProjectSaveAs().ClickAsync();
 
-		var browserDialog = page.GetByTestId("project-browser-dialog");
+		var browserDialog = page.Get_Navigation_ProjectBrowserDialog();
 		await Expect(browserDialog).ToBeVisibleAsync();
 
-		var nameInput = page.GetByTestId("project-name-input");
+		var nameInput = page.Get_Navigation_ProjectNameInput();
 		await nameInput.FillAsync("OpenTestProject");
 
-		await page.GetByTestId("project-browser-save-btn").ClickAsync();
+		await page.Get_Navigation_ProjectBrowserSaveButton().ClickAsync();
 
-		var saveSnackbar = page.Locator(".mud-snackbar").Last;
+		var saveSnackbar = page.Get_Navigation_Snackbar().Last;
 		await Expect(saveSnackbar).ToBeVisibleAsync();
 		await Expect(saveSnackbar).ToContainTextAsync("Project saved successfully");
 
-		var projectGroup = page.GetByTestId("nav-project");
+		var projectGroup = page.Get_Navigation_ProjectMenu();
 		await Expect(projectGroup).Not.ToContainTextAsync("*");
 
 		// Step 2: Close the project — no unsaved-changes dialog because it was just saved
-		await page.GetByTestId("nav-project").ClickAsync();
+		await page.Get_Navigation_ProjectMenu().ClickAsync();
 		await Task.Delay(100);
-		await page.GetByTestId("nav-project-close").ClickAsync();
+		await page.Get_Navigation_ProjectClose().ClickAsync();
 
 		// No confirmation dialog expected since HasUnsavedChanges = false after SaveAs
 		await page.WaitForURLAsync(_app.BaseUrl.ToString());
@@ -330,28 +330,27 @@ public class NavMenuE2ETests(AppServerFixture app, PlaywrightFixture pw)
 
 		// Step 3: Open the project browser dialog in Open mode
 		// With no project open, HasUnsavedChanges = false — the browser dialog opens directly
-		await page.GetByTestId("nav-project").ClickAsync();
+		await page.Get_Navigation_ProjectMenu().ClickAsync();
 		await Task.Delay(100);
-		await page.GetByTestId("nav-project-open").ClickAsync();
+		await page.Get_Navigation_ProjectOpen().ClickAsync();
 
 		// Verify dialog opened in Open mode (has "Open" button, no name text-field)
 		await Expect(browserDialog).ToBeVisibleAsync();
-		await Expect(page.GetByTestId("project-browser-open-btn")).ToBeVisibleAsync();
+		await Expect(page.Get_Navigation_ProjectBrowserOpenButton()).ToBeVisibleAsync();
 
 		// Step 4: Select "OpenTestProject" from the project list
-		var projectItem = page.GetByTestId("project-list-item")
-			.Filter(new() { HasText = "OpenTestProject" });
+		var projectItem = page.Get_Navigation_ProjectListItem("OpenTestProject");
 		await Expect(projectItem).ToBeVisibleAsync(new() { Timeout = 10_000 });
 		await projectItem.ClickAsync();
 
 		// Step 5: Confirm the open
-		await page.GetByTestId("project-browser-open-btn").ClickAsync();
+		await page.Get_Navigation_ProjectBrowserOpenButton().ClickAsync();
 
 		// Step 6: Verify the project is now loaded in the workspace
 		await Expect(projectGroup).ToContainTextAsync("OpenTestProject");
 		await Expect(projectGroup).Not.ToContainTextAsync("*");
 
-		var successSnackbar = page.Locator(".mud-snackbar").Last;
+		var successSnackbar = page.Get_Navigation_Snackbar().Last;
 		await Expect(successSnackbar).ToContainTextAsync("loaded successfully");
 	}
 }

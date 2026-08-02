@@ -4,44 +4,118 @@
 @using LinqStudio.Abstractions.Models
 @using LinqStudio.Blazor.Components
 
-<!-- Query Info Bar -->
-<MudPaper Class="pa-2 mb-1" Elevation="1" data-testid="query-info-bar">
+<MudPaper Class="query-info-bar pa-2 mb-1" Elevation="1" data-testid="query-info-bar">
 	<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
 		<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
 			<MudIcon Icon="@Icons.Material.Filled.Description" Size="Size.Small" />
 			<MudText Typo="Typo.body1" data-testid="query-name-display">
-				<strong>@(_currentQuery?.Name ?? "New Query")</strong>
+				<strong>@(_currentQuery?.Name ?? SharedResource.QueryEditor_Query_New)</strong>
 			</MudText>
 
 			@if (Workspace.Queries.OpenQueries.TryGetValue(QueryId, out var queryOpenState) && queryOpenState?.HasUnsavedChanges == true)
 			{
-				<MudChip T="string" Size="Size.Small" Color="Color.Warning" Icon="@Icons.Material.Filled.Edit" data-testid="query-unsaved-indicator">Unsaved</MudChip>
+				<MudChip T="string" Size="Size.Small" Color="Color.Warning" Icon="@Icons.Material.Filled.Edit" data-testid="query-unsaved-indicator">
+					@SharedResource.QueryEditor_Query_Unsaved
+				</MudChip>
 			}
 		</MudStack>
 
 		<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-			<MudTooltip Text="Save query">
+			<MudTooltip Text="@SharedResource.QueryEditor_Button_Save">
 				<MudIconButton Icon="@Icons.Material.Filled.Save"
 							   Color="Color.Primary"
 							   Size="Size.Small"
 							   OnClick="SaveCurrentQuery"
+							   aria-label="@SharedResource.QueryEditor_Button_Save"
 							   data-testid="query-save-btn" />
 			</MudTooltip>
 
-			<MudTooltip Text="Close query">
+			<MudTooltip Text="@SharedResource.QueryEditor_Button_Close">
 				<MudIconButton Icon="@Icons.Material.Filled.Close"
 							   Color="Color.Primary"
 							   Size="Size.Small"
 							   OnClick="CloseCurrentQuery"
+							   aria-label="@SharedResource.QueryEditor_Button_Close"
 							   data-testid="query-close-btn" />
 			</MudTooltip>
 		</MudStack>
 	</MudStack>
 </MudPaper>
 
-<!-- Editor and Results Container with Splitter -->
+<MudPaper Class="query-execution-bar pa-2 mb-1" Elevation="1" data-testid="query-execution-bar">
+	<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="query-workflow-toolbar">
+		<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="query-execution-actions">
+			<MudText Typo="Typo.overline" Class="query-toolbar-label">
+				@SharedResource.QueryEditor_Toolbar_Execution
+			</MudText>
+			@if (_isExecuting)
+			{
+				<MudButton StartIcon="@Icons.Material.Filled.Stop"
+						   Color="Color.Error"
+						   Size="Size.Small"
+						   Variant="Variant.Filled"
+						   OnClick="StopQuery"
+						   data-testid="stop-query-btn">
+					@SharedResource.QueryEditor_Button_Stop
+				</MudButton>
+			}
+			else
+			{
+				<MudButton StartIcon="@Icons.Material.Filled.PlayArrow"
+						   Color="Color.Primary"
+						   Size="Size.Small"
+						   Variant="Variant.Filled"
+						   OnClick="ExecuteQueryAsync"
+						   data-testid="execute-query-btn">
+					@SharedResource.QueryEditor_Button_Execute
+				</MudButton>
+			}
+
+			<div data-testid="timeout-select">
+				<MudSelect T="int"
+						   @bind-Value="_selectedTimeout"
+						   Label="@SharedResource.QueryEditor_Toolbar_Timeout"
+						   Variant="Variant.Outlined"
+						   Dense="true"
+						   Disabled="@_isExecuting">
+					<MudSelectItem T="int" Value="10">10s</MudSelectItem>
+					<MudSelectItem T="int" Value="30">30s</MudSelectItem>
+					<MudSelectItem T="int" Value="60">1 min</MudSelectItem>
+					<MudSelectItem T="int" Value="120">2 min</MudSelectItem>
+					<MudSelectItem T="int" Value="300">5 min</MudSelectItem>
+					<MudSelectItem T="int" Value="0">@SharedResource.QueryEditor_Toolbar_NoTimeout</MudSelectItem>
+				</MudSelect>
+			</div>
+		</MudStack>
+
+		<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="query-workflow-status">
+			<MudChip T="string" Size="Size.Small" Color="@GetExecutionStatusColor()" aria-live="polite" data-testid="query-execution-status">
+				@GetExecutionStatusText()
+			</MudChip>
+			<MudTooltip Text="@SharedResource.QueryEditor_Button_RefreshSchema">
+				<MudButton StartIcon="@Icons.Material.Filled.Refresh"
+						   Color="Color.Primary"
+						   Size="Size.Small"
+						   Variant="Variant.Text"
+						   OnClick="@(() => OnRefreshSchemaRequested.InvokeAsync())"
+						   Disabled="@(IsRefreshingSchema || Workspace.CurrentProject?.QueryGenerator is null)"
+						   data-testid="refresh-schema-btn">
+					@if (IsRefreshingSchema)
+					{
+						<MudProgressCircular Size="Size.Small" Indeterminate="true" />
+						<span>@SharedResource.QueryEditor_Status_Refreshing</span>
+					}
+					else
+					{
+						<span>@SharedResource.QueryEditor_Button_RefreshSchema</span>
+					}
+				</MudButton>
+			</MudTooltip>
+		</MudStack>
+	</MudStack>
+</MudPaper>
+
 <div class="editor-results-container" style="flex:1">
-	<!-- Monaco Editor -->
 	<div class="editor-top" id="@EditorPanelId" style="height:40%" data-testid="monaco-editor-container">
 		@if (!_delay)
 		{
@@ -54,78 +128,53 @@
 		}
 	</div>
 
-	<!-- Draggable Splitter -->
 	<div class="resize-splitter" id="@SplitterId" data-testid="editor-results-splitter"></div>
 
-	<!-- Query Result Grid -->
 	<div class="results-bottom" id="@ResultsPanelId" style="height:calc(60% - 5px)" data-testid="query-result-container">
-		<!-- Query Execution Actions -->
-		<MudPaper Class="pa-2" Elevation="1" data-testid="query-execution-bar">
+		<div class="results-header" data-testid="query-results-header">
 			<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
 				<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-					@if (_isExecuting)
-					{
-						<MudButton StartIcon="@Icons.Material.Filled.Stop"
-								   Color="Color.Error"
-								   Size="Size.Small"
-								   Variant="Variant.Filled"
-								   OnClick="StopQuery"
-								   data-testid="stop-query-btn">
-							Stop
-						</MudButton>
-					}
-					else
-					{
-						<MudButton StartIcon="@Icons.Material.Filled.PlayArrow"
-								   Color="Color.Primary"
-								   Size="Size.Small"
-								   Variant="Variant.Filled"
-								   OnClick="ExecuteQueryAsync"
-								   data-testid="execute-query-btn">
-							Execute
-						</MudButton>
-					}
-
-					<div data-testid="timeout-select">
-						<MudSelect T="int"
-								@bind-Value="_selectedTimeout"
-								Variant="Variant.Outlined"
-								Dense="true"
-								Disabled="@_isExecuting">
-							<MudSelectItem T="int" Value="10">10s</MudSelectItem>
-							<MudSelectItem T="int" Value="30">30s</MudSelectItem>
-							<MudSelectItem T="int" Value="60">1 min</MudSelectItem>
-							<MudSelectItem T="int" Value="120">2 min</MudSelectItem>
-							<MudSelectItem T="int" Value="300">5 min</MudSelectItem>
-							<MudSelectItem T="int" Value="0">No timeout</MudSelectItem>
-						</MudSelect>
-					</div>
+					<MudIcon Icon="@Icons.Material.Filled.TableChart" Size="Size.Small" />
+					<MudText Typo="Typo.subtitle2">@SharedResource.QueryEditor_Results_Title</MudText>
 				</MudStack>
-
-				<MudTooltip Text="Refresh IntelliSense schema from database">
-					<MudButton StartIcon="@Icons.Material.Filled.Refresh"
-							   Color="Color.Primary"
-							   Size="Size.Small"
-							   Variant="Variant.Text"
-							   OnClick="@(() => OnRefreshSchemaRequested.InvokeAsync())"
-							   Disabled="@(IsRefreshingSchema || Workspace.CurrentProject?.QueryGenerator is null)"
-							   data-testid="refresh-schema-btn">
-						@if (IsRefreshingSchema)
-						{
-							<MudProgressCircular Size="Size.Small" Indeterminate="true" />
-							<span style="margin-left:4px">Refreshing...</span>
-						}
-						else
-						{
-							<span>Refresh Schema</span>
-						}
-					</MudButton>
-				</MudTooltip>
+				<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="results-metadata">
+					@if (_result is not null && _result.Success)
+					{
+						<MudText Typo="Typo.caption" data-testid="query-results-row-count">
+							@FormatRowCount(_result.Items.Count)
+						</MudText>
+						<MudText Typo="Typo.caption" data-testid="query-results-elapsed">
+							@SharedResource.QueryResultGrid_Elapsed: @FormatElapsedTime(_result.Elapsed)
+						</MudText>
+					}
+					else if (_result is not null && !_isExecuting)
+					{
+						<MudText Typo="Typo.caption"
+								 Color="@(_executionWasCancelled ? Color.Warning : Color.Error)"
+								 data-testid="@(_executionWasCancelled ? "query-results-cancelled" : "query-results-failed")">
+							@(_executionWasCancelled
+								? SharedResource.QueryEditor_Message_Cancelled
+								: SharedResource.QueryEditor_Status_Failed)
+						</MudText>
+					}
+					else if (_result is null && !_isExecuting)
+					{
+						<MudText Typo="Typo.caption" Color="Color.Secondary">
+							@SharedResource.QueryEditor_Status_NotExecuted
+						</MudText>
+					}
+					@if (_result is not null && !_isExecuting && !_result.Success)
+					{
+						<MudText Typo="Typo.caption" data-testid="query-results-elapsed">
+							@SharedResource.QueryResultGrid_Elapsed: @FormatElapsedTime(_result.Elapsed)
+						</MudText>
+					}
+				</MudStack>
 			</MudStack>
-		</MudPaper>
+		</div>
 
 		<MudTabs KeepPanelsAlive="true" Class="results-tabs" data-testid="results-tabs">
-			<MudTabPanel Text="Results" Icon="@Icons.Material.Filled.TableChart" data-testid="results-tab-panel">
+			<MudTabPanel Text="@SharedResource.QueryEditor_Results_TabResults" Icon="@Icons.Material.Filled.TableChart" data-testid="results-tab-panel">
 				<QueryResultGrid Result="@_result"
 								 IsExecuting="@_isExecuting"
 								 IsEditable="@(_result is not null && _queryExecutionService?.IsEntityResult(_result) == true)"
@@ -133,7 +182,7 @@
 								 OnRowSelected="OnEntityRowSelected" />
 			</MudTabPanel>
 
-			<MudTabPanel Text="C#" Icon="@Icons.Material.Filled.Code" data-testid="csharp-tab-panel">
+			<MudTabPanel Text="@SharedResource.QueryEditor_Results_TabCSharp" Icon="@Icons.Material.Filled.Code" data-testid="csharp-tab-panel">
 				@if (!_delay && _result?.GeneratedCSharp is not null)
 				{
 					<StandaloneCodeEditor @ref="_csharpEditor"
@@ -142,15 +191,15 @@
 				}
 				else if (!_isExecuting && _result is null)
 				{
-					<MudText Class="pa-4" Color="Color.Secondary">Run a query to see the generated C# code.</MudText>
+					<MudText Class="pa-4" Color="Color.Secondary">@SharedResource.QueryEditor_Results_RunForCSharp</MudText>
 				}
 				else if (_result?.GeneratedCSharp is null && _result is not null)
 				{
-					<MudText Class="pa-4" Color="Color.Secondary">C# is not available for this query.</MudText>
+					<MudText Class="pa-4" Color="Color.Secondary">@SharedResource.QueryEditor_Results_CSharpUnavailable</MudText>
 				}
 			</MudTabPanel>
 
-			<MudTabPanel Text="SQL" Icon="@Icons.Material.Filled.Storage" data-testid="sql-tab-panel">
+			<MudTabPanel Text="@SharedResource.QueryEditor_Results_TabSql" Icon="@Icons.Material.Filled.Storage" data-testid="sql-tab-panel">
 				@if (!_delay && _result?.GeneratedSql is not null)
 				{
 					<StandaloneCodeEditor @ref="_sqlEditor"
@@ -159,11 +208,11 @@
 				}
 				else if (!_isExecuting && _result is null)
 				{
-					<MudText Class="pa-4" Color="Color.Secondary">Run a query to see the generated SQL.</MudText>
+					<MudText Class="pa-4" Color="Color.Secondary">@SharedResource.QueryEditor_Results_RunForSql</MudText>
 				}
 				else if (_result?.GeneratedSql is null && _result is not null)
 				{
-					<MudText Class="pa-4" Color="Color.Secondary">SQL is not available for this query.</MudText>
+					<MudText Class="pa-4" Color="Color.Secondary">@SharedResource.QueryEditor_Results_SqlUnavailable</MudText>
 				}
 			</MudTabPanel>
 		</MudTabs>

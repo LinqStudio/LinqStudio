@@ -3,37 +3,99 @@
 @inject IOptionsMonitor<UISettings> UISettings;
 @inject ISettingsService SettingsService;
 @inject ErrorHandlingService ErrorHandlingService;
+@inject ProjectWorkspace Workspace;
 
 <MudThemeProvider Theme="@_theme" IsDarkMode="UISettings.CurrentValue.IsDarkMode" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
 
-<MudLayout>
-    <MudAppBar Elevation="1">
-        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@DrawerToggle" />
-        <MudText Typo="Typo.h5" Class="ml-3">LinqStudio</MudText>
+<MudLayout Class="linqstudio-shell" data-testid="app-shell">
+    <MudAppBar Class="linqstudio-appbar" Elevation="1" data-testid="shell-topbar">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu"
+                       Color="Color.Inherit"
+                       Edge="Edge.Start"
+                       OnClick="@DrawerToggle"
+                       aria-label="@SharedResource.Shell_Navigation_Toggle" />
+        <MudText Typo="Typo.h5" Class="linqstudio-brand">LinqStudio</MudText>
+
+        <div class="linqstudio-identity" data-testid="shell-connection-identity">
+            <MudIcon Icon="@Icons.Material.Filled.Storage" Size="Size.Small" />
+            <MudStack Spacing="0">
+                <MudText Typo="Typo.caption" Class="linqstudio-identity-label">
+                    @SharedResource.Shell_Connection_Label
+                </MudText>
+                <MudText Typo="Typo.body2" Class="linqstudio-identity-value">
+                    @GetConnectionIdentity()
+                </MudText>
+            </MudStack>
+            @if (Workspace.HasUnsavedChanges)
+            {
+                <MudChip T="string"
+                         Size="Size.Small"
+                         Color="Color.Warning"
+                         Icon="@Icons.Material.Filled.Edit"
+                         Label="true">
+                    @SharedResource.Shell_Status_Unsaved
+                </MudChip>
+            }
+        </div>
+
         <MudSpacer />
 
         <MudTooltip Text="@SharedResource.AppBar_Button_Settings">
-            <MudIconButton Href="/settings" Icon="@Icons.Material.Filled.Settings" Color="Color.Inherit" />
+            <MudIconButton Href="/settings"
+                           Icon="@Icons.Material.Filled.Settings"
+                           Color="Color.Inherit"
+                           aria-label="@SharedResource.AppBar_Button_Settings" />
         </MudTooltip>
 
-        <MudIconButton Icon="@(DarkLightModeButtonIcon)" Color="Color.Inherit" OnClick="@DarkModeToggle" />
+        <MudTooltip Text="@SharedResource.Shell_Button_ToggleTheme">
+            <MudIconButton Icon="@(DarkLightModeButtonIcon)"
+                           Color="Color.Inherit"
+                           OnClick="@DarkModeToggle"
+                           aria-label="@SharedResource.Shell_Button_ToggleTheme" />
+        </MudTooltip>
     </MudAppBar>
 
-    <MudDrawer id="nav-drawer" @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
-        <div style="overflow-y: auto; display: flex; flex-direction: column; height: 100%;">
-            <NavMenu />
-            <DatabaseTreeView />
+    <MudDrawer id="nav-drawer"
+               @bind-Open="_drawerOpen"
+               ClipMode="DrawerClipMode.Always"
+               Elevation="2"
+               Class="linqstudio-object-explorer"
+               data-testid="object-explorer-zone">
+        <div class="linqstudio-drawer-content">
+            <section class="linqstudio-navigation-zone" data-testid="navigation-zone">
+                <MudText Typo="Typo.overline" Class="linqstudio-zone-label">
+                    @SharedResource.Shell_Navigation_Label
+                </MudText>
+                <NavMenu />
+            </section>
+            <section class="linqstudio-explorer-zone" data-testid="explorer-zone">
+                <DatabaseTreeView />
+            </section>
         </div>
     </MudDrawer>
 
-    <MudMainContent Class="mainBody pt-16 pa-4">
-        <AppErrorBoundary>
-            @Body
-        </AppErrorBoundary>
+    <MudMainContent Class="mainBody linqstudio-main-content pt-16 pa-4">
+        <section class="linqstudio-workspace-zone" data-testid="workspace-zone">
+            <AppErrorBoundary>
+                @Body
+            </AppErrorBoundary>
+        </section>
     </MudMainContent>
+
+    <footer class="linqstudio-status-zone" data-testid="status-zone">
+        <MudIcon Icon="@GetStatusIcon()" Size="Size.Small" />
+        <MudText Typo="Typo.caption">@GetWorkspaceStatus()</MudText>
+        <MudSpacer />
+        @if (Workspace.IsProjectOpen)
+        {
+            <MudText Typo="Typo.caption" Class="linqstudio-status-connection">
+                @Workspace.CurrentProject?.DatabaseType
+            </MudText>
+        }
+    </footer>
 </MudLayout>
 
 <div id="blazor-error-ui" data-nosnippet>
@@ -59,17 +121,41 @@
         };
 
         _SettingsDisposable = UISettings.OnChange(_ => InvokeAsync(StateHasChanged));
+        Workspace.WorkspaceChanged += OnWorkspaceChanged;
     }
 
     public void Dispose()
     {
         _SettingsDisposable?.Dispose();
+        Workspace.WorkspaceChanged -= OnWorkspaceChanged;
     }
 
     private void DrawerToggle()
     {
         _drawerOpen = !_drawerOpen;
     }
+
+    private void OnWorkspaceChanged(object? sender, EventArgs e)
+        => InvokeAsync(StateHasChanged);
+
+    private string GetConnectionIdentity()
+        => Workspace.IsProjectOpen
+            ? $"{Workspace.CurrentProjectName} · {Workspace.CurrentProject?.DatabaseType}"
+            : SharedResource.Shell_Connection_None;
+
+    private string GetWorkspaceStatus()
+        => !Workspace.IsProjectOpen
+            ? SharedResource.Shell_Status_NoProject
+            : Workspace.HasUnsavedChanges
+                ? SharedResource.Shell_Status_Unsaved
+                : SharedResource.Shell_Status_Ready;
+
+    private string GetStatusIcon()
+        => !Workspace.IsProjectOpen
+            ? Icons.Material.Filled.Info
+            : Workspace.HasUnsavedChanges
+                ? Icons.Material.Filled.Edit
+                : Icons.Material.Filled.CheckCircle;
 
     private async Task DarkModeToggle()
     {
@@ -90,41 +176,58 @@
 
     private readonly PaletteLight _lightPalette = new()
     {
-        Black = "#110e2d",
-        AppbarText = "#424242",
-        AppbarBackground = "rgba(255,255,255,0.8)",
+        Primary = "#4f46e5",
+        Secondary = "#0f766e",
+        Info = "#2563eb",
+        Success = "#15803d",
+        Warning = "#b45309",
+        Error = "#b91c1c",
+        Background = "#f5f7fb",
+        BackgroundGray = "#eef1f6",
+        Surface = "#ffffff",
+        AppbarText = "#172033",
+        AppbarBackground = "#ffffff",
         DrawerBackground = "#ffffff",
-        GrayLight = "#e8e8e8",
-        GrayLighter = "#f9f9f9",
+        TextPrimary = "#172033",
+        TextSecondary = "#475569",
+        TextDisabled = "#94a3b8",
+        DrawerIcon = "#475569",
+        DrawerText = "#172033",
+        GrayLight = "#e2e8f0",
+        GrayLighter = "#f8fafc",
+        LinesDefault = "#d8dee9",
+        TableLines = "#d8dee9",
+        Divider = "#d8dee9",
     };
 
     private readonly PaletteDark _darkPalette = new()
     {
-        Primary = "#7e6fff",
-        Surface = "#1e1e2d",
-        Background = "#1a1a27",
-        BackgroundGray = "#151521",
-        AppbarText = "#92929f",
-        AppbarBackground = "rgba(26,26,39,0.8)",
-        DrawerBackground = "#1a1a27",
-        ActionDefault = "#74718e",
-        ActionDisabled = "#9999994d",
-        ActionDisabledBackground = "#605f6d4d",
-        TextPrimary = "#b2b0bf",
-        TextSecondary = "#92929f",
-        TextDisabled = "#ffffff33",
-        DrawerIcon = "#92929f",
-        DrawerText = "#92929f",
-        GrayLight = "#2a2833",
-        GrayLighter = "#1e1e2d",
-        Info = "#4a86ff",
-        Success = "#3dcb6c",
-        Warning = "#ffb545",
-        Error = "#ff3f5f",
-        LinesDefault = "#33323e",
-        TableLines = "#33323e",
-        Divider = "#292838",
-        OverlayLight = "#1e1e2d80",
+        Primary = "#8b7cff",
+        Secondary = "#2dd4bf",
+        Surface = "#202535",
+        Background = "#111827",
+        BackgroundGray = "#0f172a",
+        AppbarText = "#f1f5f9",
+        AppbarBackground = "#172033",
+        DrawerBackground = "#172033",
+        ActionDefault = "#b8c1d1",
+        ActionDisabled = "#64748b",
+        ActionDisabledBackground = "#334155",
+        TextPrimary = "#f1f5f9",
+        TextSecondary = "#b8c1d1",
+        TextDisabled = "#64748b",
+        DrawerIcon = "#b8c1d1",
+        DrawerText = "#f1f5f9",
+        GrayLight = "#334155",
+        GrayLighter = "#202535",
+        Info = "#60a5fa",
+        Success = "#4ade80",
+        Warning = "#fbbf24",
+        Error = "#fb7185",
+        LinesDefault = "#334155",
+        TableLines = "#334155",
+        Divider = "#334155",
+        OverlayLight = "#202535cc",
     };
 
     public string DarkLightModeButtonIcon => UISettings.CurrentValue.IsDarkMode switch

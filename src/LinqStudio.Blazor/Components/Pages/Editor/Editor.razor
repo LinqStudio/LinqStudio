@@ -2,7 +2,7 @@
 @page "/editor/{QueryIdParam:guid}"
 @page "/editor/new"
 
-<PageTitle>Editor - LinqStudio</PageTitle>
+<PageTitle>@SharedResource.Editor_Title</PageTitle>
 
 <div class="editor-page pa-2" style="height:100%; display:flex; flex-direction:column; gap:8px" data-testid="editor-page">
 	@if (Workspace.IsProjectOpen)
@@ -37,18 +37,11 @@
 				@SharedResource.Editor_NoQueryAlert
 			</MudAlert>
 		}
-
-		<!-- Editor Info -->
-		<MudPaper Class="pa-2" Elevation="1" data-testid="editor-info-bar">
-			<MudText Typo="Typo.body2" Color="Color.Secondary">
-				Editor provides IntelliSense using Roslyn compiler with EF Core support
-			</MudText>
-		</MudPaper>
 	}
 	else
 	{
 		<MudAlert Severity="Severity.Info" data-testid="no-project-alert">
-			No project is open. Please create or open a project to start editing queries.
+			@SharedResource.Editor_NoProjectAlert
 		</MudAlert>
 	}
 </div>

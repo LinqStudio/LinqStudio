@@ -10,6 +10,26 @@
     overflow-y: hidden;
 }
 
+.editor-page {
+    gap: var(--ls-space-2) !important;
+}
+
+.editor-page > .mud-paper {
+    border: 1px solid var(--ls-color-border);
+    border-radius: var(--ls-radius);
+    background: var(--ls-color-surface);
+    box-shadow: none;
+}
+
+::deep .editor-query-tabs .mud-tabs-tabbar {
+    background: var(--ls-color-surface-raised);
+    border-bottom: 1px solid var(--ls-color-border);
+}
+
+::deep .editor-query-tabs .mud-tab {
+    min-height: var(--ls-control-height);
+}
+
 /* Keep tab header bar always visible regardless of what scrollTop MudBlazor sets.
    position: sticky inside an overflow-y: hidden ancestor sticks at top: 0
    of that container's visible area, making it immune to any scrollTop value. */

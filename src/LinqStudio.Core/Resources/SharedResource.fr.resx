@@ -120,6 +120,36 @@
   <data name="AppBar.Button.Settings" xml:space="preserve">
     <value>Settings</value>
   </data>
+  <data name="Shell.Button.ToggleTheme" xml:space="preserve">
+    <value>Changer de thème</value>
+  </data>
+  <data name="Shell.Connection.Label" xml:space="preserve">
+    <value>Connexion</value>
+  </data>
+  <data name="Shell.Connection.None" xml:space="preserve">
+    <value>Aucun projet ouvert</value>
+  </data>
+  <data name="Shell.Explorer.Subtitle" xml:space="preserve">
+    <value>Objets de la base de données</value>
+  </data>
+  <data name="Shell.Explorer.Title" xml:space="preserve">
+    <value>Explorateur d'objets</value>
+  </data>
+  <data name="Shell.Navigation.Label" xml:space="preserve">
+    <value>Navigation</value>
+  </data>
+  <data name="Shell.Navigation.Toggle" xml:space="preserve">
+    <value>Afficher ou masquer la navigation</value>
+  </data>
+  <data name="Shell.Status.NoProject" xml:space="preserve">
+    <value>Aucun projet ouvert</value>
+  </data>
+  <data name="Shell.Status.Ready" xml:space="preserve">
+    <value>Prêt</value>
+  </data>
+  <data name="Shell.Status.Unsaved" xml:space="preserve">
+    <value>Modifications non enregistrées</value>
+  </data>
   <data name="ErrorDialog.Text.TechnicalDetails" xml:space="preserve">
     <value>Détails technique</value>
   </data>
@@ -137,6 +167,126 @@
   </data>
   <data name="QueryEditor.Error.UpdateEditedCell" xml:space="preserve">
     <value>Échec de la mise à jour de la cellule modifiée.</value>
+  </data>
+  <data name="Editor.Title" xml:space="preserve">
+    <value>Éditeur - LinqStudio</value>
+  </data>
+  <data name="Editor.NoProjectAlert" xml:space="preserve">
+    <value>Aucun projet n'est ouvert. Créez ou ouvrez un projet pour commencer à modifier des requêtes.</value>
+  </data>
+  <data name="QueryEditor.Button.Close" xml:space="preserve">
+    <value>Fermer la requête</value>
+  </data>
+  <data name="QueryEditor.Button.Execute" xml:space="preserve">
+    <value>Exécuter</value>
+  </data>
+  <data name="QueryEditor.Button.RefreshSchema" xml:space="preserve">
+    <value>Actualiser le schéma</value>
+  </data>
+  <data name="QueryEditor.Button.Save" xml:space="preserve">
+    <value>Enregistrer la requête</value>
+  </data>
+  <data name="QueryEditor.Button.Stop" xml:space="preserve">
+    <value>Arrêter</value>
+  </data>
+  <data name="QueryEditor.Message.Cancelled" xml:space="preserve">
+    <value>Exécution de la requête annulée.</value>
+  </data>
+  <data name="QueryEditor.Message.EditorNotReady" xml:space="preserve">
+    <value>L'éditeur n'est pas prêt. Veuillez réessayer.</value>
+  </data>
+  <data name="QueryEditor.Message.Empty" xml:space="preserve">
+    <value>La requête est vide.</value>
+  </data>
+  <data name="QueryEditor.Message.Executed" xml:space="preserve">
+    <value>Requête terminée. {0} lignes renvoyées.</value>
+  </data>
+  <data name="QueryEditor.Message.NoProject" xml:space="preserve">
+    <value>Aucun projet n'est ouvert.</value>
+  </data>
+  <data name="QueryEditor.Message.SaveProjectFirst" xml:space="preserve">
+    <value>Enregistrez d'abord le projet avant d'enregistrer les requêtes.</value>
+  </data>
+  <data name="QueryEditor.Message.Saved" xml:space="preserve">
+    <value>Requête enregistrée.</value>
+  </data>
+  <data name="QueryEditor.Message.UnsavedClose" xml:space="preserve">
+    <value>Cette requête contient des modifications non enregistrées. Fermer sans enregistrer ?</value>
+  </data>
+  <data name="QueryEditor.Query.New" xml:space="preserve">
+    <value>Nouvelle requête</value>
+  </data>
+  <data name="QueryEditor.Query.Unsaved" xml:space="preserve">
+    <value>Non enregistré</value>
+  </data>
+  <data name="QueryEditor.Results.CSharpUnavailable" xml:space="preserve">
+    <value>Le C# n'est pas disponible pour cette requête.</value>
+  </data>
+  <data name="QueryEditor.Results.RunForCSharp" xml:space="preserve">
+    <value>Exécutez une requête pour voir le code C# généré.</value>
+  </data>
+  <data name="QueryEditor.Results.RunForSql" xml:space="preserve">
+    <value>Exécutez une requête pour voir le SQL généré.</value>
+  </data>
+  <data name="QueryEditor.Results.SqlUnavailable" xml:space="preserve">
+    <value>Le SQL n'est pas disponible pour cette requête.</value>
+  </data>
+  <data name="QueryEditor.Results.TabCSharp" xml:space="preserve">
+    <value>C#</value>
+  </data>
+  <data name="QueryEditor.Results.TabResults" xml:space="preserve">
+    <value>Résultats</value>
+  </data>
+  <data name="QueryEditor.Results.TabSql" xml:space="preserve">
+    <value>SQL</value>
+  </data>
+  <data name="QueryEditor.Results.Title" xml:space="preserve">
+    <value>Sortie de la requête</value>
+  </data>
+  <data name="QueryEditor.Status.Completed" xml:space="preserve">
+    <value>Terminé</value>
+  </data>
+  <data name="QueryEditor.Status.Executing" xml:space="preserve">
+    <value>Exécution...</value>
+  </data>
+  <data name="QueryEditor.Status.Failed" xml:space="preserve">
+    <value>Échec</value>
+  </data>
+  <data name="QueryEditor.Status.NotExecuted" xml:space="preserve">
+    <value>Non exécutée</value>
+  </data>
+  <data name="QueryEditor.Status.Refreshing" xml:space="preserve">
+    <value>Actualisation...</value>
+  </data>
+  <data name="QueryEditor.Toolbar.Execution" xml:space="preserve">
+    <value>Exécution</value>
+  </data>
+  <data name="QueryEditor.Toolbar.NoTimeout" xml:space="preserve">
+    <value>Sans délai</value>
+  </data>
+  <data name="QueryEditor.Toolbar.Timeout" xml:space="preserve">
+    <value>Délai</value>
+  </data>
+  <data name="QueryResultGrid.CompilationError" xml:space="preserve">
+    <value>Erreur de compilation</value>
+  </data>
+  <data name="QueryResultGrid.Elapsed" xml:space="preserve">
+    <value>Durée</value>
+  </data>
+  <data name="QueryResultGrid.NoResults" xml:space="preserve">
+    <value>La requête n'a renvoyé aucun résultat.</value>
+  </data>
+  <data name="QueryResultGrid.Row" xml:space="preserve">
+    <value>ligne</value>
+  </data>
+  <data name="QueryResultGrid.Rows" xml:space="preserve">
+    <value>lignes</value>
+  </data>
+  <data name="QueryResultGrid.RowCount" xml:space="preserve">
+    <value>{0} {1}</value>
+  </data>
+  <data name="QueryResultGrid.Selected" xml:space="preserve">
+    <value>sélectionnées</value>
   </data>
   <data name="SettingsPage.Button.SaveAll" xml:space="preserve">
     <value>Sauvegarder le tout</value>
@@ -225,60 +375,202 @@
   <data name="DatabaseTreeView.ContextMenu.Refresh" xml:space="preserve">
     <value>Actualiser</value>
   </data>
+  <data name="DatabaseTreeView.Tables" xml:space="preserve">
+    <value>Tables</value>
+  </data>
+  <data name="DatabaseTreeView.SearchLabel" xml:space="preserve">
+    <value>Filtrer les tables</value>
+  </data>
+  <data name="DatabaseTreeView.SearchPlaceholder" xml:space="preserve">
+    <value>Rechercher une table ou un schéma</value>
+  </data>
+  <data name="DatabaseTreeView.Refresh" xml:space="preserve">
+    <value>Actualiser les tables</value>
+  </data>
+  <data name="DatabaseTreeView.LoadingColumns" xml:space="preserve">
+    <value>Chargement des colonnes...</value>
+  </data>
+  <data name="DatabaseTreeView.NoMatches" xml:space="preserve">
+    <value>Aucune table ne correspond à ce filtre.</value>
+  </data>
+  <data name="DatabaseTreeView.LoadError" xml:space="preserve">
+    <value>Impossible de charger les tables.</value>
+  </data>
+  <data name="DatabaseTreeView.LoadErrorDialog" xml:space="preserve">
+    <value>Impossible de charger les tables de la base de données.</value>
+  </data>
+  <data name="DatabaseTreeView.LoadColumnsError" xml:space="preserve">
+    <value>Impossible de charger les colonnes.</value>
+  </data>
+  <data name="DatabaseTreeView.LoadColumnsErrorDialog" xml:space="preserve">
+    <value>Impossible de charger les colonnes de la table.</value>
+  </data>
+  <data name="DatabaseTreeView.Retry" xml:space="preserve">
+    <value>Réessayer</value>
+  </data>
+  <data name="DatabaseTreeView.Placeholder" xml:space="preserve">
+    <value>Ouvrez un projet pour explorer les tables de la base de données</value>
+  </data>
   <data name="Editor.NoQueryAlert" xml:space="preserve">
     <value>Aucune requête n'est actuellement ouverte. Faites un clic droit sur la connexion de base de données dans l'explorateur pour créer une nouvelle requête.</value>
   </data>
-  <data name="CustomRelationships.Title" xml:space="preserve"><value>Configurer les relations</value></data>
-  <data name="CustomRelationships.ContextMenu" xml:space="preserve"><value>Configurer les relations</value></data>
-  <data name="CustomRelationships.Tab.DbContext" xml:space="preserve"><value>DbContext</value></data>
-  <data name="CustomRelationships.Tab.Models" xml:space="preserve"><value>Modèles</value></data>
-  <data name="CustomRelationships.Tab.GeneratedCode" xml:space="preserve"><value>Code généré</value></data>
-  <data name="CustomRelationships.GeneratedCode.Help" xml:space="preserve"><value>Voici le code source généré pour IntelliSense et la compilation des requêtes.</value></data>
-  <data name="CustomRelationships.GeneratedCode.Empty" xml:space="preserve"><value>Le code généré est indisponible tant qu'une connexion à la base de données n'est pas configurée.</value></data>
-  <data name="CustomRelationships.GeneratedCode.File" xml:space="preserve"><value>Fichier généré</value></data>
-  <data name="CustomRelationships.DbContext.Help" xml:space="preserve"><value>Ajoutez le code qui sera placé dans OnModelCreating. L'aperçu affiche la version finale actuelle.</value></data>
-  <data name="CustomRelationships.DbContext.ManualCode" xml:space="preserve"><value>Code de configuration manuel</value></data>
-  <data name="CustomRelationships.DbContext.FinalVersion" xml:space="preserve"><value>Aperçu de la version finale</value></data>
-  <data name="CustomRelationships.Models.Models" xml:space="preserve"><value>Modèles</value></data>
-  <data name="CustomRelationships.Models.SelectModel" xml:space="preserve"><value>Sélectionnez un modèle pour configurer ses relations.</value></data>
-  <data name="CustomRelationships.Models.Editing" xml:space="preserve"><value>Modèle en cours de modification</value></data>
-  <data name="CustomRelationships.Error.LoadModels" xml:space="preserve"><value>Impossible de charger les modèles de la base de données.</value></data>
-  <data name="CustomRelationships.Error.GenerateCode" xml:space="preserve"><value>Impossible de générer l'aperçu du code.</value></data>
-  <data name="CustomRelationships.Form.PrincipalTable" xml:space="preserve"><value>Table principale</value></data>
-  <data name="CustomRelationships.Form.Cardinality" xml:space="preserve"><value>Cardinalité</value></data>
-  <data name="CustomRelationships.Form.Cardinality.OneToOne" xml:space="preserve"><value>Un à un</value></data>
-  <data name="CustomRelationships.Form.Cardinality.OneToMany" xml:space="preserve"><value>Un à plusieurs</value></data>
-  <data name="CustomRelationships.Form.Cardinality.ManyToOne" xml:space="preserve"><value>Plusieurs à un</value></data>
-  <data name="CustomRelationships.Form.Cardinality.ManyToMany" xml:space="preserve"><value>Plusieurs à plusieurs</value></data>
-  <data name="CustomRelationships.Form.Required" xml:space="preserve"><value>Chaque {0} doit être lié à {1}</value></data>
-  <data name="CustomRelationships.Form.PrincipalNavigation" xml:space="preserve"><value>Propriété de navigation principale</value></data>
-  <data name="CustomRelationships.Form.DependentNavigation" xml:space="preserve"><value>Propriété de navigation dépendante</value></data>
-  <data name="CustomRelationships.Form.Navigation" xml:space="preserve"><value>Propriétés de navigation</value></data>
-  <data name="CustomRelationships.Form.DeleteBehavior" xml:space="preserve"><value>Comportement de suppression</value></data>
-  <data name="CustomRelationships.Form.DeleteBehavior.ClientSetNull" xml:space="preserve"><value>Définir null côté client</value></data>
-  <data name="CustomRelationships.Form.DeleteBehavior.Cascade" xml:space="preserve"><value>Cascade</value></data>
-  <data name="CustomRelationships.Form.DeleteBehavior.Restrict" xml:space="preserve"><value>Restreindre</value></data>
-  <data name="CustomRelationships.Form.DeleteBehavior.NoAction" xml:space="preserve"><value>Aucune action</value></data>
-  <data name="CustomRelationships.Form.DeleteBehaviorTooltip" xml:space="preserve"><value>Choisissez ce qui arrive aux lignes liées lorsque la ligne de la table principale est supprimée.</value></data>
-  <data name="CustomRelationships.Form.KeyPairs" xml:space="preserve"><value>Paires de clés</value></data>
-  <data name="CustomRelationships.Form.PrincipalColumn" xml:space="preserve"><value>Colonne principale</value></data>
-  <data name="CustomRelationships.Form.DependentColumn" xml:space="preserve"><value>Colonne dépendante</value></data>
-  <data name="CustomRelationships.Form.AddKeyPair" xml:space="preserve"><value>Ajouter une paire de clés</value></data>
-  <data name="CustomRelationships.Form.New" xml:space="preserve"><value>Nouvelle relation</value></data>
-  <data name="CustomRelationships.Form.Save" xml:space="preserve"><value>Enregistrer la relation</value></data>
-  <data name="CustomRelationships.Button.Cancel" xml:space="preserve"><value>Annuler</value></data>
-  <data name="CustomRelationships.Button.Save" xml:space="preserve"><value>Enregistrer</value></data>
-  <data name="CustomRelationships.Form.LinkToTable" xml:space="preserve"><value>Lier à la table</value></data>
-  <data name="CustomRelationships.Form.LinkToTableTooltip" xml:space="preserve"><value>Choisissez la table à laquelle {0} doit être lié.</value></data>
-  <data name="CustomRelationships.Form.SelectedColumn" xml:space="preserve"><value>Colonne dans {0}</value></data>
-  <data name="CustomRelationships.Form.SelectedColumnTooltip" xml:space="preserve"><value>Choisissez la colonne de {0} qui contient le lien.</value></data>
-  <data name="CustomRelationships.Form.MatchingKey" xml:space="preserve"><value>Clé correspondante dans {0}</value></data>
-  <data name="CustomRelationships.Form.MatchingKeyTooltip" xml:space="preserve"><value>Choisissez la clé correspondante dans {0}.</value></data>
-  <data name="CustomRelationships.Form.PrincipalNavigationTooltip" xml:space="preserve"><value>La propriété {1} sera ajoutée à la classe {0} : {2} {1} {{ get; set; }}</value></data>
-  <data name="CustomRelationships.Form.DependentNavigationTooltip" xml:space="preserve"><value>La propriété {1} sera ajoutée à la classe {0} : {2} {1} {{ get; set; }}</value></data>
-  <data name="CustomRelationships.Form.Cardinality.OneToOneTooltip" xml:space="preserve"><value>Un {0} est lié à un {1}.</value></data>
-  <data name="CustomRelationships.Form.Cardinality.OneToManyTooltip" xml:space="preserve"><value>Un {1} peut être lié à plusieurs {0}.</value></data>
-  <data name="CustomRelationships.Form.Cardinality.ManyToOneTooltip" xml:space="preserve"><value>Plusieurs {1} peuvent être liés à un {0}.</value></data>
-  <data name="CustomRelationships.Form.Cardinality.ManyToManyTooltip" xml:space="preserve"><value>Plusieurs {0} peuvent être liés à plusieurs {1}.</value></data>
-  <data name="CustomRelationships.Form.RequiredTooltip" xml:space="preserve"><value>Activez cette option lorsque chaque {0} doit être lié à un {1}.</value></data>
+  <data name="CustomRelationships.Title" xml:space="preserve">
+    <value>Configurer les relations</value>
+  </data>
+  <data name="CustomRelationships.ContextMenu" xml:space="preserve">
+    <value>Configurer les relations</value>
+  </data>
+  <data name="CustomRelationships.Tab.DbContext" xml:space="preserve">
+    <value>DbContext</value>
+  </data>
+  <data name="CustomRelationships.Tab.Models" xml:space="preserve">
+    <value>Modèles</value>
+  </data>
+  <data name="CustomRelationships.Tab.GeneratedCode" xml:space="preserve">
+    <value>Code généré</value>
+  </data>
+  <data name="CustomRelationships.GeneratedCode.Help" xml:space="preserve">
+    <value>Voici le code source généré pour IntelliSense et la compilation des requêtes.</value>
+  </data>
+  <data name="CustomRelationships.GeneratedCode.Empty" xml:space="preserve">
+    <value>Le code généré est indisponible tant qu'une connexion à la base de données n'est pas configurée.</value>
+  </data>
+  <data name="CustomRelationships.GeneratedCode.File" xml:space="preserve">
+    <value>Fichier généré</value>
+  </data>
+  <data name="CustomRelationships.DbContext.Help" xml:space="preserve">
+    <value>Ajoutez le code qui sera placé dans OnModelCreating. L'aperçu affiche la version finale actuelle.</value>
+  </data>
+  <data name="CustomRelationships.DbContext.ManualCode" xml:space="preserve">
+    <value>Code de configuration manuel</value>
+  </data>
+  <data name="CustomRelationships.DbContext.FinalVersion" xml:space="preserve">
+    <value>Aperçu de la version finale</value>
+  </data>
+  <data name="CustomRelationships.Models.Models" xml:space="preserve">
+    <value>Modèles</value>
+  </data>
+  <data name="CustomRelationships.Models.SelectModel" xml:space="preserve">
+    <value>Sélectionnez un modèle pour configurer ses relations.</value>
+  </data>
+  <data name="CustomRelationships.Models.Editing" xml:space="preserve">
+    <value>Modèle en cours de modification</value>
+  </data>
+  <data name="CustomRelationships.Error.LoadModels" xml:space="preserve">
+    <value>Impossible de charger les modèles de la base de données.</value>
+  </data>
+  <data name="CustomRelationships.Error.GenerateCode" xml:space="preserve">
+    <value>Impossible de générer l'aperçu du code.</value>
+  </data>
+  <data name="CustomRelationships.Form.PrincipalTable" xml:space="preserve">
+    <value>Table principale</value>
+  </data>
+  <data name="CustomRelationships.Form.Cardinality" xml:space="preserve">
+    <value>Cardinalité</value>
+  </data>
+  <data name="CustomRelationships.Form.Cardinality.OneToOne" xml:space="preserve">
+    <value>Un à un</value>
+  </data>
+  <data name="CustomRelationships.Form.Cardinality.OneToMany" xml:space="preserve">
+    <value>Un à plusieurs</value>
+  </data>
+  <data name="CustomRelationships.Form.Cardinality.ManyToOne" xml:space="preserve">
+    <value>Plusieurs à un</value>
+  </data>
+  <data name="CustomRelationships.Form.Cardinality.ManyToMany" xml:space="preserve">
+    <value>Plusieurs à plusieurs</value>
+  </data>
+  <data name="CustomRelationships.Form.Required" xml:space="preserve">
+    <value>Chaque {0} doit être lié à {1}</value>
+  </data>
+  <data name="CustomRelationships.Form.PrincipalNavigation" xml:space="preserve">
+    <value>Propriété de navigation principale</value>
+  </data>
+  <data name="CustomRelationships.Form.DependentNavigation" xml:space="preserve">
+    <value>Propriété de navigation dépendante</value>
+  </data>
+  <data name="CustomRelationships.Form.Navigation" xml:space="preserve">
+    <value>Propriétés de navigation</value>
+  </data>
+  <data name="CustomRelationships.Form.DeleteBehavior" xml:space="preserve">
+    <value>Comportement de suppression</value>
+  </data>
+  <data name="CustomRelationships.Form.DeleteBehavior.ClientSetNull" xml:space="preserve">
+    <value>Définir null côté client</value>
+  </data>
+  <data name="CustomRelationships.Form.DeleteBehavior.Cascade" xml:space="preserve">
+    <value>Cascade</value>
+  </data>
+  <data name="CustomRelationships.Form.DeleteBehavior.Restrict" xml:space="preserve">
+    <value>Restreindre</value>
+  </data>
+  <data name="CustomRelationships.Form.DeleteBehavior.NoAction" xml:space="preserve">
+    <value>Aucune action</value>
+  </data>
+  <data name="CustomRelationships.Form.DeleteBehaviorTooltip" xml:space="preserve">
+    <value>Choisissez ce qui arrive aux lignes liées lorsque la ligne de la table principale est supprimée.</value>
+  </data>
+  <data name="CustomRelationships.Form.KeyPairs" xml:space="preserve">
+    <value>Paires de clés</value>
+  </data>
+  <data name="CustomRelationships.Form.PrincipalColumn" xml:space="preserve">
+    <value>Colonne principale</value>
+  </data>
+  <data name="CustomRelationships.Form.DependentColumn" xml:space="preserve">
+    <value>Colonne dépendante</value>
+  </data>
+  <data name="CustomRelationships.Form.AddKeyPair" xml:space="preserve">
+    <value>Ajouter une paire de clés</value>
+  </data>
+  <data name="CustomRelationships.Form.New" xml:space="preserve">
+    <value>Nouvelle relation</value>
+  </data>
+  <data name="CustomRelationships.Form.Save" xml:space="preserve">
+    <value>Enregistrer la relation</value>
+  </data>
+  <data name="CustomRelationships.Button.Cancel" xml:space="preserve">
+    <value>Annuler</value>
+  </data>
+  <data name="CustomRelationships.Button.Save" xml:space="preserve">
+    <value>Enregistrer</value>
+  </data>
+  <data name="CustomRelationships.Form.LinkToTable" xml:space="preserve">
+    <value>Lier à la table</value>
+  </data>
+  <data name="CustomRelationships.Form.LinkToTableTooltip" xml:space="preserve">
+    <value>Choisissez la table à laquelle {0} doit être lié.</value>
+  </data>
+  <data name="CustomRelationships.Form.SelectedColumn" xml:space="preserve">
+    <value>Colonne dans {0}</value>
+  </data>
+  <data name="CustomRelationships.Form.SelectedColumnTooltip" xml:space="preserve">
+    <value>Choisissez la colonne de {0} qui contient le lien.</value>
+  </data>
+  <data name="CustomRelationships.Form.MatchingKey" xml:space="preserve">
+    <value>Clé correspondante dans {0}</value>
+  </data>
+  <data name="CustomRelationships.Form.MatchingKeyTooltip" xml:space="preserve">
+    <value>Choisissez la clé correspondante dans {0}.</value>
+  </data>
+  <data name="CustomRelationships.Form.PrincipalNavigationTooltip" xml:space="preserve">
+    <value>La propriété {1} sera ajoutée à la classe {0} : {2} {1} {{ get; set; }}</value>
+  </data>
+  <data name="CustomRelationships.Form.DependentNavigationTooltip" xml:space="preserve">
+    <value>La propriété {1} sera ajoutée à la classe {0} : {2} {1} {{ get; set; }}</value>
+  </data>
+  <data name="CustomRelationships.Form.Cardinality.OneToOneTooltip" xml:space="preserve">
+    <value>Un {0} est lié à un {1}.</value>
+  </data>
+  <data name="CustomRelationships.Form.Cardinality.OneToManyTooltip" xml:space="preserve">
+    <value>Un {1} peut être lié à plusieurs {0}.</value>
+  </data>
+  <data name="CustomRelationships.Form.Cardinality.ManyToOneTooltip" xml:space="preserve">
+    <value>Plusieurs {1} peuvent être liés à un {0}.</value>
+  </data>
+  <data name="CustomRelationships.Form.Cardinality.ManyToManyTooltip" xml:space="preserve">
+    <value>Plusieurs {0} peuvent être liés à plusieurs {1}.</value>
+  </data>
+  <data name="CustomRelationships.Form.RequiredTooltip" xml:space="preserve">
+    <value>Activez cette option lorsque chaque {0} doit être lié à un {1}.</value>
+  </data>
 </root>

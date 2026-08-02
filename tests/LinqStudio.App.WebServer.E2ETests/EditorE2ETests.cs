@@ -25,12 +25,12 @@ public class EditorE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await page.Keyboard.PressAsync("Control+Space");
 
 		// Wait for suggest widget to appear (with .visible CSS class)
-		var suggestRow = page.Locator(".suggest-widget.visible .monaco-list-row").First;
+		var suggestRow = page.Get_QueryEditor_SuggestRows().First;
 		await Expect(suggestRow).ToBeVisibleAsync(new() { Timeout = 20000 });
 		await Expect(suggestRow).Not.ToBeEmptyAsync();
 
 		// Ensure we have some likely completions
-		var suggestions = page.Locator(".suggest-widget.visible .monaco-list-row");
+		var suggestions = page.Get_QueryEditor_SuggestRows();
 		await Expect(suggestions).Not.ToHaveCountAsync(0);
 	}
 
@@ -48,11 +48,11 @@ public class EditorE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "context.People.Where(");
 
 		// Wait for the editor content to be rendered
-		var viewLine = page.Locator(".view-lines .view-line");
+		var viewLine = page.Get_QueryEditor_ViewLine();
 		await Expect(viewLine.First).ToBeVisibleAsync();
 
 		// Find a Monaco token element containing "Where" and hover over it
-		var whereToken = page.Locator("span").Filter(new() { HasText = "Where", HasNotText = "context" });
+		var whereToken = page.Locator(E2ESelectors.MonacoToken).Filter(new() { HasText = "Where", HasNotText = "context" });
 		await Expect(whereToken.First).ToBeVisibleAsync();
 
 		// Hover over the token
@@ -61,7 +61,7 @@ public class EditorE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		// Wait for the hover widget to appear and verify its content.
 		// Use a longer timeout because Roslyn initialization from the SQLite schema takes additional
 		// time compared to the demo model, and the hover widget briefly shows "Loading..." first.
-		var hoverContent = page.Locator(".monaco-hover .hover-contents");
+		var hoverContent = page.Get_QueryEditor_HoverContent();
 		await Expect(hoverContent).ToBeVisibleAsync();
 		await Expect(hoverContent).ToContainTextAsync("Where", new() { IgnoreCase = true, Timeout = 20_000 });
 	}
@@ -83,7 +83,7 @@ public class EditorE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await page.Keyboard.TypeAsync(".");
 
 		// Wait for suggest widget to appear automatically (without Ctrl+Space)
-		var suggestRow = page.Locator(".suggest-widget.visible .monaco-list-row");
+		var suggestRow = page.Get_QueryEditor_SuggestRows();
 		await Expect(suggestRow.First).ToBeVisibleAsync(new() { Timeout = 10000 });
 
 		// Verify we have completions (properties/methods on IQueryable<Person>)
@@ -113,7 +113,7 @@ public class EditorE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await page.Keyboard.TypeAsync("(");
 
 		// Wait for suggest widget to auto-appear (Monaco completion auto-trigger on '(')
-		var suggestRow = page.Locator(".suggest-widget.visible .monaco-list-row");
+		var suggestRow = page.Get_QueryEditor_SuggestRows();
 		await Expect(suggestRow.First).ToBeVisibleAsync(new() { Timeout = 30000 });
 	}
 
@@ -132,7 +132,7 @@ public class EditorE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await page.Keyboard.TypeAsync(" ");
 
 		// Wait for completion widget to appear after typing space
-		var suggestRow = page.Locator(".suggest-widget .monaco-list-row");
+		var suggestRow = page.Get_QueryEditor_SuggestRows(visibleOnly: false);
 		await Expect(suggestRow.First).ToBeVisibleAsync(new() { Timeout = 10000 });
 
 		// Check that completion suggestions are present
@@ -150,7 +150,7 @@ public class EditorE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await E2ETestHelpers.SetupEditorAsync(page, _app);
 
 		// New queries are created with HasUnsavedChanges = true, so indicator should be visible
-		var unsavedIndicator = page.GetByTestId("query-unsaved-indicator");
+		var unsavedIndicator = page.Get_QueryEditor_UnsavedIndicator();
 		await Expect(unsavedIndicator).ToBeVisibleAsync();
 		await Expect(unsavedIndicator).ToContainTextAsync("Unsaved");
 

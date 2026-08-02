@@ -22,14 +22,14 @@ public static class E2ETestHelpers
 	{
 		await page.GotoAsync(app.BaseUrl.ToString());
 		// Open the Project menu first (MudMenu requires opening before items are visible)
-		await page.GetByTestId("nav-project").ClickAsync();
+		await page.Get_Navigation_ProjectMenu().ClickAsync();
 		// Wait briefly for menu to open
 		await Task.Delay(100);
 		// Now click the "New" menu item
-		await page.GetByTestId("nav-project-new").ClickAsync();
+		await page.Get_Navigation_ProjectNew().ClickAsync();
 		await page.WaitForURLAsync(app.BaseUrl.ToString());
 		// Changed from nav-project-group to nav-project since we now use MudMenu instead of MudNavGroup
-		await Expect(page.GetByTestId("nav-project")).ToContainTextAsync("Untitled");
+		await page.ExpectProjectIsOpenAsync();
 	}
 
 	/// <summary>
@@ -49,7 +49,7 @@ public static class E2ETestHelpers
 		// intercept trusted contextmenu events before Blazor's @oncontextmenu handler fires.
 		// Synthetic events are ignored by Monaco's listeners, so they reach Blazor reliably
 		// in both headed (local dev) and headless (CI) modes.
-		var connectionBody = page.GetByTestId("db-tree-connection-body");
+		var connectionBody = page.Get_DatabaseTree_ConnectionBody();
 		await Expect(connectionBody).ToBeVisibleAsync(new() { Timeout = 15_000 });
 		var connBox = await connectionBody.BoundingBoxAsync();
 		await connectionBody.EvaluateAsync(
@@ -57,7 +57,7 @@ public static class E2ETestHelpers
 			new { cx = (connBox?.X ?? 0) + (connBox?.Width ?? 100) / 2.0, cy = (connBox?.Y ?? 0) + (connBox?.Height ?? 20) / 2.0 });
 
 		// Click "New Query" in the context menu
-		var newQueryItem = page.GetByTestId("db-tree-connection-new-query");
+		var newQueryItem = page.Get_DatabaseTree_NewQuery();
 		await Expect(newQueryItem).ToBeVisibleAsync(new() { Timeout = 15_000 });
 		var urlBefore = page.Url;
 		await newQueryItem.ClickAsync();
@@ -66,12 +66,14 @@ public static class E2ETestHelpers
 		// instead of waiting for a full page-load event that never fires.
 		await Expect(page).Not.ToHaveURLAsync(urlBefore, new() { Timeout = 15_000 });
 		// With KeepPanelsAlive, multiple panels can exist — wait for the visible one
-		await Expect(GetActivePanel(page).GetByTestId("monaco-editor-container").First).ToBeVisibleAsync();
+		await Expect(page.Get_QueryEditor_MonacoContainer().First).ToBeVisibleAsync();
 
 		// Wait for Monaco editor and focus it
-		var monacoEditor = GetActivePanel(page).GetByTestId("monaco-editor-container").Locator(".monaco-editor");
+		var monacoEditor = page.Get_QueryEditor_MonacoContainer()
+			.Locator(E2ESelectors.MonacoEditor)
+			.Filter(new() { Visible = true });
 		await Expect(monacoEditor.First).ToBeVisibleAsync();
-		await monacoEditor.First.ClickAsync();
+		await monacoEditor.First.ClickAsync(new LocatorClickOptions { Force = true });
 
 		await ClearAndWriteQueryAsync(page, queryText);
 	}
@@ -86,7 +88,7 @@ public static class E2ETestHelpers
 		await CreateAndOpenSQLiteProjectAsync(page, app);
 
 		// Wait for the database tree view's connection node body to appear
-		var connectionBody = page.GetByTestId("db-tree-connection-body");
+		var connectionBody = page.Get_DatabaseTree_ConnectionBody();
 		await Expect(connectionBody).ToBeVisibleAsync(new() { Timeout = 15_000 });
 
 		// Dispatch synthetic contextmenu event — see CreateQueryAsync for rationale.
@@ -96,7 +98,7 @@ public static class E2ETestHelpers
 			new { cx = (connBoxSetup?.X ?? 0) + (connBoxSetup?.Width ?? 100) / 2.0, cy = (connBoxSetup?.Y ?? 0) + (connBoxSetup?.Height ?? 20) / 2.0 });
 
 		// Click "New Query" in the context menu
-		var newQueryItem = page.GetByTestId("db-tree-connection-new-query");
+		var newQueryItem = page.Get_DatabaseTree_NewQuery();
 		await Expect(newQueryItem).ToBeVisibleAsync(new() { Timeout = 15_000 });
 		var urlBefore = page.Url;
 		await newQueryItem.ClickAsync();
@@ -105,7 +107,7 @@ public static class E2ETestHelpers
 		// instead of waiting for a full page-load event that never fires.
 		await Expect(page).Not.ToHaveURLAsync(urlBefore, new() { Timeout = 15_000 });
 		// With KeepPanelsAlive, scope to the visible (active) panel
-		await Expect(GetActivePanel(page).GetByTestId("monaco-editor-container").First).ToBeVisibleAsync();
+		await Expect(page.Get_QueryEditor_MonacoContainer().First).ToBeVisibleAsync();
 
 		await WaitEditorAndFocusAsync(page);
 	}
@@ -147,48 +149,59 @@ public static class E2ETestHelpers
 
 		// Navigate home and open the project via the project browser dialog
 		await page.GotoAsync(app.BaseUrl.ToString());
-		await page.GetByTestId("nav-project").ClickAsync();
+		await page.Get_Navigation_ProjectMenu().ClickAsync();
 		await Task.Delay(100);
-		await page.GetByTestId("nav-project-open").ClickAsync();
+		await page.Get_Navigation_ProjectOpen().ClickAsync();
 
-		var browserDialog = page.GetByTestId("project-browser-dialog");
+		var browserDialog = page.Get_Navigation_ProjectBrowserDialog();
 		await Expect(browserDialog).ToBeVisibleAsync();
 
-		var projectItem = page.GetByTestId("project-list-item")
-			.Filter(new() { HasText = projectName });
+		var projectItem = page.Get_Navigation_ProjectListItem(projectName);
 		await Expect(projectItem).ToBeVisibleAsync(new() { Timeout = 10_000 });
 		await projectItem.ClickAsync();
 
-		await page.GetByTestId("project-browser-open-btn").ClickAsync();
+		await page.Get_Navigation_ProjectBrowserOpenButton().ClickAsync();
 
 		// Verify the project was opened
-		await Expect(page.GetByTestId("nav-project")).ToContainTextAsync(projectName);
+		await page.ExpectProjectIsOpenAsync(projectName);
 	}
 
 	/// <summary>
-	/// Waits for the Monaco editor to be visible and focuses it by clicking.
+	/// Waits for the Monaco editor to be visible and focuses its keyboard input.
 	/// With KeepPanelsAlive, multiple panels may exist — scopes to the visible active panel.
 	/// </summary>
-	public static async Task WaitEditorAndFocusAsync(IPage page)
+	public static async Task WaitEditorAndFocusAsync(IPage page, int? panelIndex = null)
 	{
 		// With KeepPanelsAlive, multiple Monaco editor containers may exist (one per open tab)
-		// Scope to the visible active panel
-		var monacoEditor = GetActivePanel(page).GetByTestId("monaco-editor-container").Locator(".monaco-editor");
+		// Scope to the visible active panel, or to an explicitly activated panel when
+		// a new tab has just been appended and active-panel detection is still settling.
+		var panel = panelIndex is int index
+			? page.GetByTestId(E2ESelectors.QueryExecutionBar)
+				.Locator(E2ESelectors.TabPanelAncestor)
+				.Nth(index)
+			: GetActivePanel(page);
+		var monacoEditor = panel.Get_QueryEditor_MonacoContainer()
+			.Locator(E2ESelectors.MonacoEditor)
+			.Filter(new() { Visible = true });
 		// Use an explicit timeout: Monaco has a known Task.Delay(500) in OnAfterRenderAsync,
 		// meaning it needs at least 500ms + render time before .monaco-editor is in the DOM.
 		// CI (headless, slower) needs more headroom than the Playwright default (~5s).
 		await Expect(monacoEditor.First).ToBeVisibleAsync(new() { Timeout = 15_000 });
 
-		// Click the outer editor div first (triggers Monaco's own focus handler)
-		await monacoEditor.First.ClickAsync();
+		// Activate Monaco's model with a normal click, then focus its keyboard sink
+		// without another pointer interaction. This avoids leaving a page-level text
+		// selection when Control+A is sent while the textarea is not focused.
+		await monacoEditor.First.ClickAsync(new LocatorClickOptions { Force = true });
 
 		// Monaco's real keyboard sink is the textarea.inputarea inside each editor instance.
-		// Clicking only the outer div can leave keyboard focus on a previously active editor
-		// (e.g., Tab 1's textarea still holds focus while Tab 2's panel becomes visible).
-		// Force-clicking the inputarea guarantees browser keyboard focus moves to THIS editor.
-		var inputArea = GetActivePanel(page).GetByTestId("monaco-editor-container").Locator("textarea.inputarea");
+		var inputArea = panel.Get_QueryEditor_MonacoContainer()
+			.Locator(E2ESelectors.MonacoInputArea);
 		if (await inputArea.CountAsync() > 0)
-			await inputArea.First.ClickAsync(new LocatorClickOptions { Force = true });
+		{
+			var focusedInput = inputArea.First;
+			await focusedInput.FocusAsync();
+			await Expect(focusedInput).ToBeFocusedAsync(new() { Timeout = 5_000 });
+		}
 	}
 
 	/// <summary>
@@ -197,8 +210,8 @@ public static class E2ETestHelpers
 	/// </summary>
 	public static ILocator GetActivePanel(IPage page)
 	{
-		return page.Locator("[role='tabpanel']")
-			.Filter(new() { Has = page.GetByTestId("query-execution-bar"), Visible = true });
+		return page.Locator(E2ESelectors.TabPanel)
+			.Filter(new() { Has = page.GetByTestId(E2ESelectors.QueryExecutionBar), Visible = true });
 	}
 
 	/// <summary>
@@ -206,9 +219,10 @@ public static class E2ETestHelpers
 	/// </summary>
 	public static async Task ClearAndWriteQueryAsync(IPage page, string query)
 	{
-		// Clear the editor first
+		// Always re-establish focus before selecting text. If focus has moved to the
+		// document, Control+A selects the entire page and typing never reaches Monaco.
+		await WaitEditorAndFocusAsync(page);
 		await page.Keyboard.PressAsync("Control+A");
-		// Type the provided query
 		await page.Keyboard.TypeAsync(query);
 		await WaitForDebounceAsync();
 	}
@@ -227,7 +241,7 @@ public static class E2ETestHelpers
 	/// </summary>
 	public static async Task WaitForDatabaseTreeViewAsync(IPage page)
 	{
-		var treeView = page.GetByTestId("db-tree-view");
+		var treeView = page.Get_DatabaseTree_View();
 		await Expect(treeView).ToBeVisibleAsync();
 	}
 
@@ -238,7 +252,7 @@ public static class E2ETestHelpers
 	/// <param name="tableName">Full table name (e.g., "dbo.Customers" or "Customers").</param>
 	public static async Task ExpandDatabaseTableAsync(IPage page, string tableName)
 	{
-		var tableItem = page.GetByTestId($"table-{tableName}");
+		var tableItem = page.Get_DatabaseTree_Table(tableName);
 		await Expect(tableItem).ToBeVisibleAsync();
 		await tableItem.ClickAsync();
 		// Wait for expansion animation
@@ -250,7 +264,7 @@ public static class E2ETestHelpers
 	/// </summary>
 	public static async Task RefreshDatabaseTreeViewAsync(IPage page)
 	{
-		var refreshBtn = page.GetByTestId("db-tree-refresh");
+		var refreshBtn = page.Get_DatabaseTree_RefreshButton();
 		await Expect(refreshBtn).ToBeVisibleAsync();
 		await refreshBtn.ClickAsync();
 	}
@@ -262,18 +276,19 @@ public static class E2ETestHelpers
 	/// </summary>
 	public static async Task ClickTabAtIndexAsync(IPage page, int index)
 	{
-		await page.Locator(".mud-tab").Nth(index).ClickAsync();
+		await page.Get_QueryTabButtons().Nth(index).ClickAsync();
 		// Wait for the SPECIFIC panel at this index to become visible.
 		// Using Nth(index) is critical: ToHaveCountAsync(1) was unreliable because there is always
 		// exactly 1 visible panel (the previous tab's panel before the switch), so that check
 		// could pass immediately without confirming the CORRECT panel is now active.
-		var queryPanels = page.GetByTestId("query-execution-bar")
-			.Locator("xpath=ancestor::*[@role='tabpanel'][1]");
+		var queryPanels = page.GetByTestId(E2ESelectors.QueryExecutionBar)
+			.Locator(E2ESelectors.TabPanelAncestor);
 		await Expect(queryPanels.Nth(index))
 			.ToBeVisibleAsync(new() { Timeout = 15_000 });
 		// Wait for Monaco relayout: OnTabActivatedAsync fires monacoRelayout() after a 300ms delay.
 		// Poll until the editor has non-zero height, confirming layout() has been called and Monaco has rendered.
-		var monacoContainer = GetActivePanel(page).GetByTestId("monaco-editor-container");
+		var monacoContainer = page.Get_QueryEditor_MonacoContainer()
+			.Filter(new() { Visible = true });
 		for (var attempt = 0; attempt < 30; attempt++)
 		{
 			var box = await monacoContainer.BoundingBoxAsync();
@@ -281,13 +296,18 @@ public static class E2ETestHelpers
 			await Task.Delay(100);
 		}
 		// Wait for Monaco to finish rendering text content (height > 0 is not enough on slow CI runners)
-		await Expect(GetActivePanel(page).Locator(".view-lines").First)
+		await Expect(page.Get_QueryEditor_ViewLines().First)
 			.ToBeVisibleAsync(new() { Timeout = 10_000 });
 
-		// Force-focus the active Monaco textarea so keyboard events go to the correct editor instance
-		var inputArea = GetActivePanel(page).Locator("textarea.inputarea");
+		// Focus the active Monaco textarea without a pointer drag so keyboard events go
+		// to the correct editor instance.
+		var inputArea = page.Get_QueryEditor_MonacoContainer()
+			.Locator(E2ESelectors.MonacoInputArea);
 		if (await inputArea.CountAsync() > 0)
-			await inputArea.First.ClickAsync(new() { Force = true });
+		{
+			await inputArea.First.FocusAsync();
+			await Expect(inputArea.First).ToBeFocusedAsync(new() { Timeout = 5_000 });
+		}
 	}
 
 	/// <summary>
@@ -297,9 +317,11 @@ public static class E2ETestHelpers
 	/// </summary>
 	public static async Task CreateAdditionalTabAsync(IPage page, AppServerFixture app)
 	{
+		var existingTabCount = await page.Get_QueryTabs().CountAsync();
+
 		// Right-click the connection node body to open the context menu.
 		// Dispatch synthetic contextmenu event — see CreateQueryAsync for rationale.
-		var connectionBody = page.GetByTestId("db-tree-connection-body");
+		var connectionBody = page.Get_DatabaseTree_ConnectionBody();
 		await Expect(connectionBody).ToBeVisibleAsync(new() { Timeout = 15_000 });
 		var connBox = await connectionBody.BoundingBoxAsync();
 		await connectionBody.EvaluateAsync(
@@ -317,14 +339,23 @@ public static class E2ETestHelpers
 		// Anchored regex (^...$) is required: Playwright's ToHaveURLAsync uses partial/substring
 		// matching, so an unanchored escaped URL would match any URL containing the old URL as a
 		// prefix (e.g. "editor/guid-1" would match "editor/guid-1-something").
-		var newQueryItem = page.GetByTestId("db-tree-connection-new-query");
+		var newQueryItem = page.Get_DatabaseTree_NewQuery();
 		await Expect(newQueryItem).ToBeVisibleAsync(new() { Timeout = 15_000 });
 		await newQueryItem.ClickAsync();
 		await Expect(page).Not.ToHaveURLAsync(
 			new System.Text.RegularExpressions.Regex(
 				$"^{System.Text.RegularExpressions.Regex.Escape(urlBefore)}$"),
 			new() { Timeout = 15_000 });
-		await WaitEditorAndFocusAsync(page);
+
+		// URL navigation completes before the new panel has necessarily become active.
+		// Wait for the newly appended panel specifically so Monaco focus cannot land in
+		// the previous KeepPanelsAlive panel.
+		var queryPanels = page.GetByTestId(E2ESelectors.QueryExecutionBar)
+			.Locator(E2ESelectors.TabPanelAncestor);
+		await Expect(queryPanels.Nth(existingTabCount))
+			.ToBeVisibleAsync(new() { Timeout = 15_000 });
+
+		await WaitEditorAndFocusAsync(page, existingTabCount);
 	}
 
 	/// <summary>

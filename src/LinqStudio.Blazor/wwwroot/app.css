@@ -1,3 +1,55 @@
 .mainBody {
     height: 100%;
 }
+
+:root {
+    --ls-space-1: 0.25rem;
+    --ls-space-2: 0.5rem;
+    --ls-space-3: 0.75rem;
+    --ls-space-4: 1rem;
+    --ls-control-height: 2.25rem;
+    --ls-control-height-compact: 2rem;
+    --ls-radius: 0.375rem;
+    --ls-radius-small: 0.25rem;
+}
+
+.linqstudio-shell {
+    --ls-color-canvas: var(--mud-palette-background);
+    --ls-color-surface: var(--mud-palette-surface);
+    --ls-color-surface-raised: var(--mud-palette-background-grey);
+    --ls-color-border: var(--mud-palette-divider);
+    --ls-color-text: var(--mud-palette-text-primary);
+    --ls-color-text-muted: var(--mud-palette-text-secondary);
+    --ls-color-accent: var(--mud-palette-primary);
+    --ls-color-accent-hover: var(--mud-palette-primary-hover);
+    --ls-color-focus: var(--mud-palette-info);
+    --ls-color-success: var(--mud-palette-success);
+    --ls-color-warning: var(--mud-palette-warning);
+    --ls-color-error: var(--mud-palette-error);
+}
+
+.linqstudio-shell :is(button, a, input, textarea, select, [tabindex]):focus-visible {
+    outline: 2px solid var(--ls-color-focus);
+    outline-offset: 2px;
+}
+
+.linqstudio-shell .mud-button-root {
+    min-height: var(--ls-control-height);
+    border-radius: var(--ls-radius);
+}
+
+.linqstudio-shell .mud-button-root.mud-button-size-small,
+.linqstudio-shell .mud-icon-button {
+    min-height: var(--ls-control-height-compact);
+}
+
+.linqstudio-shell .mud-input-control,
+.linqstudio-shell .mud-select,
+.linqstudio-shell .mud-text-field {
+    min-height: var(--ls-control-height);
+}
+
+.linqstudio-shell ::selection {
+    color: var(--mud-palette-primary-text);
+    background: var(--ls-color-accent);
+}

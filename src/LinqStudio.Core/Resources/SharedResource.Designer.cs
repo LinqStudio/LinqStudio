@@ -691,11 +691,137 @@ namespace LinqStudio.Core.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Unable to load columns..
+        /// </summary>
+        public static string DatabaseTreeView_LoadColumnsError {
+            get {
+                return ResourceManager.GetString("DatabaseTreeView.LoadColumnsError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to load table columns..
+        /// </summary>
+        public static string DatabaseTreeView_LoadColumnsErrorDialog {
+            get {
+                return ResourceManager.GetString("DatabaseTreeView.LoadColumnsErrorDialog", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unable to load tables..
+        /// </summary>
+        public static string DatabaseTreeView_LoadError {
+            get {
+                return ResourceManager.GetString("DatabaseTreeView.LoadError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to load database tables..
+        /// </summary>
+        public static string DatabaseTreeView_LoadErrorDialog {
+            get {
+                return ResourceManager.GetString("DatabaseTreeView.LoadErrorDialog", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Loading columns....
+        /// </summary>
+        public static string DatabaseTreeView_LoadingColumns {
+            get {
+                return ResourceManager.GetString("DatabaseTreeView.LoadingColumns", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No tables match this filter..
+        /// </summary>
+        public static string DatabaseTreeView_NoMatches {
+            get {
+                return ResourceManager.GetString("DatabaseTreeView.NoMatches", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Open a project to explore database tables.
+        /// </summary>
+        public static string DatabaseTreeView_Placeholder {
+            get {
+                return ResourceManager.GetString("DatabaseTreeView.Placeholder", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Refresh tables.
+        /// </summary>
+        public static string DatabaseTreeView_Refresh {
+            get {
+                return ResourceManager.GetString("DatabaseTreeView.Refresh", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Retry.
+        /// </summary>
+        public static string DatabaseTreeView_Retry {
+            get {
+                return ResourceManager.GetString("DatabaseTreeView.Retry", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Filter tables.
+        /// </summary>
+        public static string DatabaseTreeView_SearchLabel {
+            get {
+                return ResourceManager.GetString("DatabaseTreeView.SearchLabel", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Search by table or schema.
+        /// </summary>
+        public static string DatabaseTreeView_SearchPlaceholder {
+            get {
+                return ResourceManager.GetString("DatabaseTreeView.SearchPlaceholder", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Tables.
+        /// </summary>
+        public static string DatabaseTreeView_Tables {
+            get {
+                return ResourceManager.GetString("DatabaseTreeView.Tables", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No project is open. Please create or open a project to start editing queries..
+        /// </summary>
+        public static string Editor_NoProjectAlert {
+            get {
+                return ResourceManager.GetString("Editor.NoProjectAlert", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to No queries are currently open. Right-click the database connection in the explorer to create a new query..
         /// </summary>
         public static string Editor_NoQueryAlert {
             get {
                 return ResourceManager.GetString("Editor.NoQueryAlert", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Editor - LinqStudio.
+        /// </summary>
+        public static string Editor_Title {
+            get {
+                return ResourceManager.GetString("Editor.Title", resourceCulture);
             }
         }
         
@@ -745,6 +871,51 @@ namespace LinqStudio.Core.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Close query.
+        /// </summary>
+        public static string QueryEditor_Button_Close {
+            get {
+                return ResourceManager.GetString("QueryEditor.Button.Close", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Execute.
+        /// </summary>
+        public static string QueryEditor_Button_Execute {
+            get {
+                return ResourceManager.GetString("QueryEditor.Button.Execute", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Refresh schema.
+        /// </summary>
+        public static string QueryEditor_Button_RefreshSchema {
+            get {
+                return ResourceManager.GetString("QueryEditor.Button.RefreshSchema", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Save query.
+        /// </summary>
+        public static string QueryEditor_Button_Save {
+            get {
+                return ResourceManager.GetString("QueryEditor.Button.Save", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Stop.
+        /// </summary>
+        public static string QueryEditor_Button_Stop {
+            get {
+                return ResourceManager.GetString("QueryEditor.Button.Stop", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Failed to save edited row..
         /// </summary>
         public static string QueryEditor_Error_SaveEditedRow {
@@ -759,6 +930,303 @@ namespace LinqStudio.Core.Resources {
         public static string QueryEditor_Error_UpdateEditedCell {
             get {
                 return ResourceManager.GetString("QueryEditor.Error.UpdateEditedCell", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Query execution cancelled..
+        /// </summary>
+        public static string QueryEditor_Message_Cancelled {
+            get {
+                return ResourceManager.GetString("QueryEditor.Message.Cancelled", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Editor not ready. Please try again..
+        /// </summary>
+        public static string QueryEditor_Message_EditorNotReady {
+            get {
+                return ResourceManager.GetString("QueryEditor.Message.EditorNotReady", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Query is empty..
+        /// </summary>
+        public static string QueryEditor_Message_Empty {
+            get {
+                return ResourceManager.GetString("QueryEditor.Message.Empty", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Query completed successfully. {0} rows returned..
+        /// </summary>
+        public static string QueryEditor_Message_Executed {
+            get {
+                return ResourceManager.GetString("QueryEditor.Message.Executed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No project is open..
+        /// </summary>
+        public static string QueryEditor_Message_NoProject {
+            get {
+                return ResourceManager.GetString("QueryEditor.Message.NoProject", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Query saved successfully..
+        /// </summary>
+        public static string QueryEditor_Message_Saved {
+            get {
+                return ResourceManager.GetString("QueryEditor.Message.Saved", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Save the project first before saving queries..
+        /// </summary>
+        public static string QueryEditor_Message_SaveProjectFirst {
+            get {
+                return ResourceManager.GetString("QueryEditor.Message.SaveProjectFirst", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to This query has unsaved changes. Close without saving?.
+        /// </summary>
+        public static string QueryEditor_Message_UnsavedClose {
+            get {
+                return ResourceManager.GetString("QueryEditor.Message.UnsavedClose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to New Query.
+        /// </summary>
+        public static string QueryEditor_Query_New {
+            get {
+                return ResourceManager.GetString("QueryEditor.Query.New", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unsaved.
+        /// </summary>
+        public static string QueryEditor_Query_Unsaved {
+            get {
+                return ResourceManager.GetString("QueryEditor.Query.Unsaved", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to C# is not available for this query..
+        /// </summary>
+        public static string QueryEditor_Results_CSharpUnavailable {
+            get {
+                return ResourceManager.GetString("QueryEditor.Results.CSharpUnavailable", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Run a query to see the generated C# code..
+        /// </summary>
+        public static string QueryEditor_Results_RunForCSharp {
+            get {
+                return ResourceManager.GetString("QueryEditor.Results.RunForCSharp", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Run a query to see the generated SQL..
+        /// </summary>
+        public static string QueryEditor_Results_RunForSql {
+            get {
+                return ResourceManager.GetString("QueryEditor.Results.RunForSql", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to SQL is not available for this query..
+        /// </summary>
+        public static string QueryEditor_Results_SqlUnavailable {
+            get {
+                return ResourceManager.GetString("QueryEditor.Results.SqlUnavailable", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to C#.
+        /// </summary>
+        public static string QueryEditor_Results_TabCSharp {
+            get {
+                return ResourceManager.GetString("QueryEditor.Results.TabCSharp", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Results.
+        /// </summary>
+        public static string QueryEditor_Results_TabResults {
+            get {
+                return ResourceManager.GetString("QueryEditor.Results.TabResults", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to SQL.
+        /// </summary>
+        public static string QueryEditor_Results_TabSql {
+            get {
+                return ResourceManager.GetString("QueryEditor.Results.TabSql", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Query output.
+        /// </summary>
+        public static string QueryEditor_Results_Title {
+            get {
+                return ResourceManager.GetString("QueryEditor.Results.Title", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Completed.
+        /// </summary>
+        public static string QueryEditor_Status_Completed {
+            get {
+                return ResourceManager.GetString("QueryEditor.Status.Completed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Executing query....
+        /// </summary>
+        public static string QueryEditor_Status_Executing {
+            get {
+                return ResourceManager.GetString("QueryEditor.Status.Executing", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed.
+        /// </summary>
+        public static string QueryEditor_Status_Failed {
+            get {
+                return ResourceManager.GetString("QueryEditor.Status.Failed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Not executed.
+        /// </summary>
+        public static string QueryEditor_Status_NotExecuted {
+            get {
+                return ResourceManager.GetString("QueryEditor.Status.NotExecuted", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Refreshing....
+        /// </summary>
+        public static string QueryEditor_Status_Refreshing {
+            get {
+                return ResourceManager.GetString("QueryEditor.Status.Refreshing", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Execution.
+        /// </summary>
+        public static string QueryEditor_Toolbar_Execution {
+            get {
+                return ResourceManager.GetString("QueryEditor.Toolbar.Execution", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No timeout.
+        /// </summary>
+        public static string QueryEditor_Toolbar_NoTimeout {
+            get {
+                return ResourceManager.GetString("QueryEditor.Toolbar.NoTimeout", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Timeout.
+        /// </summary>
+        public static string QueryEditor_Toolbar_Timeout {
+            get {
+                return ResourceManager.GetString("QueryEditor.Toolbar.Timeout", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Compilation error.
+        /// </summary>
+        public static string QueryResultGrid_CompilationError {
+            get {
+                return ResourceManager.GetString("QueryResultGrid.CompilationError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Elapsed.
+        /// </summary>
+        public static string QueryResultGrid_Elapsed {
+            get {
+                return ResourceManager.GetString("QueryResultGrid.Elapsed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Query returned no results..
+        /// </summary>
+        public static string QueryResultGrid_NoResults {
+            get {
+                return ResourceManager.GetString("QueryResultGrid.NoResults", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to row.
+        /// </summary>
+        public static string QueryResultGrid_Row {
+            get {
+                return ResourceManager.GetString("QueryResultGrid.Row", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} {1}.
+        /// </summary>
+        public static string QueryResultGrid_RowCount {
+            get {
+                return ResourceManager.GetString("QueryResultGrid.RowCount", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to rows.
+        /// </summary>
+        public static string QueryResultGrid_Rows {
+            get {
+                return ResourceManager.GetString("QueryResultGrid.Rows", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to selected.
+        /// </summary>
+        public static string QueryResultGrid_Selected {
+            get {
+                return ResourceManager.GetString("QueryResultGrid.Selected", resourceCulture);
             }
         }
         
@@ -822,6 +1290,96 @@ namespace LinqStudio.Core.Resources {
         public static string SettingsPage_MessageBox_ReloadTitle {
             get {
                 return ResourceManager.GetString("SettingsPage.MessageBox.ReloadTitle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Toggle theme.
+        /// </summary>
+        public static string Shell_Button_ToggleTheme {
+            get {
+                return ResourceManager.GetString("Shell.Button.ToggleTheme", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Connection.
+        /// </summary>
+        public static string Shell_Connection_Label {
+            get {
+                return ResourceManager.GetString("Shell.Connection.Label", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No project open.
+        /// </summary>
+        public static string Shell_Connection_None {
+            get {
+                return ResourceManager.GetString("Shell.Connection.None", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Database objects.
+        /// </summary>
+        public static string Shell_Explorer_Subtitle {
+            get {
+                return ResourceManager.GetString("Shell.Explorer.Subtitle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Object Explorer.
+        /// </summary>
+        public static string Shell_Explorer_Title {
+            get {
+                return ResourceManager.GetString("Shell.Explorer.Title", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Navigation.
+        /// </summary>
+        public static string Shell_Navigation_Label {
+            get {
+                return ResourceManager.GetString("Shell.Navigation.Label", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Toggle navigation.
+        /// </summary>
+        public static string Shell_Navigation_Toggle {
+            get {
+                return ResourceManager.GetString("Shell.Navigation.Toggle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No project open.
+        /// </summary>
+        public static string Shell_Status_NoProject {
+            get {
+                return ResourceManager.GetString("Shell.Status.NoProject", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Ready.
+        /// </summary>
+        public static string Shell_Status_Ready {
+            get {
+                return ResourceManager.GetString("Shell.Status.Ready", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unsaved changes.
+        /// </summary>
+        public static string Shell_Status_Unsaved {
+            get {
+                return ResourceManager.GetString("Shell.Status.Unsaved", resourceCulture);
             }
         }
         

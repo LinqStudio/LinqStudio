@@ -1,11 +1,12 @@
 ::deep .row-selected td {
-    background-color: rgba(99, 88, 230, 0.35) !important;
-    color: #fff !important;
+    background-color: var(--ls-color-accent-hover) !important;
+    color: var(--ls-color-text) !important;
 }
 
 ::deep .mud-table-cell {
     padding: 0 !important;
     cursor: default;
+    min-height: var(--ls-control-height-compact);
 }
 
 .query-result-grid-container {
@@ -18,11 +19,22 @@
     outline: none;
 }
 
+.query-result-grid-container:focus-visible {
+    outline: 2px solid var(--ls-color-focus);
+    outline-offset: -2px;
+}
+
 .query-result-edit-input {
     width: 100%;
-    border: 1px solid var(--mud-palette-divider);
-    border-radius: 2px;
-    background: var(--mud-palette-surface);
-    color: var(--mud-palette-text-primary);
-    padding: 2px 4px;
+    border: 1px solid var(--ls-color-border);
+    border-radius: var(--ls-radius-small);
+    background: var(--ls-color-surface);
+    color: var(--ls-color-text);
+    padding: var(--ls-space-1) var(--ls-space-2);
+}
+
+::deep .mud-table-head,
+::deep .mud-data-grid-header {
+    background: var(--ls-color-surface-raised);
+    color: var(--ls-color-text);
 }

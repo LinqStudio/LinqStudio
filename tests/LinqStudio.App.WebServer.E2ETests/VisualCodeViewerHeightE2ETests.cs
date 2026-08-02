@@ -48,22 +48,22 @@ public class VisualCodeViewerHeightE2ETests(AppServerFixture app, PlaywrightFixt
         });
 
         // Execute the query
-        var executeBtn = page.GetByTestId("execute-query-btn");
+        var executeBtn = page.Get_QueryExecution_ExecuteButton();
         await Expect(executeBtn).ToBeVisibleAsync();
         await executeBtn.ClickAsync();
 
         // Wait for execution to complete (result or error)
-        var resultContainer = page.GetByTestId("query-result-container");
-        await Expect(resultContainer.Locator(".mud-table, .mud-alert")).ToBeVisibleAsync(new() { Timeout = 15000 });
+        var resultContainer = page.Get_QueryResults_ResultContainer();
+        await Expect(resultContainer.Get_QueryResults_ResultOrError()).ToBeVisibleAsync(new() { Timeout = 15000 });
 
         // Click the C# tab
-        var csharpTab = page.Locator("[data-testid='results-tabs'] .mud-tab").Filter(new() { HasText = "C#" });
+        var csharpTab = page.Get_QueryResults_Tabs().Filter(new() { HasText = "C#" });
         await Expect(csharpTab).ToBeVisibleAsync();
         await csharpTab.ClickAsync();
 
         // Wait for Monaco editor to appear in the C# tab panel
-        var csharpPanel = page.GetByTestId("csharp-tab-panel");
-        var monacoEditor = csharpPanel.Locator(".monaco-editor").First;
+        var csharpPanel = page.Get_QueryResults_CSharpTabPanel();
+        var monacoEditor = csharpPanel.Locator(E2ESelectors.MonacoEditor).First;
         await Expect(monacoEditor).ToBeVisibleAsync(new() { Timeout = 10000 });
 
         // Take a screenshot for visual evidence
@@ -105,21 +105,21 @@ public class VisualCodeViewerHeightE2ETests(AppServerFixture app, PlaywrightFixt
             Elapsed = TimeSpan.FromMilliseconds(42)
         });
 
-        var executeBtn = page.GetByTestId("execute-query-btn");
+        var executeBtn = page.Get_QueryExecution_ExecuteButton();
         await Expect(executeBtn).ToBeVisibleAsync();
         await executeBtn.ClickAsync();
 
-        var resultContainer = page.GetByTestId("query-result-container");
-        await Expect(resultContainer.Locator(".mud-table, .mud-alert")).ToBeVisibleAsync(new() { Timeout = 15000 });
+        var resultContainer = page.Get_QueryResults_ResultContainer();
+        await Expect(resultContainer.Get_QueryResults_ResultOrError()).ToBeVisibleAsync(new() { Timeout = 15000 });
 
         // Click the SQL tab
-        var sqlTab = page.Locator("[data-testid='results-tabs'] .mud-tab").Filter(new() { HasText = "SQL" });
+        var sqlTab = page.Get_QueryResults_Tabs().Filter(new() { HasText = "SQL" });
         await Expect(sqlTab).ToBeVisibleAsync();
         await sqlTab.ClickAsync();
 
         // Wait for Monaco editor to appear in the SQL tab panel
-        var sqlPanel = page.GetByTestId("sql-tab-panel");
-        var monacoEditor = sqlPanel.Locator(".monaco-editor").First;
+        var sqlPanel = page.Get_QueryResults_SqlTabPanel();
+        var monacoEditor = sqlPanel.Locator(E2ESelectors.MonacoEditor).First;
         await Expect(monacoEditor).ToBeVisibleAsync(new() { Timeout = 10000 });
 
         // Take a screenshot for visual evidence

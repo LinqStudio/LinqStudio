@@ -29,37 +29,29 @@ public class TabBehaviorE2ETests(AppServerFixture app, PlaywrightFixture pw)
 
 		// Execute a query on Tab 1 and wait for results
 		_app.MockQueryExecutionService.SetNextResult(E2ETestHelpers.CreateMultiColumnResult(rows: 3));
-		await E2ETestHelpers.GetActivePanel(page).GetByTestId("execute-query-btn").ClickAsync();
+		await page.Get_QueryExecution_ExecuteButton().ClickAsync();
 		await Expect(
-			E2ETestHelpers.GetActivePanel(page)
-				.GetByTestId("query-result-container")
-				.Locator(".mud-table-root")
+			page.Get_QueryResults_Table()
 		).ToBeVisibleAsync(new() { Timeout = 10_000 });
 
 		// Create Tab 2 and execute a different query
 		await E2ETestHelpers.CreateAdditionalTabAsync(page, _app);
 		_app.MockQueryExecutionService.SetNextResult(E2ETestHelpers.CreateMultiColumnResult(rows: 5));
-		await E2ETestHelpers.GetActivePanel(page).GetByTestId("execute-query-btn").ClickAsync();
+		await page.Get_QueryExecution_ExecuteButton().ClickAsync();
 		await Expect(
-			E2ETestHelpers.GetActivePanel(page)
-				.GetByTestId("query-result-container")
-				.Locator(".mud-table-root")
+			page.Get_QueryResults_Table()
 		).ToBeVisibleAsync(new() { Timeout = 10_000 });
 
 		// Switch back to Tab 1 — results must still be visible (KeepPanelsAlive contract)
 		await E2ETestHelpers.ClickTabAtIndexAsync(page, 0);
 		await Expect(
-			E2ETestHelpers.GetActivePanel(page)
-				.GetByTestId("query-result-container")
-				.Locator(".mud-table-root")
+			page.Get_QueryResults_Table()
 		).ToBeVisibleAsync(new() { Timeout = 5_000 });
 
 		// Switch back to Tab 2 — its results must also be preserved
 		await E2ETestHelpers.ClickTabAtIndexAsync(page, 1);
 		await Expect(
-			E2ETestHelpers.GetActivePanel(page)
-				.GetByTestId("query-result-container")
-				.Locator(".mud-table-root")
+			page.Get_QueryResults_Table()
 		).ToBeVisibleAsync(new() { Timeout = 5_000 });
 	}
 
@@ -82,13 +74,13 @@ public class TabBehaviorE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		// Switch to Tab 1 — Monaco must still show Tab 1's text
 		await E2ETestHelpers.ClickTabAtIndexAsync(page, 0);
 		await Expect(
-			E2ETestHelpers.GetActivePanel(page).Locator(".view-lines")
+			page.Get_QueryEditor_ViewLines()
 		).ToContainTextAsync("TABTEST_ALPHA", new() { Timeout = 5_000 });
 
 		// Switch to Tab 2 — Monaco must still show Tab 2's text
 		await E2ETestHelpers.ClickTabAtIndexAsync(page, 1);
 		await Expect(
-			E2ETestHelpers.GetActivePanel(page).Locator(".view-lines")
+			page.Get_QueryEditor_ViewLines()
 		).ToContainTextAsync("TABTEST_BETA", new() { Timeout = 5_000 });
 	}
 
@@ -113,17 +105,17 @@ public class TabBehaviorE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		// Cycle through all 3 tabs and verify each shows only its own content
 		await E2ETestHelpers.ClickTabAtIndexAsync(page, 0);
 		await Expect(
-			E2ETestHelpers.GetActivePanel(page).Locator(".view-lines")
+			page.Get_QueryEditor_ViewLines()
 		).ToContainTextAsync("EDITOR_ONE", new() { Timeout = 5_000 });
 
 		await E2ETestHelpers.ClickTabAtIndexAsync(page, 1);
 		await Expect(
-			E2ETestHelpers.GetActivePanel(page).Locator(".view-lines")
+			page.Get_QueryEditor_ViewLines()
 		).ToContainTextAsync("EDITOR_TWO", new() { Timeout = 5_000 });
 
 		await E2ETestHelpers.ClickTabAtIndexAsync(page, 2);
 		await Expect(
-			E2ETestHelpers.GetActivePanel(page).Locator(".view-lines")
+			page.Get_QueryEditor_ViewLines()
 		).ToContainTextAsync("EDITOR_THREE", new() { Timeout = 5_000 });
 	}
 
@@ -142,21 +134,21 @@ public class TabBehaviorE2ETests(AppServerFixture app, PlaywrightFixture pw)
 
 		// Verify 3 tabs exist — one query-execution-bar per open query panel (works with KeepPanelsAlive)
 		// Avoids counting .mud-tab which also includes inner Results|C#|SQL tab buttons
-		var queryPanelCount = page.GetByTestId("query-execution-bar");
+		var queryPanelCount = page.Get_QueryTabs();
 		await Expect(queryPanelCount).ToHaveCountAsync(3, new() { Timeout = 5_000 });
 
 		// Switch to the middle tab, type content to mark it as having unsaved changes
 		await E2ETestHelpers.ClickTabAtIndexAsync(page, 1);
 		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "UNSAVED_CONTENT");
 
-		var closeBtn = E2ETestHelpers.GetActivePanel(page).GetByTestId("query-close-btn");
+		var closeBtn = page.Get_QueryEditor_CloseButton();
 		await Expect(closeBtn).ToBeVisibleAsync();
 		await closeBtn.ClickAsync();
 
 		// The tab has unsaved content — the unsaved-changes dialog must appear
-		var dialog = page.GetByTestId("unsaved-changes-dialog");
+		var dialog = page.Get_Navigation_UnsavedChangesDialog();
 		await Expect(dialog).ToBeVisibleAsync(new() { Timeout = 3_000 });
-		var confirmBtn = page.GetByTestId("unsaved-changes-confirm-btn");
+		var confirmBtn = page.Get_Navigation_UnsavedChangesConfirmButton();
 		await confirmBtn.ClickAsync();
 
 		// Wait for the tab removal to complete (URL changes on close)
@@ -168,12 +160,12 @@ public class TabBehaviorE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		// Verify both remaining tabs can be focused and their editors are visible
 		await E2ETestHelpers.ClickTabAtIndexAsync(page, 0);
 		await Expect(
-			E2ETestHelpers.GetActivePanel(page).GetByTestId("monaco-editor-container")
+			page.Get_QueryEditor_MonacoContainer()
 		).ToBeVisibleAsync(new() { Timeout = 5_000 });
 
 		await E2ETestHelpers.ClickTabAtIndexAsync(page, 1);
 		await Expect(
-			E2ETestHelpers.GetActivePanel(page).GetByTestId("monaco-editor-container")
+			page.Get_QueryEditor_MonacoContainer()
 		).ToBeVisibleAsync(new() { Timeout = 5_000 });
 	}
 
@@ -196,8 +188,7 @@ public class TabBehaviorE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		{
 			await E2ETestHelpers.ClickTabAtIndexAsync(page, switchSequence[i]);
 
-			var editorContainer = E2ETestHelpers.GetActivePanel(page)
-				.GetByTestId("monaco-editor-container");
+			var editorContainer = page.Get_QueryEditor_MonacoContainer();
 			await Expect(editorContainer).ToBeVisibleAsync(new() { Timeout = 5_000 });
 
 			var box = await editorContainer.BoundingBoxAsync();

@@ -112,6 +112,20 @@ public class DatabaseTreeViewComponentTests : BunitContext
 	}
 
 	[Fact]
+	public void DatabaseTreeView_ShowsObjectExplorerHeader_WhenNoProjectOpen()
+	{
+		// Arrange
+		SetupServices();
+
+		// Act
+		var cut = Render<DatabaseTreeView>();
+
+		// Assert
+		var explorer = cut.Find("[data-testid='database-explorer']");
+		Assert.Contains("Object Explorer", explorer.TextContent, StringComparison.OrdinalIgnoreCase);
+	}
+
+	[Fact]
 	public async Task DatabaseTreeView_ShowsPlaceholder_WhenProjectOpenButNoConnection()
 	{
 		// Arrange
@@ -230,6 +244,87 @@ public class DatabaseTreeViewComponentTests : BunitContext
 			// Label text should be just "Users" without a schema prefix
 			Assert.Contains("Users", tableNode.TextContent, StringComparison.OrdinalIgnoreCase);
 			Assert.DoesNotContain("null.", tableNode.TextContent, StringComparison.OrdinalIgnoreCase);
+		}, TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task DatabaseTreeView_SearchFilter_ShowsOnlyMatchingTables()
+	{
+		// Arrange
+		SetupServices();
+		var workspace = Services.GetRequiredService<ProjectWorkspace>();
+		await workspace.CreateNewAsync("MyApp");
+
+		var tables = new List<DatabaseTableName>
+		{
+			new() { Schema = "dbo", Name = "Users" },
+			new() { Schema = "sales", Name = "Orders" },
+		};
+		var mockGen = CreateMockGenerator(tables);
+		SetQueryGenerator(workspace.CurrentProject!, mockGen.Object);
+
+		var cut = Render<DatabaseTreeView>();
+		cut.WaitForAssertion(() => Assert.NotNull(cut.Find("[data-testid='table-dbo.Users']")), TimeSpan.FromSeconds(3));
+
+		// Act
+		var searchInput = cut.Find("input[data-testid='db-tree-search'], [data-testid='db-tree-search'] input");
+		searchInput.Input("orders");
+
+		// Assert
+		cut.WaitForAssertion(() =>
+		{
+			Assert.Empty(cut.FindAll("[data-testid='table-dbo.Users']"));
+			Assert.NotNull(cut.Find("[data-testid='table-sales.Orders']"));
+		}, TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task DatabaseTreeView_SelectingTable_MarksItSelected()
+	{
+		// Arrange
+		SetupServices();
+		var workspace = Services.GetRequiredService<ProjectWorkspace>();
+		await workspace.CreateNewAsync("MyApp");
+
+		var table = new DatabaseTableName { Schema = "dbo", Name = "Users" };
+		var mockGen = CreateMockGenerator([table]);
+		SetQueryGenerator(workspace.CurrentProject!, mockGen.Object);
+
+		var cut = Render<DatabaseTreeView>();
+		cut.WaitForAssertion(() => Assert.NotNull(cut.Find("[data-testid='db-tree-table-body-dbo.Users']")), TimeSpan.FromSeconds(3));
+
+		// Act
+		await cut.InvokeAsync(() => cut.Find("[data-testid='db-tree-table-body-dbo.Users']").Click());
+
+		// Assert
+		cut.WaitForAssertion(() =>
+		{
+			var tableBody = cut.Find("[data-testid='db-tree-table-body-dbo.Users']");
+			Assert.Contains("database-explorer-node-selected", tableBody.ClassList);
+		}, TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task DatabaseTreeView_LoadTablesFailure_ShowsInlineRetryState()
+	{
+		// Arrange
+		SetupServices();
+		var workspace = Services.GetRequiredService<ProjectWorkspace>();
+		await workspace.CreateNewAsync("MyApp");
+
+		var mockGen = new Mock<IDatabaseQueryGenerator>();
+		mockGen.Setup(g => g.GetTablesAsync(It.IsAny<CancellationToken>()))
+			.ThrowsAsync(new InvalidOperationException("database unavailable"));
+		SetQueryGenerator(workspace.CurrentProject!, mockGen.Object);
+
+		// Act
+		var cut = Render<DatabaseTreeView>();
+
+		// Assert
+		cut.WaitForAssertion(() =>
+		{
+			Assert.NotNull(cut.Find("[data-testid='db-tree-error']"));
+			Assert.NotNull(cut.Find("[data-testid='db-tree-retry']"));
 		}, TimeSpan.FromSeconds(3));
 	}
 

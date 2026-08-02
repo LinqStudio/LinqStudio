@@ -33,6 +33,18 @@ public class SchemaTreeNode
 	/// <summary>Text displayed in the tree row.</summary>
 	public required string Label { get; init; }
 
+	/// <summary>
+	/// Stable identifier used to preserve selection and expansion across schema refreshes.
+	/// </summary>
+	public string Key => NodeType switch
+	{
+		SchemaTreeNodeType.Connection => $"connection:{ConnectionInfo?.DisplayName ?? Label}",
+		SchemaTreeNodeType.TablesFolder => "folder:tables",
+		SchemaTreeNodeType.Table => $"table:{TableName?.FullName ?? Label}",
+		SchemaTreeNodeType.Column => $"column:{ParentKey}:{ColumnDetail?.Name ?? Label}",
+		_ => Label,
+	};
+
 	/// <summary>MudBlazor icon string for this node.</summary>
 	public required string Icon { get; init; }
 
@@ -57,6 +69,9 @@ public class SchemaTreeNode
 	/// <summary>Set for <see cref="SchemaTreeNodeType.Column"/> nodes. Carries display metadata.</summary>
 	public TableColumn? ColumnDetail { get; init; }
 
+	/// <summary>Stable key for the containing table when this node is a column.</summary>
+	public string? ParentKey { get; init; }
+
 	/// <summary>
 	/// For <see cref="SchemaTreeNodeType.Column"/> nodes: the pre-formatted data type string
 	/// (e.g., "varchar(100)?"). Computed once when the node is created.
@@ -70,4 +85,10 @@ public class SchemaTreeNode
 	/// The template renders a spinner placeholder in the children area when this is true.
 	/// </summary>
 	public bool IsLoading { get; set; }
+
+	/// <summary>Whether the node is currently expanded in the explorer.</summary>
+	public bool IsExpanded { get; set; }
+
+	/// <summary>Inline error shown when lazy-loading this node fails.</summary>
+	public string? LoadError { get; set; }
 }

@@ -4,13 +4,13 @@
 }
 
 ::deep .custom-relationship-model.selected {
-	background-color: var(--mud-palette-primary-hover) !important;
-	border-left: 4px solid var(--mud-palette-primary);
+	background-color: var(--ls-color-accent-hover) !important;
+	border-left: 4px solid var(--ls-color-accent);
 	font-weight: 600;
 }
 
 ::deep .custom-relationship-model.selected .mud-list-item-text {
-	color: var(--mud-palette-primary-text);
+	color: var(--ls-color-text);
 }
 
 ::deep .key-pair-column-select {
@@ -20,6 +20,7 @@
 
 .custom-relationships-dialog-content {
 	height: 100%;
+	color: var(--ls-color-text);
 }
 
 .custom-relationships-dialog-content ::deep .mud-tabs {
@@ -40,4 +41,16 @@
 
 ::deep .generated-code-editor .code-viewer {
 	height: 100%;
+}
+
+::deep .custom-relationships-dialog .mud-dialog-content {
+	background: var(--ls-color-surface);
+}
+
+::deep .custom-relationships-dialog .mud-list-item {
+	border-radius: var(--ls-radius-small);
+}
+
+::deep .custom-relationships-dialog .mud-list-item:hover {
+	background: var(--ls-color-accent-hover);
 }
