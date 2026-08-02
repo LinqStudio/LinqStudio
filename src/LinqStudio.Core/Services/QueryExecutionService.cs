@@ -29,6 +29,7 @@ public sealed class QueryExecutionService(
 	private readonly RoslynWorkspaceService _roslynWorkspaceService = roslynWorkspaceService;
 	private readonly IOptionsMonitor<QueryExecutionSettings> _settings = settings;
 	private readonly ILogger<QueryExecutionService>? _logger = logger;
+	private readonly SemaphoreSlim _saveLock = new(1, 1);
 
 	private AssemblyLoadContext? _lastAssemblyLoadContext;
 	private DbContext? _lastDbContext;
@@ -225,8 +226,16 @@ public sealed class QueryExecutionService(
 
 	public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
 	{
-		if (_lastDbContext is not null)
-			await _lastDbContext.SaveChangesAsync(cancellationToken);
+		await _saveLock.WaitAsync(cancellationToken);
+		try
+		{
+			if (_lastDbContext is not null)
+				await _lastDbContext.SaveChangesAsync(cancellationToken);
+		}
+		finally
+		{
+			_saveLock.Release();
+		}
 	}
 
 	public async ValueTask DisposeAsync()

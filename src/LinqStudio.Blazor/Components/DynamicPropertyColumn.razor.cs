@@ -15,6 +15,9 @@ public partial class DynamicPropertyColumn<TProperty> : ComponentBase
 	[Parameter]
 	public bool IsEditable { get; set; }
 
+	[Parameter]
+	public EventCallback<object> OnValueChanged { get; set; }
+
 	private Expression<Func<object, TProperty>> Property { get; set; } = null!;
 
 	private bool IsDateOnlyProperty
@@ -49,60 +52,69 @@ public partial class DynamicPropertyColumn<TProperty> : ComponentBase
 		=> PropertyInfo.GetValue(item) is DateTime value ? value : null;
 
 	private TimeSpan? GetTimeValue(object item)
-		=> PropertyInfo.GetValue(item) is TimeSpan value ? value : null;
+		=> PropertyInfo.GetValue(item) switch
+		{
+			DateTime value => value.TimeOfDay,
+			TimeSpan value => value,
+			_ => null
+		};
 
-	private Task OnDateOnlyChanged(object item, DateTime? date)
+	private async Task OnDateOnlyChanged(object item, DateTime? date)
 	{
 		if (date is null)
 		{
 			if (Nullable.GetUnderlyingType(typeof(TProperty)) is not null)
 				PropertyInfo.SetValue(item, null);
-			return Task.CompletedTask;
+			await OnValueChanged.InvokeAsync(item);
+			return;
 		}
 
 		SetValue(item, DateOnly.FromDateTime(date.Value));
-		return Task.CompletedTask;
+		await OnValueChanged.InvokeAsync(item);
 	}
 
-	private Task OnDateChanged(object item, DateTime? date)
+	private async Task OnDateChanged(object item, DateTime? date)
 	{
 		if (date is null)
 		{
 			if (Nullable.GetUnderlyingType(typeof(TProperty)) is not null)
 				PropertyInfo.SetValue(item, null);
-			return Task.CompletedTask;
+			await OnValueChanged.InvokeAsync(item);
+			return;
 		}
 
 		var currentTime = GetDateValue(item)?.TimeOfDay ?? TimeSpan.Zero;
 		SetValue(item, date.Value.Date.Add(currentTime));
-		return Task.CompletedTask;
+		await OnValueChanged.InvokeAsync(item);
 	}
 
-	private Task OnTimeChanged(object item, TimeSpan? time)
+	private async Task OnTimeChanged(object item, TimeSpan? time)
 	{
 		if (time is null)
 		{
 			if (Nullable.GetUnderlyingType(typeof(TProperty)) is not null)
 				PropertyInfo.SetValue(item, null);
-			return Task.CompletedTask;
+			await OnValueChanged.InvokeAsync(item);
+			return;
 		}
 
 		var currentDate = GetDateValue(item)?.Date ?? DateTime.Today;
 		SetValue(item, currentDate.Add(time.Value));
-		return Task.CompletedTask;
+		await OnValueChanged.InvokeAsync(item);
 	}
 
-	private Task OnTimeSpanChanged(object item, TimeSpan? time)
+	private async Task OnTimeSpanChanged(object item, TimeSpan? time)
 	{
 		if (time is null)
 		{
 			if (Nullable.GetUnderlyingType(typeof(TProperty)) is not null)
 				PropertyInfo.SetValue(item, null);
-			return Task.CompletedTask;
+			await OnValueChanged.InvokeAsync(item);
+			return;
 		}
 
 		SetValue(item, time.Value);
-		return Task.CompletedTask;
+		await OnValueChanged.InvokeAsync(item);
 	}
 
 	private void SetValue(object item, object value)
