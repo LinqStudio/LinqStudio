@@ -89,7 +89,7 @@
 		</MudStack>
 
 		<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="query-workflow-status">
-			<MudChip T="string" Size="Size.Small" Color="@GetExecutionStatusColor()" data-testid="query-execution-status">
+			<MudChip T="string" Size="Size.Small" Color="@GetExecutionStatusColor()" aria-live="polite" data-testid="query-execution-status">
 				@GetExecutionStatusText()
 			</MudChip>
 			<MudTooltip Text="@SharedResource.QueryEditor_Button_RefreshSchema">
@@ -149,14 +149,24 @@
 					}
 					else if (_result is not null && !_isExecuting)
 					{
-						<MudText Typo="Typo.caption" Color="Color.Error" data-testid="query-results-failed">
-							@SharedResource.QueryEditor_Status_Failed
+						<MudText Typo="Typo.caption"
+								 Color="@(_executionWasCancelled ? Color.Warning : Color.Error)"
+								 data-testid="@(_executionWasCancelled ? "query-results-cancelled" : "query-results-failed")">
+							@(_executionWasCancelled
+								? SharedResource.QueryEditor_Message_Cancelled
+								: SharedResource.QueryEditor_Status_Failed)
 						</MudText>
 					}
 					else if (_result is null && !_isExecuting)
 					{
 						<MudText Typo="Typo.caption" Color="Color.Secondary">
 							@SharedResource.QueryEditor_Status_NotExecuted
+						</MudText>
+					}
+					@if (_result is not null && !_isExecuting && !_result.Success)
+					{
+						<MudText Typo="Typo.caption" data-testid="query-results-elapsed">
+							@SharedResource.QueryResultGrid_Elapsed: @FormatElapsedTime(_result.Elapsed)
 						</MudText>
 					}
 				</MudStack>

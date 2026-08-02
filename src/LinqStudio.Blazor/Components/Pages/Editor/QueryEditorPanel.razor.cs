@@ -111,6 +111,7 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 
 	private QueryExecutionResult? _result;
 	private bool _isExecuting;
+	private bool _executionWasCancelled;
 	private CancellationTokenSource? _executionCts;
 	private int _selectedTimeout = 30;
 	private IQueryExecutionService? _queryExecutionService;
@@ -142,6 +143,8 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 	private string GetExecutionStatusText()
 		=> _isExecuting
 			? SharedResource.QueryEditor_Status_Executing
+			: _executionWasCancelled
+				? SharedResource.QueryEditor_Message_Cancelled
 			: _result is null
 				? SharedResource.QueryEditor_Status_NotExecuted
 				: _result.Success
@@ -151,6 +154,8 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 	private Color GetExecutionStatusColor()
 		=> _isExecuting
 			? Color.Info
+			: _executionWasCancelled
+				? Color.Warning
 			: _result is null
 				? Color.Default
 				: _result.Success ? Color.Success : Color.Error;
@@ -690,13 +695,19 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 			: new CancellationTokenSource();
 
 		_isExecuting = true;
+		_executionWasCancelled = false;
 		_result = null;
 		StateHasChanged();
 
 		try
 		{
-			var result = await _queryExecutionService!.ExecuteQueryAsync(queryText, Workspace.CurrentProject, _executionCts.Token);
-			_result = result;
+			var executionToken = _executionCts.Token;
+			var result = await _queryExecutionService!.ExecuteQueryAsync(queryText, Workspace.CurrentProject, executionToken);
+			_executionWasCancelled = executionToken.IsCancellationRequested
+				|| string.Equals(result.ErrorMessage, "Query execution was cancelled", StringComparison.OrdinalIgnoreCase);
+			_result = _executionWasCancelled && !result.Success
+				? result with { ErrorMessage = SharedResource.QueryEditor_Message_Cancelled }
+				: result;
 			_editableColumns = _queryExecutionService.GetEditableColumns(result);
 
 			// Update viewer editors if they are already mounted (e.g. user ran a second query
@@ -722,10 +733,15 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 						result.Items.Count),
 					Severity.Success);
 			}
+			else if (_executionWasCancelled)
+			{
+				Snackbar.Add(SharedResource.QueryEditor_Message_Cancelled, Severity.Warning);
+			}
 		}
 
 		catch (OperationCanceledException)
 		{
+			_executionWasCancelled = true;
 			_result = QueryExecutionResult.FromError(
 				SharedResource.QueryEditor_Message_Cancelled,
 				false,

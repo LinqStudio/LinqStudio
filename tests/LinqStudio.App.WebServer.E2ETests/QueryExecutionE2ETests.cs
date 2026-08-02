@@ -190,8 +190,13 @@ public class QueryExecutionE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		// Assert: Execute button is back (not executing anymore)
 		await Expect(executeBtn).ToBeVisibleAsync();
 
-		// Note: We don't assert on the result content because cancellation behavior may vary
-		// The key assertion is that the Stop button disappears, indicating execution stopped
+		// Cancellation should remain visible in both the result output and status strip.
+		var resultContainer = page.Get_QueryResults_ResultContainer();
+		await Expect(resultContainer.Get_QueryResults_ErrorAlert()).ToBeVisibleAsync(new() { Timeout = 5000 });
+		await Expect(page.GetByTestId(E2ESelectors.QueryExecutionStatus))
+			.ToContainTextAsync("cancelled", new() { IgnoreCase = true });
+		await Expect(page.GetByTestId("query-results-cancelled"))
+			.ToContainTextAsync("cancelled", new() { IgnoreCase = true });
 	}
 
 	[Fact(Timeout = 60_000)]
