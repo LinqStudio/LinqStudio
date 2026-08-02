@@ -107,7 +107,7 @@ public partial class CustomRelationshipsDialog : ComponentBase, IDisposable
 		}
 		catch (Exception ex)
 		{
-			await ErrorHandlingService.HandleErrorAsync(ex, "Failed to load database models.");
+			await ErrorHandlingService.HandleErrorAsync(ex, SharedResource.CustomRelationships_Error_LoadModels);
 		}
 		finally
 		{
@@ -139,7 +139,7 @@ public partial class CustomRelationshipsDialog : ComponentBase, IDisposable
 		}
 		catch (Exception ex)
 		{
-			await ErrorHandlingService.HandleErrorAsync(ex, "Failed to generate code preview.");
+			await ErrorHandlingService.HandleErrorAsync(ex, SharedResource.CustomRelationships_Error_GenerateCode);
 		}
 		finally
 		{
@@ -272,22 +272,34 @@ public partial class CustomRelationshipsDialog : ComponentBase, IDisposable
 	{
 		var selected = GetModelName(_selectedModel?.FullName ?? string.Empty);
 		var linked = GetModelName(_editRelationship.PrincipalTable);
-		var key = _editRelationship.Cardinality switch
+		var text = _editRelationship.Cardinality switch
 		{
-			RelationshipCardinality.OneToOne => "CustomRelationships.Form.Cardinality.OneToOneTooltip",
-			RelationshipCardinality.OneToMany => "CustomRelationships.Form.Cardinality.OneToManyTooltip",
-			RelationshipCardinality.ManyToOne => "CustomRelationships.Form.Cardinality.ManyToOneTooltip",
-			_ => "CustomRelationships.Form.Cardinality.ManyToManyTooltip",
+			RelationshipCardinality.OneToOne => SharedResource.CustomRelationships_Form_Cardinality_OneToOneTooltip,
+			RelationshipCardinality.OneToMany => SharedResource.CustomRelationships_Form_Cardinality_OneToManyTooltip,
+			RelationshipCardinality.ManyToOne => SharedResource.CustomRelationships_Form_Cardinality_ManyToOneTooltip,
+			_ => SharedResource.CustomRelationships_Form_Cardinality_ManyToManyTooltip,
 		};
-		var fallback = _editRelationship.Cardinality switch
-		{
-			RelationshipCardinality.OneToOne => "One {0} is linked to one {1}.",
-			RelationshipCardinality.OneToMany => "One {1} can be linked to many {0}.",
-			RelationshipCardinality.ManyToOne => "Many {1} can be linked to one {0}.",
-			_ => "Many {0} can be linked to many {1}.",
-		};
-		return TextFormat(key, fallback, selected, linked);
+		return Format(text, selected, linked);
 	}
+
+	private string GetCardinalityLabel(RelationshipCardinality cardinality) =>
+		cardinality switch
+		{
+			RelationshipCardinality.OneToOne => SharedResource.CustomRelationships_Form_Cardinality_OneToOne,
+			RelationshipCardinality.OneToMany => SharedResource.CustomRelationships_Form_Cardinality_OneToMany,
+			RelationshipCardinality.ManyToOne => SharedResource.CustomRelationships_Form_Cardinality_ManyToOne,
+			_ => SharedResource.CustomRelationships_Form_Cardinality_ManyToMany,
+		};
+
+	private string GetDeleteBehaviorLabel(RelationshipDeleteBehavior behavior) =>
+		behavior switch
+		{
+			RelationshipDeleteBehavior.Cascade => SharedResource.CustomRelationships_Form_DeleteBehavior_Cascade,
+			RelationshipDeleteBehavior.Restrict => SharedResource.CustomRelationships_Form_DeleteBehavior_Restrict,
+			RelationshipDeleteBehavior.NoAction => SharedResource.CustomRelationships_Form_DeleteBehavior_NoAction,
+			RelationshipDeleteBehavior.ClientSetNull => SharedResource.CustomRelationships_Form_DeleteBehavior_ClientSetNull,
+			_ => throw new ArgumentOutOfRangeException(nameof(behavior), behavior, null),
+		};
 
 	private string GetPrincipalNavigationTooltip()
 	{
@@ -296,10 +308,7 @@ public partial class CustomRelationshipsDialog : ComponentBase, IDisposable
 			: _editRelationship.PrincipalNavigation;
 		var entity = GetModelName(_editRelationship.PrincipalTable);
 		var type = GetNavigationType(isPrincipal: true);
-		return TextFormat(
-			"CustomRelationships.Form.PrincipalNavigationTooltip",
-			$"The property {value} will be added to the {entity} class: {type} {value} {{ get; set; }}",
-			entity, value, type);
+		return Format(SharedResource.CustomRelationships_Form_PrincipalNavigationTooltip, entity, value, type);
 	}
 
 	private string GetDependentNavigationTooltip()
@@ -309,10 +318,7 @@ public partial class CustomRelationshipsDialog : ComponentBase, IDisposable
 			: _editRelationship.DependentNavigation;
 		var entity = GetModelName(_editRelationship.DependentTable);
 		var type = GetNavigationType(isPrincipal: false);
-		return TextFormat(
-			"CustomRelationships.Form.DependentNavigationTooltip",
-			$"The property {value} will be added to the {entity} class: {type} {value} {{ get; set; }}",
-			entity, value, type);
+		return Format(SharedResource.CustomRelationships_Form_DependentNavigationTooltip, entity, value, type);
 	}
 
 	private string GetNavigationType(bool isPrincipal)
@@ -365,9 +371,6 @@ public partial class CustomRelationshipsDialog : ComponentBase, IDisposable
 		return JsonSerializer.Deserialize<List<CustomRelationship>>(json) ?? [];
 	}
 
-	private static string Text(string key, string fallback)
-		=> SharedResource.ResourceManager.GetString(key, SharedResource.Culture) ?? fallback;
-
-	private static string TextFormat(string key, string fallback, params object[] args)
-		=> string.Format(SharedResource.Culture, Text(key, fallback), args);
+	private static string Format(string format, params object[] args)
+		=> string.Format(SharedResource.Culture, format, args);
 }

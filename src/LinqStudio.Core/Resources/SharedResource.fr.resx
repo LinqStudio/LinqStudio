@@ -241,12 +241,25 @@
   <data name="CustomRelationships.DbContext.FinalVersion" xml:space="preserve"><value>Aperçu de la version finale</value></data>
   <data name="CustomRelationships.Models.Models" xml:space="preserve"><value>Modèles</value></data>
   <data name="CustomRelationships.Models.SelectModel" xml:space="preserve"><value>Sélectionnez un modèle pour configurer ses relations.</value></data>
+  <data name="CustomRelationships.Models.Editing" xml:space="preserve"><value>Modèle en cours de modification</value></data>
+  <data name="CustomRelationships.Error.LoadModels" xml:space="preserve"><value>Impossible de charger les modèles de la base de données.</value></data>
+  <data name="CustomRelationships.Error.GenerateCode" xml:space="preserve"><value>Impossible de générer l'aperçu du code.</value></data>
   <data name="CustomRelationships.Form.PrincipalTable" xml:space="preserve"><value>Table principale</value></data>
   <data name="CustomRelationships.Form.Cardinality" xml:space="preserve"><value>Cardinalité</value></data>
+  <data name="CustomRelationships.Form.Cardinality.OneToOne" xml:space="preserve"><value>Un à un</value></data>
+  <data name="CustomRelationships.Form.Cardinality.OneToMany" xml:space="preserve"><value>Un à plusieurs</value></data>
+  <data name="CustomRelationships.Form.Cardinality.ManyToOne" xml:space="preserve"><value>Plusieurs à un</value></data>
+  <data name="CustomRelationships.Form.Cardinality.ManyToMany" xml:space="preserve"><value>Plusieurs à plusieurs</value></data>
   <data name="CustomRelationships.Form.Required" xml:space="preserve"><value>Chaque {0} doit être lié à {1}</value></data>
   <data name="CustomRelationships.Form.PrincipalNavigation" xml:space="preserve"><value>Propriété de navigation principale</value></data>
   <data name="CustomRelationships.Form.DependentNavigation" xml:space="preserve"><value>Propriété de navigation dépendante</value></data>
+  <data name="CustomRelationships.Form.Navigation" xml:space="preserve"><value>Propriétés de navigation</value></data>
   <data name="CustomRelationships.Form.DeleteBehavior" xml:space="preserve"><value>Comportement de suppression</value></data>
+  <data name="CustomRelationships.Form.DeleteBehavior.ClientSetNull" xml:space="preserve"><value>Définir null côté client</value></data>
+  <data name="CustomRelationships.Form.DeleteBehavior.Cascade" xml:space="preserve"><value>Cascade</value></data>
+  <data name="CustomRelationships.Form.DeleteBehavior.Restrict" xml:space="preserve"><value>Restreindre</value></data>
+  <data name="CustomRelationships.Form.DeleteBehavior.NoAction" xml:space="preserve"><value>Aucune action</value></data>
+  <data name="CustomRelationships.Form.DeleteBehaviorTooltip" xml:space="preserve"><value>Choisissez ce qui arrive aux lignes liées lorsque la ligne de la table principale est supprimée.</value></data>
   <data name="CustomRelationships.Form.KeyPairs" xml:space="preserve"><value>Paires de clés</value></data>
   <data name="CustomRelationships.Form.PrincipalColumn" xml:space="preserve"><value>Colonne principale</value></data>
   <data name="CustomRelationships.Form.DependentColumn" xml:space="preserve"><value>Colonne dépendante</value></data>

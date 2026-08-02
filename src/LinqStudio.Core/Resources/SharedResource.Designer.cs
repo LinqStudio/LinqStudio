@@ -241,6 +241,24 @@ namespace LinqStudio.Core.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Failed to generate code preview..
+        /// </summary>
+        public static string CustomRelationships_Error_GenerateCode {
+            get {
+                return ResourceManager.GetString("CustomRelationships.Error.GenerateCode", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to load database models..
+        /// </summary>
+        public static string CustomRelationships_Error_LoadModels {
+            get {
+                return ResourceManager.GetString("CustomRelationships.Error.LoadModels", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Add key pair.
         /// </summary>
         public static string CustomRelationships_Form_AddKeyPair {
@@ -259,11 +277,29 @@ namespace LinqStudio.Core.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Many-to-many.
+        /// </summary>
+        public static string CustomRelationships_Form_Cardinality_ManyToMany {
+            get {
+                return ResourceManager.GetString("CustomRelationships.Form.Cardinality.ManyToMany", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Many {0} can be linked to many {1}..
         /// </summary>
         public static string CustomRelationships_Form_Cardinality_ManyToManyTooltip {
             get {
                 return ResourceManager.GetString("CustomRelationships.Form.Cardinality.ManyToManyTooltip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Many-to-one.
+        /// </summary>
+        public static string CustomRelationships_Form_Cardinality_ManyToOne {
+            get {
+                return ResourceManager.GetString("CustomRelationships.Form.Cardinality.ManyToOne", resourceCulture);
             }
         }
         
@@ -277,11 +313,29 @@ namespace LinqStudio.Core.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to One-to-many.
+        /// </summary>
+        public static string CustomRelationships_Form_Cardinality_OneToMany {
+            get {
+                return ResourceManager.GetString("CustomRelationships.Form.Cardinality.OneToMany", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to One {1} can be linked to many {0}..
         /// </summary>
         public static string CustomRelationships_Form_Cardinality_OneToManyTooltip {
             get {
                 return ResourceManager.GetString("CustomRelationships.Form.Cardinality.OneToManyTooltip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to One-to-one.
+        /// </summary>
+        public static string CustomRelationships_Form_Cardinality_OneToOne {
+            get {
+                return ResourceManager.GetString("CustomRelationships.Form.Cardinality.OneToOne", resourceCulture);
             }
         }
         
@@ -300,6 +354,51 @@ namespace LinqStudio.Core.Resources {
         public static string CustomRelationships_Form_DeleteBehavior {
             get {
                 return ResourceManager.GetString("CustomRelationships.Form.DeleteBehavior", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Cascade.
+        /// </summary>
+        public static string CustomRelationships_Form_DeleteBehavior_Cascade {
+            get {
+                return ResourceManager.GetString("CustomRelationships.Form.DeleteBehavior.Cascade", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Client set null.
+        /// </summary>
+        public static string CustomRelationships_Form_DeleteBehavior_ClientSetNull {
+            get {
+                return ResourceManager.GetString("CustomRelationships.Form.DeleteBehavior.ClientSetNull", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No action.
+        /// </summary>
+        public static string CustomRelationships_Form_DeleteBehavior_NoAction {
+            get {
+                return ResourceManager.GetString("CustomRelationships.Form.DeleteBehavior.NoAction", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Restrict.
+        /// </summary>
+        public static string CustomRelationships_Form_DeleteBehavior_Restrict {
+            get {
+                return ResourceManager.GetString("CustomRelationships.Form.DeleteBehavior.Restrict", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Choose what happens to linked rows when the principal table row is deleted..
+        /// </summary>
+        public static string CustomRelationships_Form_DeleteBehaviorTooltip {
+            get {
+                return ResourceManager.GetString("CustomRelationships.Form.DeleteBehaviorTooltip", resourceCulture);
             }
         }
         
@@ -372,6 +471,15 @@ namespace LinqStudio.Core.Resources {
         public static string CustomRelationships_Form_MatchingKeyTooltip {
             get {
                 return ResourceManager.GetString("CustomRelationships.Form.MatchingKeyTooltip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Navigation properties.
+        /// </summary>
+        public static string CustomRelationships_Form_Navigation {
+            get {
+                return ResourceManager.GetString("CustomRelationships.Form.Navigation", resourceCulture);
             }
         }
         
@@ -489,6 +597,15 @@ namespace LinqStudio.Core.Resources {
         public static string CustomRelationships_GeneratedCode_Help {
             get {
                 return ResourceManager.GetString("CustomRelationships.GeneratedCode.Help", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Editing model.
+        /// </summary>
+        public static string CustomRelationships_Models_Editing {
+            get {
+                return ResourceManager.GetString("CustomRelationships.Models.Editing", resourceCulture);
             }
         }
         
