@@ -10,8 +10,30 @@
     box-shadow: none;
 }
 
+.query-execution-bar {
+    flex-shrink: 0;
+}
+
 .query-info-bar {
     color: var(--ls-color-text);
+}
+
+.query-workflow-toolbar {
+    min-height: var(--ls-control-height);
+}
+
+.query-toolbar-label {
+    color: var(--ls-color-text-muted);
+    letter-spacing: 0.08em;
+}
+
+.query-execution-actions,
+.query-workflow-status {
+    min-width: 0;
+}
+
+.query-workflow-status {
+    white-space: nowrap;
 }
 
 .editor-results-container {
@@ -51,6 +73,20 @@
     flex-direction: column;
 }
 
+.results-header {
+    flex-shrink: 0;
+    padding: var(--ls-space-2) var(--ls-space-3);
+    border: 1px solid var(--ls-color-border);
+    border-bottom: 0;
+    border-radius: var(--ls-radius) var(--ls-radius) 0 0;
+    background: var(--ls-color-surface);
+    color: var(--ls-color-text);
+}
+
+.results-metadata {
+    color: var(--ls-color-text-muted);
+}
+
 /* flex: 1 fills the flex parent (.mud-tab-panel); height: 100% would resolve to 0
    when the parent's height is flex-derived rather than an explicit value.
    ::deep is required because StandaloneCodeEditor is a child component — its root
@@ -74,4 +110,20 @@
 
 ::deep .results-tabs .mud-tab {
     min-height: var(--ls-control-height);
+}
+
+@media (max-width: 700px) {
+    .query-workflow-toolbar {
+        align-items: stretch !important;
+        flex-direction: column;
+        gap: var(--ls-space-2);
+    }
+
+    .query-workflow-status {
+        justify-content: space-between;
+    }
+
+    .results-header .mud-stack {
+        flex-wrap: wrap;
+    }
 }

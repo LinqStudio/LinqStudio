@@ -139,6 +139,34 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 	/// <summary>Gets the unique DOM element ID for the Monaco editor instance for this tab.</summary>
 	private string EditorId => $"editor-{QueryId:N}";
 
+	private string GetExecutionStatusText()
+		=> _isExecuting
+			? SharedResource.QueryEditor_Status_Executing
+			: _result is null
+				? SharedResource.QueryEditor_Status_NotExecuted
+				: _result.Success
+					? SharedResource.QueryEditor_Status_Completed
+					: SharedResource.QueryEditor_Status_Failed;
+
+	private Color GetExecutionStatusColor()
+		=> _isExecuting
+			? Color.Info
+			: _result is null
+				? Color.Default
+				: _result.Success ? Color.Success : Color.Error;
+
+	private string FormatElapsedTime(TimeSpan elapsed)
+		=> elapsed.TotalSeconds < 1
+			? $"{elapsed.TotalMilliseconds:F0}ms"
+			: $"{elapsed.TotalSeconds:F2}s";
+
+	private string FormatRowCount(int count)
+		=> string.Format(
+			SharedResource.Culture,
+			SharedResource.QueryResultGrid_RowCount,
+			count,
+			count == 1 ? SharedResource.QueryResultGrid_Row : SharedResource.QueryResultGrid_Rows);
+
 	/// <summary>
 	/// Gets the <see cref="SavedQuery"/> metadata for the currently open query,
 	/// or <see langword="null"/> if the query has not yet been persisted.
@@ -583,7 +611,7 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 
 		if (Workspace.Queries.OpenQueries.TryGetValue(QueryId, out var state) && state.HasUnsavedChanges)
 		{
-			var confirm = await ShowUnsavedChangesDialog("This query has unsaved changes. Close without saving?");
+			var confirm = await ShowUnsavedChangesDialog(SharedResource.QueryEditor_Message_UnsavedClose);
 			if (!confirm)
 			{
 				return;
@@ -608,7 +636,7 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 
 		if (Workspace.CurrentProjectId == null)
 		{
-			Snackbar.Add("Save the project first before saving queries.", Severity.Warning);
+			Snackbar.Add(SharedResource.QueryEditor_Message_SaveProjectFirst, Severity.Warning);
 			return;
 		}
 
@@ -616,7 +644,7 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 		{
 			await Workspace.Queries.SaveQueryAsync(QueryId);
 			Logger.LogInformation("Query {QueryId} saved successfully.", QueryId);
-			Snackbar.Add("Query saved successfully.", Severity.Success);
+			Snackbar.Add(SharedResource.QueryEditor_Message_Saved, Severity.Success);
 		}
 		catch (Exception ex)
 		{
@@ -634,20 +662,20 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 	{
 		if (!Workspace.IsProjectOpen || Workspace.CurrentProject is null)
 		{
-			Snackbar.Add("No project is open.", Severity.Warning);
+			Snackbar.Add(SharedResource.QueryEditor_Message_NoProject, Severity.Warning);
 			return;
 		}
 
 		if (_editor == null)
 		{
-			Snackbar.Add("Editor not ready. Please try again.", Severity.Warning);
+			Snackbar.Add(SharedResource.QueryEditor_Message_EditorNotReady, Severity.Warning);
 			return;
 		}
 
 		var queryText = await _editor.GetValue();
 		if (string.IsNullOrWhiteSpace(queryText))
 		{
-			Snackbar.Add("Query is empty.", Severity.Warning);
+			Snackbar.Add(SharedResource.QueryEditor_Message_Empty, Severity.Warning);
 			return;
 		}
 
@@ -687,14 +715,22 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 
 			if (result.Success)
 			{
-				Snackbar.Add($"Query executed successfully. {result.Items.Count} row(s) returned.", Severity.Success);
+				Snackbar.Add(
+					string.Format(
+						SharedResource.Culture,
+						SharedResource.QueryEditor_Message_Executed,
+						result.Items.Count),
+					Severity.Success);
 			}
 		}
 
 		catch (OperationCanceledException)
 		{
-			_result = QueryExecutionResult.FromError("Query execution was cancelled.", false, TimeSpan.Zero);
-			Snackbar.Add("Query execution cancelled.", Severity.Warning);
+			_result = QueryExecutionResult.FromError(
+				SharedResource.QueryEditor_Message_Cancelled,
+				false,
+				TimeSpan.Zero);
+			Snackbar.Add(SharedResource.QueryEditor_Message_Cancelled, Severity.Warning);
 		}
 		catch (Exception ex)
 		{

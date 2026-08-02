@@ -45,6 +45,34 @@ public class QueryExecutionE2ETests(AppServerFixture app, PlaywrightFixture pw)
 	}
 
 	[Fact(Timeout = 90_000)]
+	public async Task Execute_WorkflowToolbarAndResultsHeader_ShowExecutionContext()
+	{
+		Assert.NotNull(_pw.Browser);
+
+		await using var context = await _pw.Browser.NewContextAsync();
+		var page = await context.NewPageAsync();
+		await E2ETestHelpers.SetupEditorAsync(page, _app);
+
+		_app.MockQueryExecutionService.SetNextResult(E2ETestHelpers.CreateMultiColumnResult(rows: 2));
+		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "context.Items.Take(2)");
+
+		var panel = E2ETestHelpers.GetActivePanel(page);
+		var executionBar = panel.GetByTestId(E2ESelectors.QueryExecutionBar);
+		await Expect(executionBar).ToBeVisibleAsync();
+		await Expect(executionBar.GetByTestId(E2ESelectors.ExecuteQueryButton)).ToBeVisibleAsync();
+		await Expect(executionBar.GetByTestId(E2ESelectors.TimeoutSelect)).ToBeVisibleAsync();
+		await Expect(panel.GetByTestId(E2ESelectors.QueryExecutionStatus)).ToContainTextAsync("Not executed");
+
+		await executionBar.GetByTestId(E2ESelectors.ExecuteQueryButton).ClickAsync();
+
+		var resultContainer = panel.Get_QueryResults_ResultContainer();
+		await Expect(resultContainer.Get_QueryResults_TableFromContainer()).ToBeVisibleAsync(new() { Timeout = 10_000 });
+		await Expect(panel.GetByTestId(E2ESelectors.QueryResultsHeader)).ToBeVisibleAsync();
+		await Expect(panel.GetByTestId(E2ESelectors.QueryResultsRowCount)).ToContainTextAsync("2 rows");
+		await Expect(panel.GetByTestId(E2ESelectors.QueryResultsElapsed)).ToContainTextAsync("Elapsed");
+	}
+
+	[Fact(Timeout = 90_000)]
 	public async Task Execute_ShowsResults_WhenQuerySucceeds()
 	{
 		// With the MockQueryExecutionService, execution returns an error result

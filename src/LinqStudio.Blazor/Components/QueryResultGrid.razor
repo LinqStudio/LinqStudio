@@ -1,36 +1,37 @@
 @using LinqStudio.Abstractions.Models
+@using LinqStudio.Core.Resources
 
 @if (IsExecuting)
 {
-    <div class="d-flex align-center pa-4">
+    <div class="d-flex align-center pa-4" data-testid="query-result-executing">
         <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mr-3" />
-        <MudText Typo="Typo.body1">Executing query...</MudText>
+        <MudText Typo="Typo.body1">@SharedResource.QueryEditor_Status_Executing</MudText>
     </div>
 }
 else if (Result is not null)
 {
     @if (!Result.Success)
     {
-        <MudAlert Severity="Severity.Error" Variant="Variant.Filled" Class="my-2">
+        <MudAlert Severity="Severity.Error" Variant="Variant.Filled" Class="my-2" data-testid="query-result-error">
             <MudText Typo="Typo.body1">
                 @if (Result.IsCompileError)
                 {
-                    <strong>Compilation error:</strong>
+                    <strong>@SharedResource.QueryResultGrid_CompilationError:</strong>
                     @(" ")
                 }
                 @Result.ErrorMessage
             </MudText>
             <MudText Typo="Typo.caption" Class="mt-2">
-                Elapsed: @FormatElapsedTime(Result.Elapsed)
+                @SharedResource.QueryResultGrid_Elapsed: @FormatElapsedTime(Result.Elapsed)
             </MudText>
         </MudAlert>
     }
     else if (Result.Items.Count == 0)
     {
-        <MudAlert Severity="Severity.Info" Variant="Variant.Filled" Class="my-2">
-            <MudText Typo="Typo.body1">Query returned no results.</MudText>
+        <MudAlert Severity="Severity.Info" Variant="Variant.Filled" Class="my-2" data-testid="query-result-empty">
+            <MudText Typo="Typo.body1">@SharedResource.QueryResultGrid_NoResults</MudText>
             <MudText Typo="Typo.caption" Class="mt-2">
-                Elapsed: @FormatElapsedTime(Result.Elapsed)
+                @SharedResource.QueryResultGrid_Elapsed: @FormatElapsedTime(Result.Elapsed)
             </MudText>
         </MudAlert>
     }
@@ -72,7 +73,7 @@ else if (Result is not null)
                 {
                     <div data-testid="selection-count">
                         <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                            @_selectedRows.Count @(_selectedRows.Count == 1 ? "row" : "rows") selected
+                            @FormatRowCount(_selectedRows.Count) @SharedResource.QueryResultGrid_Selected
                         </MudText>
                     </div>
                 }
@@ -81,7 +82,7 @@ else if (Result is not null)
                     <div></div>
                 }
                 <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                    @Result.Items.Count @(Result.Items.Count == 1 ? "row" : "rows") · @FormatElapsedTime(Result.Elapsed)
+                    @FormatRowCount(Result.Items.Count) · @SharedResource.QueryResultGrid_Elapsed: @FormatElapsedTime(Result.Elapsed)
                 </MudText>
             </div>
         </div>

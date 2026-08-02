@@ -260,7 +260,7 @@ Pure display component. Caller (Editor.razor) manages:
 - Per-tab state persistence (selection resets on tab switch)
 
 ### Localization
-Messages currently hard-coded in English. Can be extracted to SharedResource.resx if internationalization is needed.
+Result-state labels, row counts, and elapsed-time metadata use `SharedResource.resx` and `SharedResource.fr.resx` so the grid follows the active UI culture.
 
 ### Testing
 - Component tests: Pending (test selection logic, clipboard copy)

@@ -35,6 +35,10 @@ internal static class E2ESelectors
 	public const string QueryCloseButton = "query-close-btn";
 	public const string QueryUnsavedIndicator = "query-unsaved-indicator";
 	public const string QueryExecutionBar = "query-execution-bar";
+	public const string QueryExecutionStatus = "query-execution-status";
+	public const string QueryResultsHeader = "query-results-header";
+	public const string QueryResultsRowCount = "query-results-row-count";
+	public const string QueryResultsElapsed = "query-results-elapsed";
 	public const string EditorPage = "editor-page";
 	public const string MonacoEditorContainer = "monaco-editor-container";
 	public const string EditorResultsSplitter = "editor-results-splitter";

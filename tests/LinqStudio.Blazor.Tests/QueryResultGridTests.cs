@@ -224,6 +224,26 @@ public class QueryResultGridTests : BunitContext, IDisposable
 	}
 
 	[Fact]
+	public void QueryResultGrid_RendersStructuredResultState_ForSuccess()
+	{
+		SetupServices();
+		var result = new QueryExecutionResult
+		{
+			ColumnNames = ["Id"],
+			Items = [new TestRow(Id: 1)],
+			Elapsed = TimeSpan.FromMilliseconds(55)
+		};
+
+		var cut = Render<QueryResultGrid>(p => p
+			.Add(c => c.Result, result)
+			.Add(c => c.IsExecuting, false));
+
+		Assert.NotEmpty(cut.FindAll("[data-testid='query-result-grid']"));
+		Assert.Contains("1 row", cut.Markup);
+		Assert.Contains("Elapsed:", cut.Markup);
+	}
+
+	[Fact]
 	public void QueryResultGrid_ShowsSingularRow_WhenSingleRow()
 	{
 		SetupServices();
