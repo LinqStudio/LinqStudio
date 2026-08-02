@@ -64,7 +64,20 @@
 	</div>
 }
 
-<div class="mt-4">
+<div class="database-explorer" data-testid="database-explorer">
+	<div class="database-explorer-header">
+		<div class="d-flex align-center">
+			<MudIcon Icon="@Icons.Material.Filled.AccountTree" Class="mr-2" Size="Size.Small" />
+			<MudText Typo="Typo.subtitle2">@SharedResource.Shell_Explorer_Title</MudText>
+		</div>
+		@if (Workspace.IsProjectOpen && Workspace.CurrentProject?.QueryGenerator != null)
+		{
+			<MudText Typo="Typo.caption" Class="mud-text-secondary">
+				@SharedResource.Shell_Explorer_Subtitle
+			</MudText>
+		}
+	</div>
+
 	@if (Workspace.IsProjectOpen && Workspace.CurrentProject?.QueryGenerator != null)
 	{
 		@if (_isLoading && _rootNodes.Count == 0)
@@ -186,10 +199,6 @@
 	}
 	else
 	{
-		<div class="d-flex align-center mb-2">
-			<MudIcon Icon="@Icons.Material.Outlined.Storage" Class="mr-2" Size="Size.Small" Color="Color.Default" />
-			<MudText Typo="Typo.subtitle2">Database Explorer</MudText>
-		</div>
 		<MudText Typo="Typo.caption" Class="mud-text-secondary ml-2" data-testid="db-tree-placeholder">
 			Open a project to explore database tables
 		</MudText>

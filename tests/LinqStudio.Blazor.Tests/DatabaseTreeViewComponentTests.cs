@@ -112,6 +112,20 @@ public class DatabaseTreeViewComponentTests : BunitContext
 	}
 
 	[Fact]
+	public void DatabaseTreeView_ShowsObjectExplorerHeader_WhenNoProjectOpen()
+	{
+		// Arrange
+		SetupServices();
+
+		// Act
+		var cut = Render<DatabaseTreeView>();
+
+		// Assert
+		var explorer = cut.Find("[data-testid='database-explorer']");
+		Assert.Contains("Object Explorer", explorer.TextContent, StringComparison.OrdinalIgnoreCase);
+	}
+
+	[Fact]
 	public async Task DatabaseTreeView_ShowsPlaceholder_WhenProjectOpenButNoConnection()
 	{
 		// Arrange

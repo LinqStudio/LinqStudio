@@ -120,6 +120,36 @@
   <data name="AppBar.Button.Settings" xml:space="preserve">
     <value>Settings</value>
   </data>
+  <data name="Shell.Button.ToggleTheme" xml:space="preserve">
+    <value>Toggle theme</value>
+  </data>
+  <data name="Shell.Connection.Label" xml:space="preserve">
+    <value>Connection</value>
+  </data>
+  <data name="Shell.Connection.None" xml:space="preserve">
+    <value>No project open</value>
+  </data>
+  <data name="Shell.Explorer.Subtitle" xml:space="preserve">
+    <value>Database objects</value>
+  </data>
+  <data name="Shell.Explorer.Title" xml:space="preserve">
+    <value>Object Explorer</value>
+  </data>
+  <data name="Shell.Navigation.Label" xml:space="preserve">
+    <value>Navigation</value>
+  </data>
+  <data name="Shell.Navigation.Toggle" xml:space="preserve">
+    <value>Toggle navigation</value>
+  </data>
+  <data name="Shell.Status.NoProject" xml:space="preserve">
+    <value>No project open</value>
+  </data>
+  <data name="Shell.Status.Ready" xml:space="preserve">
+    <value>Ready</value>
+  </data>
+  <data name="Shell.Status.Unsaved" xml:space="preserve">
+    <value>Unsaved changes</value>
+  </data>
   <data name="ErrorDialog.Text.TechnicalDetails" xml:space="preserve">
     <value>Technical Details</value>
   </data>

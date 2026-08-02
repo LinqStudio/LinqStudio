@@ -42,12 +42,12 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 
 		// Write and execute query
 		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "context.Items.Take(5)");
-		var executeBtn = page.GetByTestId("execute-query-btn");
+		var executeBtn = page.Get_QueryExecution_ExecuteButton();
 		await executeBtn.ClickAsync();
 
 		// Wait for result grid to appear
-		var resultContainer = page.GetByTestId("query-result-container");
-		var resultTable = resultContainer.Locator(".mud-table-root");
+		var resultContainer = page.Get_QueryResults_ResultContainer();
+		var resultTable = resultContainer.Get_QueryResults_TableFromContainer();
 		await Expect(resultTable).ToBeVisibleAsync(new() { Timeout = 10000 });
 
 		// Verify column headers exist by data-testid
@@ -92,12 +92,12 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 
 		// Execute query
 		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "context.Items.Take(2)");
-		var executeBtn = page.GetByTestId("execute-query-btn");
+		var executeBtn = page.Get_QueryExecution_ExecuteButton();
 		await executeBtn.ClickAsync();
 
 		// Wait for result grid
-		var resultContainer = page.GetByTestId("query-result-container");
-		var resultTable = resultContainer.Locator(".mud-table-root");
+		var resultContainer = page.Get_QueryResults_ResultContainer();
+		var resultTable = resultContainer.Get_QueryResults_TableFromContainer();
 		await Expect(resultTable).ToBeVisibleAsync(new() { Timeout = 10000 });
 
 		// MudBlazor's default PropertyColumn renderer leaves null cells empty.
@@ -134,12 +134,12 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 
 		// Execute query
 		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "context.Items.Take(3)");
-		var executeBtn = page.GetByTestId("execute-query-btn");
+		var executeBtn = page.Get_QueryExecution_ExecuteButton();
 		await executeBtn.ClickAsync();
 
 		// Wait for result grid
-		var resultContainer = page.GetByTestId("query-result-container");
-		var resultTable = resultContainer.Locator(".mud-table-root");
+		var resultContainer = page.Get_QueryResults_ResultContainer();
+		var resultTable = resultContainer.Get_QueryResults_TableFromContainer();
 		await Expect(resultTable).ToBeVisibleAsync(new() { Timeout = 10000 });
 
 		// Click a cell — click bubbles up to the row and triggers row selection
@@ -148,12 +148,12 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 		await cell.ClickAsync();
 
 		// Verify selection count indicator appears (row selected)
-		var selectionCount = page.GetByTestId("selection-count");
+		var selectionCount = page.Get_QueryResults_SelectionCount();
 		await Expect(selectionCount).ToBeVisibleAsync(new() { Timeout = 3000 });
 		await Expect(selectionCount).ToContainTextAsync("1", new() { UseInnerText = true });
 
 		// Verify row has selected styling (.row-selected class)
-		var selectedRow = resultContainer.Locator(".row-selected");
+		var selectedRow = resultContainer.Get_QueryResults_SelectedRows();
 		var hasSelection = await selectedRow.CountAsync() > 0;
 		Assert.True(hasSelection, "Row should have selected styling after clicking a cell");
 	}
@@ -175,12 +175,12 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 
 		// Execute query
 		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "context.Items.Take(3)");
-		var executeBtn = page.GetByTestId("execute-query-btn");
+		var executeBtn = page.Get_QueryExecution_ExecuteButton();
 		await executeBtn.ClickAsync();
 
 		// Wait for result grid
-		var resultContainer = page.GetByTestId("query-result-container");
-		var resultTable = resultContainer.Locator(".mud-table-root");
+		var resultContainer = page.Get_QueryResults_ResultContainer();
+		var resultTable = resultContainer.Get_QueryResults_TableFromContainer();
 		await Expect(resultTable).ToBeVisibleAsync(new() { Timeout = 10000 });
 
 		// Click the first row via a cell (cell click triggers row selection)
@@ -189,12 +189,12 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 		await firstCell.ClickAsync();
 
 		// Verify selection count shows row selection
-		var selectionCount = page.GetByTestId("selection-count");
+		var selectionCount = page.Get_QueryResults_SelectionCount();
 		await Expect(selectionCount).ToBeVisibleAsync(new() { Timeout = 3000 });
 		await Expect(selectionCount).ToContainTextAsync("1", new() { UseInnerText = true });
 
 		// Verify row has selected styling (.row-selected class)
-		var selectedRow = resultContainer.Locator(".row-selected");
+		var selectedRow = resultContainer.Get_QueryResults_SelectedRows();
 		var hasRowSelection = await selectedRow.CountAsync() > 0;
 		Assert.True(hasRowSelection, "Row should have selected styling after click");
 	}
@@ -224,15 +224,15 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 			new HashSet<string> { "Name", "DateTimeValue" });
 
 		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "context.Items");
-		await page.GetByTestId("execute-query-btn").ClickAsync();
+		await page.Get_QueryExecution_ExecuteButton().ClickAsync();
 
-		var resultTable = page.GetByTestId("query-result-container").Locator(".mud-table-root");
+		var resultTable = page.Get_QueryResults_Table();
 		await Expect(resultTable).ToBeVisibleAsync(new() { Timeout = 10000 });
 
 		var dataRow = resultTable.GetByRole(AriaRole.Row).Nth(1);
 		var nameCell = dataRow.GetByRole(AriaRole.Cell).Nth(0);
 		await nameCell.ClickAsync();
-		var nameInput = nameCell.Locator("input");
+		var nameInput = nameCell.Locator(E2ESelectors.GridCellInput);
 		await Expect(nameInput).ToBeVisibleAsync();
 		_app.MockQueryExecutionService.ResetSaveChangesCallCount();
 		await nameInput.ClickAsync();
@@ -251,7 +251,7 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 		Assert.Equal("After", row.Name);
 		Assert.Equal(0, _app.MockQueryExecutionService.SaveChangesCallCount);
 
-		var temporalInputs = dateTimeCell.Locator("input");
+		var temporalInputs = dateTimeCell.Locator(E2ESelectors.GridCellInput);
 		await Expect(temporalInputs.Nth(1)).ToBeVisibleAsync();
 		await temporalInputs.Nth(1).ClickAsync();
 		for (var attempt = 0; attempt < 20 && _app.MockQueryExecutionService.SaveChangesCallCount == 0; attempt++)
@@ -259,12 +259,12 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 			await Task.Delay(50);
 		}
 		_app.MockQueryExecutionService.ResetSaveChangesCallCount();
-		var clock = page.Locator(".mud-picker-time-clock-mask");
+		var clock = page.Locator(E2ESelectors.MudTimePickerClock);
 		await Expect(clock).ToBeVisibleAsync();
-		var hour = clock.Locator(".mud-picker-stick-inner[data-stick-value='6']");
+		var hour = clock.Locator(E2ESelectors.MudTimePickerHour);
 		await Expect(hour).ToBeVisibleAsync();
 		await hour.ClickAsync(new() { Force = true });
-		var minute = clock.Locator(".mud-time-picker-minute").GetByText("05", new() { Exact = true });
+		var minute = clock.Locator(E2ESelectors.MudTimePickerMinute).GetByText("05", new() { Exact = true });
 		await Expect(minute).ToBeVisibleAsync();
 		await minute.ClickAsync(new() { Force = true });
 		await Expect(temporalInputs.Nth(1)).ToHaveValueAsync("06:05:00");
@@ -294,12 +294,12 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 
 		// Execute query
 		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "context.Items.Take(3)");
-		var executeBtn = page.GetByTestId("execute-query-btn");
+		var executeBtn = page.Get_QueryExecution_ExecuteButton();
 		await executeBtn.ClickAsync();
 
 		// Wait for result grid
-		var resultContainer = page.GetByTestId("query-result-container");
-		var resultTable = resultContainer.Locator(".mud-table-root");
+		var resultContainer = page.Get_QueryResults_ResultContainer();
+		var resultTable = resultContainer.Get_QueryResults_TableFromContainer();
 		await Expect(resultTable).ToBeVisibleAsync(new() { Timeout = 10000 });
 
 		// Select first row by clicking it
@@ -308,7 +308,7 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 		await firstRowCell.ClickAsync();
 
 		// Verify row 0 is actually selected before proceeding
-		var selectionCount = page.GetByTestId("selection-count");
+		var selectionCount = page.Get_QueryResults_SelectionCount();
 		await Expect(selectionCount).ToBeVisibleAsync(new() { Timeout = 5000 });
 		await Expect(selectionCount).ToContainTextAsync("1", new() { UseInnerText = true });
 
@@ -327,7 +327,7 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 		// PressAsync focuses the element first, then sends a real trusted keyboard event.
 		// This is more reliable than a bare page.Keyboard.PressAsync call because
 		// it guarantees the container has focus when Ctrl+C fires.
-		var gridContainer = page.Locator(".query-result-grid-container");
+		var gridContainer = page.Get_QueryResults_GridContainer();
 		await gridContainer.PressAsync("Control+c");
 
 		// Poll for non-empty clipboard content rather than a fixed delay.
@@ -365,20 +365,20 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 
 		// Execute query to make results visible
 		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "context.Items.Take(3)");
-		var executeBtn = page.GetByTestId("execute-query-btn");
+		var executeBtn = page.Get_QueryExecution_ExecuteButton();
 		await executeBtn.ClickAsync();
 
 		// Wait for result grid
-		var resultContainer = page.GetByTestId("query-result-container");
-		var resultTable = resultContainer.Locator(".mud-table-root");
+		var resultContainer = page.Get_QueryResults_ResultContainer();
+		var resultTable = resultContainer.Get_QueryResults_TableFromContainer();
 		await Expect(resultTable).ToBeVisibleAsync(new() { Timeout = 10000 });
 
 		// Find the splitter element
-		var splitter = page.GetByTestId("editor-results-splitter");
+		var splitter = page.Get_QueryEditor_Splitter();
 		await Expect(splitter).ToBeVisibleAsync();
 
 		// Get initial editor height
-		var editorTop = page.GetByTestId("monaco-editor-container");
+		var editorTop = page.Get_QueryEditor_MonacoContainer();
 		var initialHeight = await editorTop.EvaluateAsync<int>("el => el.offsetHeight");
 
 		// Drag splitter down by 100px
@@ -417,11 +417,11 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "context.Items.Take(3)");
 		// With KeepPanelsAlive, scope to active panel to avoid strict mode violations
 		var activePanel = E2ETestHelpers.GetActivePanel(page);
-		var executeBtn = activePanel.GetByTestId("execute-query-btn");
+		var executeBtn = activePanel.Get_QueryExecution_ExecuteButton();
 		await executeBtn.ClickAsync();
 
 		// Wait for Tab 1 results
-		var resultTable = activePanel.GetByTestId("query-result-container").Locator(".mud-table-root");
+		var resultTable = activePanel.Get_QueryResults_Table();
 		await Expect(resultTable).ToBeVisibleAsync(new() { Timeout = 10000 });
 
 		// Select a row in Tab 1
@@ -430,7 +430,7 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 		await firstRowCell.ClickAsync();
 
 		// Verify selection in Tab 1
-		var selectionCount = activePanel.GetByTestId("selection-count");
+		var selectionCount = activePanel.Get_QueryResults_SelectionCount();
 		await Expect(selectionCount).ToBeVisibleAsync(new() { Timeout = 3000 });
 
 		// Create second query tab (Tab 2)
@@ -446,15 +446,15 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "context.Items.Take(2)");
 		// Scope to the now-active Tab 2 panel
 		var tab2Panel = E2ETestHelpers.GetActivePanel(page);
-		var executeBtn2 = tab2Panel.GetByTestId("execute-query-btn");
+		var executeBtn2 = tab2Panel.Get_QueryExecution_ExecuteButton();
 		await executeBtn2.ClickAsync();
 
 		// Wait for Tab 2 results
-		var tab2ResultTable = tab2Panel.GetByTestId("query-result-container").Locator(".mud-table-root");
+		var tab2ResultTable = tab2Panel.Get_QueryResults_Table();
 		await Expect(tab2ResultTable).ToBeVisibleAsync(new() { Timeout = 10000 });
 
 		// Tab 2 should NOT have any selection (independent state)
-		var tab2SelectionCount = tab2Panel.GetByTestId("selection-count");
+		var tab2SelectionCount = tab2Panel.Get_QueryResults_SelectionCount();
 		await Expect(tab2SelectionCount).Not.ToBeVisibleAsync();
 
 		// Switch back to Tab 1 via URL history navigation
@@ -469,11 +469,11 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 		// With KeepPanelsAlive, Tab 1's state (results + selection) is preserved
 		// Scope to the now-active Tab 1 panel
 		var tab1Panel = E2ETestHelpers.GetActivePanel(page);
-		var tab1ResultTable = tab1Panel.GetByTestId("query-result-container").Locator(".mud-table-root");
+		var tab1ResultTable = tab1Panel.Get_QueryResults_Table();
 		await Expect(tab1ResultTable).ToBeVisibleAsync();
 
 		// Assert Tab 1's selection is still visible (survived the tab switch)
-		var tab1SelectionCount = tab1Panel.GetByTestId("selection-count");
+		var tab1SelectionCount = tab1Panel.Get_QueryResults_SelectionCount();
 		await Expect(tab1SelectionCount).ToBeVisibleAsync();
 	}
 }

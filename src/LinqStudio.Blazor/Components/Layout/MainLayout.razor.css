@@ -1,0 +1,102 @@
+.linqstudio-shell {
+	height: 100vh;
+	background: var(--mud-palette-background);
+}
+
+.linqstudio-appbar {
+	border-bottom: 1px solid var(--mud-palette-divider);
+}
+
+.linqstudio-brand {
+	font-weight: 600;
+	letter-spacing: 0.01em;
+}
+
+.linqstudio-identity {
+	display: flex;
+	align-items: center;
+	gap: 0.55rem;
+	margin-left: 1.5rem;
+	padding-left: 1.25rem;
+	border-left: 1px solid var(--mud-palette-divider);
+	min-width: 12rem;
+}
+
+.linqstudio-identity-label,
+.linqstudio-zone-label {
+	color: var(--mud-palette-text-secondary);
+	letter-spacing: 0.08em;
+}
+
+.linqstudio-identity-value {
+	max-width: 20rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.linqstudio-drawer-content {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	min-height: 0;
+	background: var(--mud-palette-surface);
+	border-right: 1px solid var(--mud-palette-divider);
+}
+
+.linqstudio-navigation-zone {
+	flex: 0 0 auto;
+	padding: 0.65rem 0.75rem 0.75rem;
+	border-bottom: 1px solid var(--mud-palette-divider);
+}
+
+.linqstudio-explorer-zone {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
+	padding: 0.75rem;
+}
+
+.linqstudio-main-content {
+	min-height: 0;
+}
+
+.linqstudio-workspace-zone {
+	height: 100%;
+	min-height: 0;
+	border: 1px solid var(--mud-palette-divider);
+	border-radius: var(--mud-default-borderradius);
+	background: var(--mud-palette-background);
+	overflow: hidden;
+}
+
+.linqstudio-status-zone {
+	display: flex;
+	align-items: center;
+	gap: 0.45rem;
+	min-height: 1.75rem;
+	padding: 0 0.75rem;
+	border-top: 1px solid var(--mud-palette-divider);
+	background: var(--mud-palette-surface);
+	color: var(--mud-palette-text-secondary);
+}
+
+.linqstudio-status-connection {
+	text-transform: capitalize;
+}
+
+@media (max-width: 700px) {
+	.linqstudio-identity {
+		min-width: 0;
+		margin-left: 0.75rem;
+		padding-left: 0.75rem;
+	}
+
+	.linqstudio-identity-label {
+		display: none;
+	}
+
+	.linqstudio-identity-value {
+		max-width: 9rem;
+	}
+}

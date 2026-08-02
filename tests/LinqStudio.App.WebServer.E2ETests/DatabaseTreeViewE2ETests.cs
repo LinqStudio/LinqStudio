@@ -28,13 +28,7 @@ public class DatabaseTreeViewE2ETests(AppServerFixture app, PlaywrightFixture pw
 		// Navigate to editor page without opening a project
 		await page.GotoAsync($"{_app.BaseUrl}editor");
 
-		// Assert: Placeholder should be visible in the database tree view area
-		var placeholder = page.GetByTestId("db-tree-placeholder");
-		await Expect(placeholder).ToBeVisibleAsync();
-
-		// Tree view should NOT be visible
-		var treeView = page.GetByTestId("db-tree-view");
-		await Expect(treeView).Not.ToBeVisibleAsync();
+		await page.ExpectNoDatabaseConnectionAsync();
 	}
 
 	[Fact(Timeout = 60_000)]
@@ -48,14 +42,7 @@ public class DatabaseTreeViewE2ETests(AppServerFixture app, PlaywrightFixture pw
 		// Create a new project (which has no connection string by default)
 		await E2ETestHelpers.CreateNewProjectAsync(page, _app);
 
-		// The database tree view is visible in the sidebar on all pages.
-		// With no connection configured, it should show a placeholder instead of the tree.
-		var placeholder = page.GetByTestId("db-tree-placeholder");
-		await Expect(placeholder).ToBeVisibleAsync();
-
-		// Tree view should NOT be visible
-		var treeView = page.GetByTestId("db-tree-view");
-		await Expect(treeView).Not.ToBeVisibleAsync();
+		await page.ExpectNoDatabaseConnectionAsync();
 	}
 
 	[Fact(Timeout = 90_000)]
@@ -72,17 +59,17 @@ public class DatabaseTreeViewE2ETests(AppServerFixture app, PlaywrightFixture pw
 			await OpenSQLiteProjectAsync(page, dbPath, "DbTreeConnTest");
 
 			// Tree view div should be visible now that a project with a connection is open
-			var treeView = page.GetByTestId("db-tree-view");
+			var treeView = page.Get_DatabaseTree_View();
 			await Expect(treeView).ToBeVisibleAsync(new() { Timeout = 15_000 });
 
 			// Connection root node should be visible and show project name
-			var connectionNode = page.GetByTestId("db-tree-connection");
+			var connectionNode = page.Get_DatabaseTree_Connection();
 			await Expect(connectionNode).ToBeVisibleAsync(new() { Timeout = 10_000 });
 			// DisplayName = "{project.Name} ({DatabaseType})" → "DbTreeConnTest (Sqlite)"
 			await Expect(connectionNode).ToContainTextAsync("DbTreeConnTest");
 
 			// Placeholder should NOT be shown
-			await Expect(page.GetByTestId("db-tree-placeholder")).Not.ToBeVisibleAsync();
+			await Expect(page.Get_DatabaseTree_Placeholder()).Not.ToBeVisibleAsync();
 		}
 		finally
 		{
@@ -104,25 +91,25 @@ public class DatabaseTreeViewE2ETests(AppServerFixture app, PlaywrightFixture pw
 			await OpenSQLiteProjectAsync(page, dbPath, "DbTreeTablesTest");
 
 			// Wait for tree view
-			await Expect(page.GetByTestId("db-tree-view")).ToBeVisibleAsync(new() { Timeout = 15_000 });
+			await Expect(page.Get_DatabaseTree_View()).ToBeVisibleAsync(new() { Timeout = 15_000 });
 
 			// Connection node visible
-			var connectionNode = page.GetByTestId("db-tree-connection");
+			var connectionNode = page.Get_DatabaseTree_Connection();
 			await Expect(connectionNode).ToBeVisibleAsync(new() { Timeout = 10_000 });
 
 			// Expand connection node via its expand button → tables folder becomes visible
-			await ExpandTreeItemAsync(connectionNode);
+			await connectionNode.ExpandDatabaseTreeItemAsync();
 
-			var tablesFolder = page.GetByTestId("db-tree-tables-folder");
+			var tablesFolder = page.Get_DatabaseTree_TablesFolder();
 			await Expect(tablesFolder).ToBeVisibleAsync(new() { Timeout = 10_000 });
 			await Expect(tablesFolder).ToContainTextAsync("Tables");
 
 			// Expand tables folder via its expand button → table nodes become visible
-			await ExpandTreeItemAsync(tablesFolder);
+			await tablesFolder.ExpandDatabaseTreeItemAsync();
 
 			// SQLiteGenerator returns schema "main" → FullName = "main.Customers"
-			var customersTable = page.GetByTestId("table-main.Customers");
-			var ordersTable = page.GetByTestId("table-main.Orders");
+			var customersTable = page.Get_DatabaseTree_Table("main.Customers");
+			var ordersTable = page.Get_DatabaseTree_Table("main.Orders");
 
 			await Expect(customersTable).ToBeVisibleAsync(new() { Timeout = 15_000 });
 			await Expect(ordersTable).ToBeVisibleAsync(new() { Timeout = 5_000 });
@@ -146,25 +133,25 @@ public class DatabaseTreeViewE2ETests(AppServerFixture app, PlaywrightFixture pw
 
 			await OpenSQLiteProjectAsync(page, dbPath, "DbTreeColumnsTest");
 
-			await Expect(page.GetByTestId("db-tree-view")).ToBeVisibleAsync(new() { Timeout = 15_000 });
+			await Expect(page.Get_DatabaseTree_View()).ToBeVisibleAsync(new() { Timeout = 15_000 });
 
 			// Expand connection → tables folder
-			await ExpandTreeItemAsync(page.GetByTestId("db-tree-connection"));
-			var tablesFolder = page.GetByTestId("db-tree-tables-folder");
+			await page.Get_DatabaseTree_Connection().ExpandDatabaseTreeItemAsync();
+			var tablesFolder = page.Get_DatabaseTree_TablesFolder();
 			await Expect(tablesFolder).ToBeVisibleAsync(new() { Timeout = 10_000 });
 
 			// Expand tables folder → table nodes
-			await ExpandTreeItemAsync(tablesFolder);
-			var customersTable = page.GetByTestId("table-main.Customers");
+			await tablesFolder.ExpandDatabaseTreeItemAsync();
+			var customersTable = page.Get_DatabaseTree_Table("main.Customers");
 			await Expect(customersTable).ToBeVisibleAsync(new() { Timeout = 15_000 });
 
 			// Expand the Customers table → triggers lazy column load (ExpandedChanged callback)
-			await ExpandTreeItemAsync(customersTable);
+			await customersTable.ExpandDatabaseTreeItemAsync();
 
 			// Column nodes should appear with correct testids
 			// testid format: "column-{tableNode.TableName.FullName}-{colNode.ColumnDetail.Name}"
-			var idColumn = page.GetByTestId("column-main.Customers-Id");
-			var nameColumn = page.GetByTestId("column-main.Customers-Name");
+			var idColumn = page.Get_DatabaseTree_Column("main.Customers", "Id");
+			var nameColumn = page.Get_DatabaseTree_Column("main.Customers", "Name");
 
 			await Expect(idColumn).ToBeVisibleAsync(new() { Timeout = 15_000 });
 			await Expect(nameColumn).ToBeVisibleAsync(new() { Timeout = 5_000 });
@@ -191,11 +178,11 @@ public class DatabaseTreeViewE2ETests(AppServerFixture app, PlaywrightFixture pw
 
 			await OpenSQLiteProjectAsync(page, dbPath, "DbTreeCtxMenuTest1");
 
-			await Expect(page.GetByTestId("db-tree-view")).ToBeVisibleAsync(new() { Timeout = 15_000 });
+			await Expect(page.Get_DatabaseTree_View()).ToBeVisibleAsync(new() { Timeout = 15_000 });
 
 			// Expand connection node to make tables folder visible
-			await ExpandTreeItemAsync(page.GetByTestId("db-tree-connection"));
-			var tablesFolder = page.GetByTestId("db-tree-tables-folder");
+			await page.Get_DatabaseTree_Connection().ExpandDatabaseTreeItemAsync();
+			var tablesFolder = page.Get_DatabaseTree_TablesFolder();
 			await Expect(tablesFolder).ToBeVisibleAsync(new() { Timeout = 10_000 });
 
 			// Right-click the "Tables" label inside the tables folder BodyContent.
@@ -204,7 +191,7 @@ public class DatabaseTreeViewE2ETests(AppServerFixture app, PlaywrightFixture pw
 			await tablesFolder.GetByText("Tables").ClickAsync(new() { Button = MouseButton.Right });
 
 			// Context menu with Refresh option should appear
-			var refreshItem = page.GetByTestId("db-tree-tables-folder-refresh");
+			var refreshItem = page.Get_DatabaseTree_TablesFolderRefresh();
 			await Expect(refreshItem).ToBeVisibleAsync(new() { Timeout = 5_000 });
 			await Expect(refreshItem).ToContainTextAsync("Refresh");
 		}
@@ -227,15 +214,15 @@ public class DatabaseTreeViewE2ETests(AppServerFixture app, PlaywrightFixture pw
 
 			await OpenSQLiteProjectAsync(page, dbPath, "DbTreeCtxMenuTest2");
 
-			await Expect(page.GetByTestId("db-tree-view")).ToBeVisibleAsync(new() { Timeout = 15_000 });
+			await Expect(page.Get_DatabaseTree_View()).ToBeVisibleAsync(new() { Timeout = 15_000 });
 
 			// Expand connection → tables folder → table nodes
-			await ExpandTreeItemAsync(page.GetByTestId("db-tree-connection"));
-			var tablesFolder = page.GetByTestId("db-tree-tables-folder");
+			await page.Get_DatabaseTree_Connection().ExpandDatabaseTreeItemAsync();
+			var tablesFolder = page.Get_DatabaseTree_TablesFolder();
 			await Expect(tablesFolder).ToBeVisibleAsync(new() { Timeout = 10_000 });
-			await ExpandTreeItemAsync(tablesFolder);
+			await tablesFolder.ExpandDatabaseTreeItemAsync();
 
-			var customersTable = page.GetByTestId("table-main.Customers");
+			var customersTable = page.Get_DatabaseTree_Table("main.Customers");
 			await Expect(customersTable).ToBeVisibleAsync(new() { Timeout = 15_000 });
 
 			// Right-click on the table label text → triggers context menu
@@ -243,7 +230,7 @@ public class DatabaseTreeViewE2ETests(AppServerFixture app, PlaywrightFixture pw
 
 			// Context menu with Refresh option for this specific table
 			// testid: "db-tree-table-refresh-{table.FullName}" = "db-tree-table-refresh-main.Customers"
-			var refreshItem = page.GetByTestId("db-tree-table-refresh-main.Customers");
+			var refreshItem = page.Get_DatabaseTree_TableRefresh("main.Customers");
 			await Expect(refreshItem).ToBeVisibleAsync(new() { Timeout = 5_000 });
 			await Expect(refreshItem).ToContainTextAsync("Refresh");
 		}
@@ -266,20 +253,20 @@ public class DatabaseTreeViewE2ETests(AppServerFixture app, PlaywrightFixture pw
 
 			await OpenSQLiteProjectAsync(page, dbPath, "DbTreeRefreshTest");
 
-			await Expect(page.GetByTestId("db-tree-view")).ToBeVisibleAsync(new() { Timeout = 15_000 });
+			await Expect(page.Get_DatabaseTree_View()).ToBeVisibleAsync(new() { Timeout = 15_000 });
 
 			// Expand connection → tables folder → table nodes
-			await ExpandTreeItemAsync(page.GetByTestId("db-tree-connection"));
-			var tablesFolder = page.GetByTestId("db-tree-tables-folder");
+			await page.Get_DatabaseTree_Connection().ExpandDatabaseTreeItemAsync();
+			var tablesFolder = page.Get_DatabaseTree_TablesFolder();
 			await Expect(tablesFolder).ToBeVisibleAsync(new() { Timeout = 10_000 });
-			await ExpandTreeItemAsync(tablesFolder);
+			await tablesFolder.ExpandDatabaseTreeItemAsync();
 
 			// Confirm initial tables loaded
-			await Expect(page.GetByTestId("table-main.Customers")).ToBeVisibleAsync(new() { Timeout = 15_000 });
+			await Expect(page.Get_DatabaseTree_Table("main.Customers")).ToBeVisibleAsync(new() { Timeout = 15_000 });
 
 			// Right-click tables folder and click Refresh
 			await tablesFolder.GetByText("Tables").ClickAsync(new() { Button = MouseButton.Right });
-			var refreshItem = page.GetByTestId("db-tree-tables-folder-refresh");
+			var refreshItem = page.Get_DatabaseTree_TablesFolderRefresh();
 			await Expect(refreshItem).ToBeVisibleAsync(new() { Timeout = 5_000 });
 			await refreshItem.ClickAsync();
 
@@ -288,12 +275,12 @@ public class DatabaseTreeViewE2ETests(AppServerFixture app, PlaywrightFixture pw
 
 			// After refresh: tables folder children are cleared and reloaded.
 			// Re-expand the tables folder to verify both tables are still present.
-			var customersTable = page.GetByTestId("table-main.Customers");
+			var customersTable = page.Get_DatabaseTree_Table("main.Customers");
 			if (!await customersTable.IsVisibleAsync())
-				await ExpandTreeItemAsync(tablesFolder);
+				await tablesFolder.ExpandDatabaseTreeItemAsync();
 
 			await Expect(customersTable).ToBeVisibleAsync(new() { Timeout = 15_000 });
-			await Expect(page.GetByTestId("table-main.Orders")).ToBeVisibleAsync(new() { Timeout = 5_000 });
+			await Expect(page.Get_DatabaseTree_Table("main.Orders")).ToBeVisibleAsync(new() { Timeout = 5_000 });
 		}
 		finally
 		{
@@ -315,19 +302,19 @@ public class DatabaseTreeViewE2ETests(AppServerFixture app, PlaywrightFixture pw
 			await OpenSQLiteProjectAsync(page, dbPath, "DbTreeNewQueryTest");
 
 			// Wait for tree view to be visible
-			await Expect(page.GetByTestId("db-tree-view")).ToBeVisibleAsync(new() { Timeout = 15_000 });
+			await Expect(page.Get_DatabaseTree_View()).ToBeVisibleAsync(new() { Timeout = 15_000 });
 
 			// Connection node should be visible
-			var connectionNode = page.GetByTestId("db-tree-connection");
+			var connectionNode = page.Get_DatabaseTree_Connection();
 			await Expect(connectionNode).ToBeVisibleAsync(new() { Timeout = 10_000 });
 
 			// Right-click the connection node BodyContent div to open the context menu
-			var connectionBody = page.GetByTestId("db-tree-connection-body");
+			var connectionBody = page.Get_DatabaseTree_ConnectionBody();
 			await Expect(connectionBody).ToBeVisibleAsync(new() { Timeout = 10_000 });
 			await connectionBody.ClickAsync(new() { Button = MouseButton.Right });
 
 			// Context menu "New Query" item should appear
-			var newQueryItem = page.GetByTestId("db-tree-connection-new-query");
+			var newQueryItem = page.Get_DatabaseTree_NewQuery();
 			await Expect(newQueryItem).ToBeVisibleAsync(new() { Timeout = 5_000 });
 			await Expect(newQueryItem).ToContainTextAsync("New Query");
 
@@ -340,7 +327,7 @@ public class DatabaseTreeViewE2ETests(AppServerFixture app, PlaywrightFixture pw
 				new() { Timeout = 10_000 });
 
 			// Editor page should be visible
-			await Expect(page.GetByTestId("editor-page")).ToBeVisibleAsync();
+			await Expect(page.Get_QueryEditor_EditorPage()).ToBeVisibleAsync();
 		}
 		finally
 		{
@@ -395,35 +382,21 @@ public class DatabaseTreeViewE2ETests(AppServerFixture app, PlaywrightFixture pw
 
 		// Navigate to home and open project via the project browser dialog
 		await page.GotoAsync(_app.BaseUrl.ToString());
-		await page.GetByTestId("nav-project").ClickAsync();
+		await page.Get_Navigation_ProjectMenu().ClickAsync();
 		await Task.Delay(100); // Wait for MudMenu to open
-		await page.GetByTestId("nav-project-open").ClickAsync();
+		await page.Get_Navigation_ProjectOpen().ClickAsync();
 
-		var browserDialog = page.GetByTestId("project-browser-dialog");
+		var browserDialog = page.Get_Navigation_ProjectBrowserDialog();
 		await Expect(browserDialog).ToBeVisibleAsync();
 
-		var projectItem = page.GetByTestId("project-list-item")
-			.Filter(new() { HasText = projectName });
+		var projectItem = page.Get_Navigation_ProjectListItem(projectName);
 		await Expect(projectItem).ToBeVisibleAsync(new() { Timeout = 10_000 });
 		await projectItem.ClickAsync();
 
-		await page.GetByTestId("project-browser-open-btn").ClickAsync();
+		await page.Get_Navigation_ProjectBrowserOpenButton().ClickAsync();
 
 		// Verify project name appears in the nav
-		await Expect(page.GetByTestId("nav-project")).ToContainTextAsync(projectName);
-	}
-
-	/// <summary>
-	/// Expands a MudTreeViewItem by clicking its expand button (the chevron/arrow icon).
-	/// This is more reliable than clicking the item body, which may have conflicting handlers.
-	/// </summary>
-	private static async Task ExpandTreeItemAsync(ILocator treeItem)
-	{
-		// MudBlazor renders the expand button as the first <button> inside the item content.
-		// It has the CSS class "mud-treeview-item-expand-button".
-		var expandBtn = treeItem.Locator("button").First;
-		await expandBtn.ClickAsync();
-		await Task.Delay(200); // brief pause for collapse/expand animation
+		await Expect(page.Get_Navigation_ProjectMenu()).ToContainTextAsync(projectName);
 	}
 
 	/// <summary>

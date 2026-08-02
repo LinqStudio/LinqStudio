@@ -46,3 +46,18 @@
 	.db-tree-context-item:active {
 		background-color: var(--mud-palette-action-active-opacity);
 	}
+
+	.database-explorer {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		min-height: 0;
+	}
+
+	.database-explorer-header {
+		display: flex;
+		flex-direction: column;
+		gap: 0.15rem;
+		padding: 0.15rem 0.25rem 0.5rem;
+		border-bottom: 1px solid var(--mud-palette-divider);
+	}
