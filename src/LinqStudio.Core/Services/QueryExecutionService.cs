@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.ComponentModel;
+using System.Globalization;
 using System.Reflection;
 using System.Runtime.Loader;
 using LinqStudio.Abstractions;
@@ -17,7 +19,7 @@ using Microsoft.Extensions.Options;
 
 namespace LinqStudio.Core.Services;
 
-public class QueryExecutionService(
+public sealed class QueryExecutionService(
 	IDbContextGenerator generator,
 	RoslynWorkspaceService roslynWorkspaceService,
 	IOptionsMonitor<QueryExecutionSettings> settings,
@@ -28,11 +30,20 @@ public class QueryExecutionService(
 	private readonly IOptionsMonitor<QueryExecutionSettings> _settings = settings;
 	private readonly ILogger<QueryExecutionService>? _logger = logger;
 
+	private AssemblyLoadContext? _lastAssemblyLoadContext;
+	private DbContext? _lastDbContext;
+	private Type? _entityType;
+	private readonly List<object> _entityItems = [];
+
 	public async Task<QueryExecutionResult> ExecuteQueryAsync(string userQuery, Models.Project project, CancellationToken cancellationToken = default)
 	{ 
 		var stopwatch = Stopwatch.StartNew();
 		try
 		{
+			await CleanupExecutionResourcesAsync();
+			_entityType = null;
+			_entityItems.Clear();
+
 			// Validate project has connection configured
 			if (string.IsNullOrWhiteSpace(project.ConnectionString))
 			{
@@ -60,7 +71,8 @@ public class QueryExecutionService(
 				return QueryExecutionResult.FromError(errorMessage, isCompileError: true, stopwatch.Elapsed);
 			}
 
-			// All assembly-dependent execution is wrapped so alc.Unload() runs after results are materialized
+			_lastAssemblyLoadContext = alc;
+			var retainExecutionResources = false;
 			try
 			{
 				// Step 5: Instantiate DbContext with real connection
@@ -71,11 +83,13 @@ public class QueryExecutionService(
 					return QueryExecutionResult.FromError($"Could not find DbContext type {generatorResult.ContextTypeName}", isCompileError: false, stopwatch.Elapsed);
 				}
 
-				await using var dbContext = Activator.CreateInstance(dbContextType, dbContextOptions) as DbContext;
+				var dbContext = Activator.CreateInstance(dbContextType, dbContextOptions) as DbContext;
 				if (dbContext == null)
 				{
 					return QueryExecutionResult.FromError("Failed to instantiate DbContext", isCompileError: false, stopwatch.Elapsed);
 				}
+
+				_lastDbContext = dbContext;
 
 				// Step 6: Invoke QueryContainer.Query(dbContext)
 				var queryContainerType = assembly.GetType($"{generatorResult.Namespace}.QueryContainer");
@@ -119,11 +133,12 @@ public class QueryExecutionService(
 					using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
 					
 					var items = await queryable.ToListAsync(linkedCts.Token);
-					var (columnNames, rows) = ExtractResults(items);
+					var columnNames = ExtractColumnNames(items);
 
+					retainExecutionResources = true;
 					return new QueryExecutionResult
 					{
-						Rows = rows,
+						Items = items,
 						ColumnNames = columnNames,
 						Elapsed = stopwatch.Elapsed,
 						GeneratedCSharp = wrappedQuery,
@@ -134,11 +149,12 @@ public class QueryExecutionService(
 				{
 					// No timeout (timeout = 0)
 					var items = await queryable.ToListAsync(cancellationToken);
-					var (columnNames, rows) = ExtractResults(items);
+					var columnNames = ExtractColumnNames(items);
 
+					retainExecutionResources = true;
 					return new QueryExecutionResult
 					{
-						Rows = rows,
+						Items = items,
 						ColumnNames = columnNames,
 						Elapsed = stopwatch.Elapsed,
 						GeneratedCSharp = wrappedQuery,
@@ -148,9 +164,13 @@ public class QueryExecutionService(
 			}
 			finally
 			{
-				alc?.Unload();
+				if (!retainExecutionResources)
+				{
+					await CleanupExecutionResourcesAsync();
+				}
 			}
 		}
+
 		catch (OperationCanceledException)
 		{
 			_logger?.LogWarning("Query execution cancelled");
@@ -161,6 +181,88 @@ public class QueryExecutionService(
 			_logger?.LogError(ex, "Query execution failed with runtime error");
 			return QueryExecutionResult.FromError(ex.Message, isCompileError: false, stopwatch.Elapsed);
 		}
+	}
+
+	public void Dispose()
+	{
+		DisposeExecutionResources();
+		GC.SuppressFinalize(this);
+	}
+
+	public bool IsEntityResult(QueryExecutionResult result)
+		=> _entityType is not null
+			&& result.Items.Count > 0
+			&& _entityItems.Count == result.Items.Count
+			&& ReferenceEquals(_entityItems[0], result.Items[0]);
+
+	public IReadOnlySet<string> GetEditableColumns(QueryExecutionResult result)
+	{
+		if (!IsEntityResult(result) || _entityType is null)
+			return new HashSet<string>(StringComparer.Ordinal);
+
+		return _entityType
+			.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+			.Where(property => property.CanWrite && IsEditableType(property.PropertyType))
+			.Select(property => property.Name)
+			.ToHashSet(StringComparer.Ordinal);
+	}
+
+	public void UpdateEntityProperty(
+		object entity,
+		string propertyName,
+		string? value)
+	{
+		if (_entityType is null || !_entityItems.Any(item => ReferenceEquals(item, entity)))
+			throw new InvalidOperationException("The selected row is not an editable entity result.");
+
+		var property = _entityType.GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance);
+		if (property is null || !property.CanWrite || !IsEditableType(property.PropertyType))
+			throw new InvalidOperationException($"The property '{propertyName}' cannot be edited.");
+
+		var convertedValue = ConvertValue(value, property.PropertyType);
+		property.SetValue(entity, convertedValue);
+	}
+
+	public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
+	{
+		if (_lastDbContext is not null)
+			await _lastDbContext.SaveChangesAsync(cancellationToken);
+	}
+
+	public async ValueTask DisposeAsync()
+	{
+		await CleanupExecutionResourcesAsync();
+		GC.SuppressFinalize(this);
+	}
+
+	private async ValueTask CleanupExecutionResourcesAsync()
+	{
+		var dbContext = _lastDbContext;
+		var assemblyLoadContext = _lastAssemblyLoadContext;
+		_lastDbContext = null;
+		_lastAssemblyLoadContext = null;
+
+		if (dbContext is not null)
+		{
+			await dbContext.DisposeAsync();
+		}
+
+		assemblyLoadContext?.Unload();
+		_entityType = null;
+		_entityItems.Clear();
+	}
+
+	private void DisposeExecutionResources()
+	{
+		var dbContext = _lastDbContext;
+		var assemblyLoadContext = _lastAssemblyLoadContext;
+		_lastDbContext = null;
+		_lastAssemblyLoadContext = null;
+
+		dbContext?.Dispose();
+		assemblyLoadContext?.Unload();
+		_entityType = null;
+		_entityItems.Clear();
 	}
 
 	private DbContextOptions CreateDbContextOptions(DatabaseType databaseType, string connectionString)
@@ -247,23 +349,23 @@ public class QueryExecutionService(
 		return (true, assembly, alc, string.Empty);
 	}
 
-	private static (IReadOnlyList<string> ColumnNames, IReadOnlyList<IReadOnlyDictionary<string, object?>> Rows) ExtractResults(List<object> items)
+	private IReadOnlyList<string> ExtractColumnNames(List<object> items)
 	{
 		if (items.Count == 0) 
-			return ([], []);
+			return [];
 
 		var firstItem = items[0];
 		var type = firstItem.GetType();
+		_entityType = _lastDbContext?.Model.FindEntityType(type) is not null ? type : null;
+		if (_entityType is not null)
+			_entityItems.AddRange(items);
 
 		// Check if it's a primitive/simple type
 		if (type.IsPrimitive || type == typeof(string) || type == typeof(decimal)
 			|| type == typeof(DateTime) || type == typeof(DateTimeOffset) || type == typeof(Guid))
 		{
 			var columns = new[] { "Value" };
-			var rows = items.Select(item =>
-				(IReadOnlyDictionary<string, object?>)new Dictionary<string, object?> { ["Value"] = item }
-			).ToList();
-			return (columns, rows);
+			return columns;
 		}
 
 		// Use reflection for complex types
@@ -272,24 +374,55 @@ public class QueryExecutionService(
 		{
 			// Fallback for types with no public properties
 			var columns2 = new[] { "Value" };
-			var rows2 = items.Select(item =>
-				(IReadOnlyDictionary<string, object?>)new Dictionary<string, object?> { ["Value"] = item?.ToString() }
-			).ToList();
-			return (columns2, rows2);
+			return columns2;
 		}
 
 		var colNames = props.Select(p => p.Name).ToList();
-		var resultRows = items.Select(item =>
-		{
-			var dict = new Dictionary<string, object?>();
-			foreach (var prop in props)
-			{
-				try { dict[prop.Name] = prop.GetValue(item); }
-				catch { dict[prop.Name] = null; }
-			}
-			return (IReadOnlyDictionary<string, object?>)dict;
-		}).ToList();
+		return colNames;
+	}
 
-		return (colNames, resultRows);
+	private static bool IsEditableType(Type type)
+	{
+		var underlyingType = Nullable.GetUnderlyingType(type) ?? type;
+		return underlyingType == typeof(string)
+			|| underlyingType.IsPrimitive
+			|| underlyingType == typeof(decimal)
+			|| underlyingType == typeof(DateTime)
+			|| underlyingType == typeof(DateTimeOffset)
+			|| underlyingType == typeof(TimeSpan)
+			|| underlyingType == typeof(Guid);
+	}
+
+	private static object? ConvertValue(string? value, Type targetType)
+	{
+		var underlyingType = Nullable.GetUnderlyingType(targetType);
+		var conversionType = underlyingType ?? targetType;
+
+		if (string.IsNullOrWhiteSpace(value))
+		{
+			if (!targetType.IsValueType || underlyingType is not null)
+				return null;
+
+			throw new FormatException($"A value is required for type {targetType.Name}.");
+		}
+
+		if (conversionType == typeof(string))
+			return value;
+
+		if (conversionType == typeof(Guid))
+			return Guid.Parse(value);
+
+		if (conversionType == typeof(DateTime))
+			return DateTime.Parse(value, CultureInfo.CurrentCulture);
+
+		if (conversionType == typeof(DateTimeOffset))
+			return DateTimeOffset.Parse(value, CultureInfo.CurrentCulture);
+
+		if (conversionType == typeof(TimeSpan))
+			return TimeSpan.Parse(value, CultureInfo.CurrentCulture);
+
+		var converter = TypeDescriptor.GetConverter(conversionType);
+		return converter.ConvertFrom(null, CultureInfo.CurrentCulture, value)
+			?? throw new FormatException($"Could not convert '{value}' to {conversionType.Name}.");
 	}
 }

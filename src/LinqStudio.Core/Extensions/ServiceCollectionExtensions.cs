@@ -27,7 +27,7 @@ public static class ServiceCollectionExtensions
 
 		services.AddScoped<IDbContextGenerator, DbContextGenerator>();
 
-		services.AddScoped<IQueryExecutionService, QueryExecutionService>();
+		services.AddScoped<IQueryExecutionServiceFactory, QueryExecutionServiceFactory>();
 
 		return services;
 	}

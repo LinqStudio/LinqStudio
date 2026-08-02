@@ -1,12 +1,10 @@
 using BlazorMonaco;
 using BlazorMonaco.Editor;
 using BlazorMonaco.Languages;
-using LinqStudio.Abstractions;
 using LinqStudio.Abstractions.Models;
-using LinqStudio.Blazor.Components.Dialogs;
-using LinqStudio.Blazor.Constants;
 using LinqStudio.Blazor.Extensions;
 using LinqStudio.Blazor.Services;
+using LinqStudio.Core.Resources;
 using LinqStudio.Core.Services;
 using LinqStudio.Core.Settings;
 using Microsoft.AspNetCore.Components;
@@ -87,8 +85,8 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 	/// <summary>Gets or sets the MudBlazor dialog service for unsaved-changes confirmation.</summary>
 	[Inject] private IDialogService DialogService { get; set; } = null!;
 
-	/// <summary>Gets or sets the service that compiles and executes LINQ queries.</summary>
-	[Inject] private IQueryExecutionService QueryExecutionService { get; set; } = null!;
+	/// <summary>Gets or sets the factory used to create the per-panel query execution service.</summary>
+	[Inject] private IQueryExecutionServiceFactory QueryExecutionServiceFactory { get; set; } = null!;
 
 	/// <summary>Gets or sets the JS runtime for Monaco relayout and splitter interop calls.</summary>
 	[Inject] private IJSRuntime JSRuntime { get; set; } = null!;
@@ -114,6 +112,9 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 	private bool _isExecuting;
 	private CancellationTokenSource? _executionCts;
 	private int _selectedTimeout = 30;
+	private IQueryExecutionService? _queryExecutionService;
+	private object? _selectedEntity;
+	private IReadOnlySet<string> _editableColumns = new HashSet<string>(StringComparer.Ordinal);
 
 	private bool _delay = true;
 	private bool _splitterInitialized;
@@ -194,6 +195,7 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 	protected override void OnInitialized()
 	{
 		_selectedTimeout = QueryExecutionSettings.CurrentValue.TimeoutSeconds;
+		_queryExecutionService = QueryExecutionServiceFactory.Create();
 	}
 
 	/// <summary>
@@ -649,6 +651,8 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 			return;
 		}
 
+		await SaveEditedRowAsync();
+
 		_executionCts?.Cancel();
 		_executionCts?.Dispose();
 
@@ -663,8 +667,10 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 
 		try
 		{
-			var result = await QueryExecutionService.ExecuteQueryAsync(queryText, Workspace.CurrentProject, _executionCts.Token);
+			var result = await _queryExecutionService!.ExecuteQueryAsync(queryText, Workspace.CurrentProject, _executionCts.Token);
 			_result = result;
+			_selectedEntity = null;
+			_editableColumns = _queryExecutionService.GetEditableColumns(result);
 
 			// Update viewer editors if they are already mounted (e.g. user ran a second query
 			// without the editors being unmounted). Since _result = null clears them at the start
@@ -682,9 +688,10 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 
 			if (result.Success)
 			{
-				Snackbar.Add($"Query executed successfully. {result.Rows.Count} row(s) returned.", Severity.Success);
+				Snackbar.Add($"Query executed successfully. {result.Items.Count} row(s) returned.", Severity.Success);
 			}
 		}
+
 		catch (OperationCanceledException)
 		{
 			_result = QueryExecutionResult.FromError("Query execution was cancelled.", false, TimeSpan.Zero);
@@ -701,6 +708,45 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 			_executionCts?.Dispose();
 			_executionCts = null;
 			StateHasChanged();
+		}
+	}
+
+	private async Task OnEntityRowSelected(object entity)
+	{
+		await SaveEditedRowAsync();
+		_selectedEntity = entity;
+	}
+
+	private async Task OnEntityCellChanged(QueryResultGrid.CellChanged change)
+	{
+		try
+		{
+			if (_queryExecutionService is not null)
+				_queryExecutionService.UpdateEntityProperty(change.Row, change.ColumnName, change.Value);
+
+			_selectedEntity ??= change.Row;
+		}
+		catch (Exception ex)
+		{
+			Logger.LogError(ex, "Failed to update edited query result cell.");
+			await ErrorHandlingService.HandleErrorAsync(ex, SharedResource.QueryEditor_Error_UpdateEditedCell);
+		}
+	}
+
+	private async Task SaveEditedRowAsync()
+	{
+		if (_selectedEntity is null || _queryExecutionService is null || _result is null
+			|| !_queryExecutionService.IsEntityResult(_result))
+			return;
+
+		try
+		{
+			await _queryExecutionService.SaveChangesAsync();
+		}
+		catch (Exception ex)
+		{
+			Logger.LogError(ex, "Failed to save edited query result row.");
+			await ErrorHandlingService.HandleErrorAsync(ex, SharedResource.QueryEditor_Error_SaveEditedRow);
 		}
 	}
 
@@ -733,6 +779,11 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 	/// </remarks>
 	public async ValueTask DisposeAsync()
 	{
+		if (_disposed)
+		{
+			return;
+		}
+
 		// Must be first — guards all in-flight awaited continuations (OnTabActivatedAsync, OnAfterRenderAsync).
 		_disposed = true;
 
@@ -748,7 +799,18 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 			}
 		}
 
-		Dispose();
+		_providerDisposable?.Dispose();
+		_hoverProviderDisposable?.Dispose();
+		_debounceTokenSource?.Cancel();
+		_debounceTokenSource?.Dispose();
+		_executionCts?.Cancel();
+		_executionCts?.Dispose();
+		_localCompiler?.Dispose();
+		if (_queryExecutionService is not null)
+		{
+			await _queryExecutionService.DisposeAsync();
+		}
+		_queryExecutionService = null;
 		GC.SuppressFinalize(this);
 	}
 
@@ -762,6 +824,11 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 	/// </remarks>
 	public void Dispose()
 	{
+		if (_disposed)
+		{
+			return;
+		}
+
 		// Ensure the disposed flag is set even when called directly (not via DisposeAsync).
 		_disposed = true;
 
@@ -775,5 +842,7 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 		_executionCts?.Dispose();
 
 		_localCompiler?.Dispose();
+		_queryExecutionService?.Dispose();
+		_queryExecutionService = null;
 	}
 }

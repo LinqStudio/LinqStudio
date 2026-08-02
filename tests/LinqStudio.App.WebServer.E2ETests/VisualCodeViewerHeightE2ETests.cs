@@ -41,7 +41,7 @@ public class VisualCodeViewerHeightE2ETests(AppServerFixture app, PlaywrightFixt
         _app.MockQueryExecutionService.SetNextResult(new QueryExecutionResult
         {
             ColumnNames = ["Id", "Name"],
-            Rows = [new Dictionary<string, object?> { ["Id"] = 1, ["Name"] = "Alice" }],
+            Items = [new { Id = 1, Name = "Alice" }],
             GeneratedCSharp = "var q = context.People.Take(5);",
             GeneratedSql = "SELECT TOP 5 [p].[Id] FROM [People] AS [p]",
             Elapsed = TimeSpan.FromMilliseconds(42)
@@ -99,7 +99,7 @@ public class VisualCodeViewerHeightE2ETests(AppServerFixture app, PlaywrightFixt
         _app.MockQueryExecutionService.SetNextResult(new QueryExecutionResult
         {
             ColumnNames = ["Id", "Name"],
-            Rows = [new Dictionary<string, object?> { ["Id"] = 1, ["Name"] = "Alice" }],
+            Items = [new { Id = 1, Name = "Alice" }],
             GeneratedCSharp = "var q = context.People.Take(5);",
             GeneratedSql = "SELECT TOP 5 [p].[Id] FROM [People] AS [p]",
             Elapsed = TimeSpan.FromMilliseconds(42)

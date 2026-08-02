@@ -127,7 +127,12 @@
 		<MudTabs KeepPanelsAlive="true" Class="results-tabs" data-testid="results-tabs">
 			<MudTabPanel Text="Results" Icon="@Icons.Material.Filled.TableChart" data-testid="results-tab-panel">
 				<QueryResultGrid Result="@_result"
-								 IsExecuting="@_isExecuting" />
+								 IsExecuting="@_isExecuting"
+								 IsEditable="@(_result is not null && _queryExecutionService?.IsEntityResult(_result) == true)"
+								 EditableColumns="@_editableColumns"
+								 EditableRow="@_selectedEntity"
+								 OnCellChanged="OnEntityCellChanged"
+								 OnRowSelected="OnEntityRowSelected" />
 			</MudTabPanel>
 
 			<MudTabPanel Text="C#" Icon="@Icons.Material.Filled.Code" data-testid="csharp-tab-panel">

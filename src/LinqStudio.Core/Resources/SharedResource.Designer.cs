@@ -104,6 +104,24 @@ namespace LinqStudio.Core.Resources {
                 return ResourceManager.GetString("Global.MessageBox.Yes", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to save edited row..
+        /// </summary>
+        public static string QueryEditor_Error_SaveEditedRow {
+            get {
+                return ResourceManager.GetString("QueryEditor.Error.SaveEditedRow", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to update edited cell..
+        /// </summary>
+        public static string QueryEditor_Error_UpdateEditedCell {
+            get {
+                return ResourceManager.GetString("QueryEditor.Error.UpdateEditedCell", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to Save all.

@@ -335,20 +335,17 @@ public static class E2ETestHelpers
 	public static QueryExecutionResult CreateMultiColumnResult(int rows = 3)
 	{
 		var columnNames = new[] { "Id", "Name", "Value" };
-		var rowData = Enumerable.Range(1, rows).Select(i =>
-			(IReadOnlyDictionary<string, object?>)new Dictionary<string, object?>
-			{
-				["Id"] = i,
-				["Name"] = $"Item{i}",
-				["Value"] = i % 3 == 0 ? null : (object?)$"val{i}"
-			}
-		).ToList();
+		var rowData = Enumerable.Range(1, rows)
+			.Select(i => (object)new ResultRow(i, $"Item{i}", i % 3 == 0 ? null : $"val{i}"))
+			.ToList();
 
 		return new QueryExecutionResult
 		{
 			ColumnNames = columnNames,
-			Rows = rowData,
+			Items = rowData.Cast<object>().ToList(),
 			Elapsed = TimeSpan.FromMilliseconds(15)
 		};
 	}
+
+	private sealed record ResultRow(int Id, string Name, string? Value);
 }

@@ -6,7 +6,7 @@ namespace LinqStudio.Core.Services;
 /// <summary>
 /// Service for executing LINQ queries against a database and returning results.
 /// </summary>
-public interface IQueryExecutionService
+public interface IQueryExecutionService : IDisposable, IAsyncDisposable
 {
 	/// <summary>
 	/// Executes a user-provided LINQ query string and returns the results.
@@ -19,4 +19,27 @@ public interface IQueryExecutionService
 		string userQuery,
 		Project project,
 		CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Determines whether the current result contains tracked entities from the retained DbContext.
+	/// </summary>
+	bool IsEntityResult(QueryExecutionResult result);
+
+	/// <summary>
+	/// Gets the scalar entity properties that can be edited in the result grid.
+	/// </summary>
+	IReadOnlySet<string> GetEditableColumns(QueryExecutionResult result);
+
+	/// <summary>
+	/// Updates a scalar entity property from its grid text representation.
+	/// </summary>
+	void UpdateEntityProperty(
+		object entity,
+		string propertyName,
+		string? value);
+
+	/// <summary>
+	/// Persists changes tracked by the retained DbContext.
+	/// </summary>
+	Task SaveChangesAsync(CancellationToken cancellationToken = default);
 }

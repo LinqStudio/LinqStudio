@@ -17,3 +17,12 @@
 .query-result-grid-container:focus {
     outline: none;
 }
+
+.query-result-edit-input {
+    width: 100%;
+    border: 1px solid var(--mud-palette-divider);
+    border-radius: 2px;
+    background: var(--mud-palette-surface);
+    color: var(--mud-palette-text-primary);
+    padding: 2px 4px;
+}
