@@ -638,22 +638,17 @@ public class QueryResultGridTests : BunitContext, IDisposable
 			Items = [row],
 			Elapsed = TimeSpan.Zero
 		};
-		object? changedItem = null;
-
 		var cut = Render<QueryResultGrid>(p => p
 			.Add(c => c.Result, result)
 			.Add(c => c.IsExecuting, false)
 			.Add(c => c.IsEditable, true)
-			.Add(c => c.EditableColumns, new HashSet<string> { "Date" })
-			.Add(c => c.OnCellValueChanged,
-				EventCallback.Factory.Create<object>(this, item => changedItem = item)));
+			.Add(c => c.EditableColumns, new HashSet<string> { "Date" }));
 
 		var timePicker = cut.FindComponent<MudTimePicker>();
 		Assert.Equal(original.TimeOfDay, timePicker.Instance.Time);
 		await cut.InvokeAsync(() => timePicker.Instance.TimeChanged.InvokeAsync(new TimeSpan(6, 7, 8)));
 
 		Assert.Equal(new DateTime(2024, 1, 2, 6, 7, 8), row.Date);
-		Assert.Same(row, changedItem);
 	}
 
 	[Fact]

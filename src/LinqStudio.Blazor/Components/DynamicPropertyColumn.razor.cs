@@ -15,9 +15,6 @@ public partial class DynamicPropertyColumn<TProperty> : ComponentBase
 	[Parameter]
 	public bool IsEditable { get; set; }
 
-	[Parameter]
-	public EventCallback<object> OnValueChanged { get; set; }
-
 	private Expression<Func<object, TProperty>> Property { get; set; } = null!;
 
 	private bool IsDateOnlyProperty
@@ -59,62 +56,54 @@ public partial class DynamicPropertyColumn<TProperty> : ComponentBase
 			_ => null
 		};
 
-	private async Task OnDateOnlyChanged(object item, DateTime? date)
+	private void OnDateOnlyChanged(object item, DateTime? date)
 	{
 		if (date is null)
 		{
 			if (Nullable.GetUnderlyingType(typeof(TProperty)) is not null)
 				PropertyInfo.SetValue(item, null);
-			await OnValueChanged.InvokeAsync(item);
 			return;
 		}
 
 		SetValue(item, DateOnly.FromDateTime(date.Value));
-		await OnValueChanged.InvokeAsync(item);
 	}
 
-	private async Task OnDateChanged(object item, DateTime? date)
+	private void OnDateChanged(object item, DateTime? date)
 	{
 		if (date is null)
 		{
 			if (Nullable.GetUnderlyingType(typeof(TProperty)) is not null)
 				PropertyInfo.SetValue(item, null);
-			await OnValueChanged.InvokeAsync(item);
 			return;
 		}
 
 		var currentTime = GetDateValue(item)?.TimeOfDay ?? TimeSpan.Zero;
 		SetValue(item, date.Value.Date.Add(currentTime));
-		await OnValueChanged.InvokeAsync(item);
 	}
 
-	private async Task OnTimeChanged(object item, TimeSpan? time)
+	private void OnTimeChanged(object item, TimeSpan? time)
 	{
 		if (time is null)
 		{
 			if (Nullable.GetUnderlyingType(typeof(TProperty)) is not null)
 				PropertyInfo.SetValue(item, null);
-			await OnValueChanged.InvokeAsync(item);
 			return;
 		}
 
 		var currentDate = GetDateValue(item)?.Date ?? DateTime.Today;
 		SetValue(item, currentDate.Add(time.Value));
-		await OnValueChanged.InvokeAsync(item);
 	}
 
-	private async Task OnTimeSpanChanged(object item, TimeSpan? time)
+	private void OnTimeSpanChanged(object item, TimeSpan? time)
 	{
 		if (time is null)
 		{
 			if (Nullable.GetUnderlyingType(typeof(TProperty)) is not null)
 				PropertyInfo.SetValue(item, null);
-			await OnValueChanged.InvokeAsync(item);
 			return;
 		}
 
 		SetValue(item, time.Value);
-		await OnValueChanged.InvokeAsync(item);
 	}
 
 	private void SetValue(object item, object value)

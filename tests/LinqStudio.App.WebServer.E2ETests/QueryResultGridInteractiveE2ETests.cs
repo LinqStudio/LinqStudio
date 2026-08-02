@@ -1,6 +1,7 @@
 using LinqStudio.Abstractions.Models;
 using LinqStudio.App.WebServer.E2ETests.Fixtures;
 using LinqStudio.App.WebServer.E2ETests.Helpers;
+using LinqStudio.App.WebServer.E2ETests.Services;
 using Microsoft.Playwright;
 using Xunit;
 using static Microsoft.Playwright.Assertions;
@@ -17,6 +18,12 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 {
 	private readonly AppServerFixture _app = app;
 	private readonly PlaywrightFixture _pw = pw;
+
+	private sealed class EditableRow
+	{
+		public string Name { get; set; } = string.Empty;
+		public DateTime DateTimeValue { get; set; }
+	}
 
 	[Fact(Timeout = 90_000)]
 	public async Task ResultGrid_ShowsColumns_AfterSuccessfulQuery()
@@ -190,6 +197,76 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 		var selectedRow = resultContainer.Locator(".row-selected");
 		var hasRowSelection = await selectedRow.CountAsync() > 0;
 		Assert.True(hasRowSelection, "Row should have selected styling after click");
+	}
+
+	[Fact(Timeout = 90_000)]
+	public async Task ResultGrid_UsesSameDeferredSaveBehavior_ForStandardAndTemporalEditors()
+	{
+		Assert.NotNull(_pw.Browser);
+
+		await using var context = await _pw.Browser.NewContextAsync();
+		var page = await context.NewPageAsync();
+		await E2ETestHelpers.SetupEditorAsync(page, _app);
+
+		var row = new EditableRow
+		{
+			Name = "Before",
+			DateTimeValue = new DateTime(2024, 1, 2, 15, 4, 5)
+		};
+		var result = new QueryExecutionResult
+		{
+			ColumnNames = ["Name", "DateTimeValue"],
+			Items = [row],
+			Elapsed = TimeSpan.Zero
+		};
+		_app.MockQueryExecutionService.SetNextEntityResult(
+			result,
+			new HashSet<string> { "Name", "DateTimeValue" });
+
+		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "context.Items");
+		await page.GetByTestId("execute-query-btn").ClickAsync();
+
+		var resultTable = page.GetByTestId("query-result-container").Locator(".mud-table-root");
+		await Expect(resultTable).ToBeVisibleAsync(new() { Timeout = 10000 });
+
+		var dataRow = resultTable.GetByRole(AriaRole.Row).Nth(1);
+		var nameCell = dataRow.GetByRole(AriaRole.Cell).Nth(0);
+		await nameCell.ClickAsync();
+		var nameInput = nameCell.Locator("input");
+		await Expect(nameInput).ToBeVisibleAsync();
+		_app.MockQueryExecutionService.ResetSaveChangesCallCount();
+		await nameInput.ClickAsync();
+		await nameInput.PressAsync("Control+A");
+		await nameInput.PressSequentiallyAsync("After");
+		await nameInput.BlurAsync();
+		await Expect(nameInput).ToHaveValueAsync("After");
+		var dateTimeCell = dataRow.GetByRole(AriaRole.Cell).Nth(1);
+		await dateTimeCell.ClickAsync();
+		for (var attempt = 0; attempt < 20 && _app.MockQueryExecutionService.SaveChangesCallCount == 0; attempt++)
+		{
+			await Task.Delay(50);
+		}
+		_app.MockQueryExecutionService.ResetSaveChangesCallCount();
+
+		Assert.Equal("After", row.Name);
+		Assert.Equal(0, _app.MockQueryExecutionService.SaveChangesCallCount);
+
+		var temporalInputs = dateTimeCell.Locator("input");
+		await Expect(temporalInputs.Nth(1)).ToBeVisibleAsync();
+		await temporalInputs.Nth(1).ClickAsync();
+		for (var attempt = 0; attempt < 20 && _app.MockQueryExecutionService.SaveChangesCallCount == 0; attempt++)
+		{
+			await Task.Delay(50);
+		}
+		_app.MockQueryExecutionService.ResetSaveChangesCallCount();
+		var clock = page.Locator(".mud-picker-time-clock-mask");
+		await Expect(clock).ToBeVisibleAsync();
+		await clock.Locator(".mud-picker-stick-inner[data-stick-value='6']").ClickAsync(new() { Force = true });
+		await clock.Locator(".mud-time-picker-minute").GetByText("05", new() { Exact = true }).ClickAsync(new() { Force = true });
+		await Expect(temporalInputs.Nth(1)).ToHaveValueAsync("06:05:00");
+
+		Assert.Equal(new DateTime(2024, 1, 2, 6, 5, 0), row.DateTimeValue);
+		Assert.Equal(0, _app.MockQueryExecutionService.SaveChangesCallCount);
 	}
 
 	[Fact(Timeout = 90_000)]

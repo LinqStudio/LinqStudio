@@ -25,9 +25,6 @@ public partial class QueryResultGrid : ComponentBase
 	[Parameter]
 	public EventCallback<object> OnRowSelected { get; set; }
 
-	[Parameter]
-	public EventCallback<object> OnCellValueChanged { get; set; }
-
 	[Inject]
 	private IClipboardService ClipboardService { get; set; } = null!;
 
@@ -80,7 +77,6 @@ public partial class QueryResultGrid : ComponentBase
 				&& EditableColumns.Contains(columnName)
 				&& SupportsEdit(property.PropertyType),
 			["PropertyInfo"] = property,
-			["OnValueChanged"] = OnCellValueChanged
 		};
 
 		return parameters;
