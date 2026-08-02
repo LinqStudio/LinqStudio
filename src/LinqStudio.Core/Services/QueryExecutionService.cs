@@ -6,6 +6,7 @@ using System.Runtime.Loader;
 using LinqStudio.Abstractions;
 using LinqStudio.Abstractions.Models;
 using LinqStudio.Core.Models;
+using LinqStudio.Core.Interfaces;
 using LinqStudio.Core.Settings;
 using LinqStudio.Databases;
 using LinqStudio.Databases.PostgreSQL;

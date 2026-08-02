@@ -1,4 +1,5 @@
 using LinqStudio.Core.Repositories;
+using LinqStudio.Core.Interfaces;
 using LinqStudio.Core.Services;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;

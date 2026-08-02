@@ -1,5 +1,6 @@
 using LinqStudio.Abstractions;
 using LinqStudio.Core.Models;
+using LinqStudio.Core.Interfaces;
 using Microsoft.Extensions.Logging;
 
 namespace LinqStudio.Core.Services;

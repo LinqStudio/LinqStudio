@@ -1,4 +1,5 @@
 using LinqStudio.Abstractions;
+using LinqStudio.Core.Interfaces;
 using LinqStudio.Core.Models;
 using LinqStudio.Core.Repositories;
 using LinqStudio.Core.Services;

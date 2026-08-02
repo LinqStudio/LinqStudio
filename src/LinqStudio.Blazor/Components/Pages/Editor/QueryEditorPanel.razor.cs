@@ -6,6 +6,7 @@ using LinqStudio.Blazor.Extensions;
 using LinqStudio.Blazor.Services;
 using LinqStudio.Core.Resources;
 using LinqStudio.Core.Services;
+using LinqStudio.Core.Interfaces;
 using LinqStudio.Core.Settings;
 using Microsoft.AspNetCore.Components;
 using Microsoft.CodeAnalysis.Tags;

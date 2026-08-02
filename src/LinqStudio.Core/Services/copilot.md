@@ -1,5 +1,8 @@
 # LinqStudio Core Services
 
+## Code generation pipeline (2026-08-02)
+Schema loading and relationship normalization are handled by `GeneratedSchemaBuilder`; `EntityModelCodeGenerator` and `DbContextCodeGenerator` render the normalized schema independently. This keeps future project-defined relationships separate from physical database foreign keys and ensures schema-qualified foreign keys resolve consistently.
+
 ## RoslynWorkspaceService
 **NEW** - Singleton service that centralizes Roslyn workspace creation and query wrapping logic (extracted from CompilerService and QueryExecutionService).
 

@@ -1,6 +1,7 @@
 using LinqStudio.Abstractions.Models;
 using LinqStudio.Blazor.Services;
 using LinqStudio.Core.Services;
+using LinqStudio.Core.Interfaces;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 using MudBlazor;

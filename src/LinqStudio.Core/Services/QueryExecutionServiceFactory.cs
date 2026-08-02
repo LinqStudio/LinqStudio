@@ -1,4 +1,5 @@
 using LinqStudio.Abstractions;
+using LinqStudio.Core.Interfaces;
 using LinqStudio.Core.Settings;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;

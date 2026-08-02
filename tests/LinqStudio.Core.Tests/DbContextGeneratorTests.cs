@@ -232,7 +232,7 @@ public class DbContextGeneratorTests
 			],
 			ForeignKeys =
 			[
-				new ForeignKey { Name = "FK_Orders_Customers", ColumnName = "CustomerId", ReferencedTable = "Customers", ReferencedColumn = "Id" }
+				new ForeignKey { Name = "FK_Orders_Customers", ColumnName = "CustomerId", ReferencedTable = "dbo.Customers", ReferencedColumn = "Id" }
 			]
 		};
 		var customersDetail = new DatabaseTableDetail
