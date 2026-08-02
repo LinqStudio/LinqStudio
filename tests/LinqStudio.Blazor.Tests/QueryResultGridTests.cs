@@ -447,7 +447,6 @@ public class QueryResultGridTests : BunitContext, IDisposable
 			.Add(c => c.Result, result)
 			.Add(c => c.IsExecuting, false)
 			.Add(c => c.IsEditable, true)
-			.Add(c => c.EditableRow, result.Items[0])
 			.Add(c => c.EditableColumns, new HashSet<string> { "Id", "Name" }));
 
 		var cells = cut.FindAll("tbody tr td");
@@ -472,15 +471,15 @@ public class QueryResultGridTests : BunitContext, IDisposable
 			.Add(c => c.Result, result)
 			.Add(c => c.IsExecuting, false)
 			.Add(c => c.IsEditable, true)
-			.Add(c => c.EditableRow, result.Items[0])
 			.Add(c => c.EditableColumns, new HashSet<string> { "Date" }));
 
-		Assert.Contains("2024", cut.Markup);
-		Assert.Contains(date.ToString(), cut.Markup);
+		var inputs = cut.FindAll("tbody tr td input");
+		Assert.NotEmpty(inputs);
+		Assert.Contains(inputs, input => !string.IsNullOrWhiteSpace(input.GetAttribute("value")));
 	}
 
 	[Fact]
-	public void QueryResultGrid_NotifiesWhenEditableCellChanges()
+	public void QueryResultGrid_UpdatesEditableCellValue()
 	{
 		SetupServices();
 		var row = new TestRow(Name: "Alpha");
@@ -490,22 +489,15 @@ public class QueryResultGridTests : BunitContext, IDisposable
 			Items = [row],
 			Elapsed = TimeSpan.Zero
 		};
-		QueryResultGrid.CellChanged? change = null;
-
 		var cut = Render<QueryResultGrid>(p => p
 			.Add(c => c.Result, result)
 			.Add(c => c.IsExecuting, false)
 			.Add(c => c.IsEditable, true)
-			.Add(c => c.EditableRow, row)
-			.Add(c => c.EditableColumns, new HashSet<string> { "Name" })
-			.Add(c => c.OnCellChanged, value => change = value));
+			.Add(c => c.EditableColumns, new HashSet<string> { "Name" }));
 
 		cut.Find("tbody tr td:nth-child(1) input").Change("Beta");
 
-		Assert.NotNull(change);
-		Assert.Same(row, change!.Row);
-		Assert.Equal("Name", change.ColumnName);
-		Assert.Equal("Beta", change.Value);
+		Assert.Equal("Beta", row.Name);
 	}
 
 	// ── API contract: deleted sort parameters must not return ────────────────

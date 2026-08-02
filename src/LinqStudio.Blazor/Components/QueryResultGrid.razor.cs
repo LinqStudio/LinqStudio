@@ -10,8 +10,6 @@ namespace LinqStudio.Blazor.Components;
 
 public partial class QueryResultGrid : ComponentBase
 {
-	public sealed record CellChanged(object Row, string ColumnName, string? Value);
-
 	[Parameter]
 	public QueryExecutionResult? Result { get; set; }
 
@@ -25,18 +23,11 @@ public partial class QueryResultGrid : ComponentBase
 	public IReadOnlySet<string> EditableColumns { get; set; } = new HashSet<string>(StringComparer.Ordinal);
 
 	[Parameter]
-	public object? EditableRow { get; set; }
-
-	[Parameter]
-	public EventCallback<CellChanged> OnCellChanged { get; set; }
-
-	[Parameter]
 	public EventCallback<object> OnRowSelected { get; set; }
 
 	[Inject]
 	private IClipboardService ClipboardService { get; set; } = null!;
 
-	private MudDataGrid<object>? _dataGrid;
 	private HashSet<int> _selectedRows = new();
 	private int _lastClickedRowIndex = -1;
 	private QueryExecutionResult? _previousResult;
@@ -84,15 +75,14 @@ public partial class QueryResultGrid : ComponentBase
 			["ColumnName"] = columnName,
 			["IsEditable"] = IsEditable
 				&& EditableColumns.Contains(columnName)
-				&& SupportsDefaultEditor(property.PropertyType),
-			["OnCellChanged"] = OnCellChanged,
+				&& SupportsEdit(property.PropertyType),
 			["PropertyInfo"] = property
 		};
 
 		return parameters;
 	}
 
-	private static bool SupportsDefaultEditor(Type propertyType)
+	private static bool SupportsEdit(Type propertyType)
 	{
 		var type = Nullable.GetUnderlyingType(propertyType) ?? propertyType;
 		return type == typeof(string)
@@ -106,7 +96,8 @@ public partial class QueryResultGrid : ComponentBase
 			|| type == typeof(ulong)
 			|| type == typeof(float)
 			|| type == typeof(double)
-			|| type == typeof(decimal);
+			|| type == typeof(decimal)
+			|| type == typeof(DateTime);
 	}
 
 	private object? GetCellValue(object item, string columnName)

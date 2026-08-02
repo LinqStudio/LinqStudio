@@ -1,0 +1,27 @@
+@typeparam TProperty
+@using MudBlazor
+
+@if (IsDateTimeProperty)
+{
+    <PropertyColumn T="object"
+                    TProperty="TProperty"
+                    Title="@ColumnName"
+                    Property="@Property"
+                    Editable="@IsEditable">
+        <EditTemplate Context="context">
+            <MudTextField T="TProperty"
+                          Value="@GetValue(context.Item)"
+                          ValueChanged="@((TProperty value) => OnValueChanged(context.Item, value))"
+                          Margin="Margin.Dense"
+                          Variant="Variant.Text" />
+        </EditTemplate>
+    </PropertyColumn>
+}
+else
+{
+    <PropertyColumn T="object"
+                    TProperty="TProperty"
+                    Title="@ColumnName"
+                    Property="@Property"
+                    Editable="@IsEditable" />
+}
