@@ -5,7 +5,7 @@
 #
 #     - To turn off auto-generation set:
 #
-#         [GitHubActions (AutoGenerate = false)]
+#         [TestReportingGitHubActions (AutoGenerate = false)]
 #
 #     - To trigger manual generation invoke:
 #
@@ -17,6 +17,11 @@
 name: build-and-test
 
 on: [pull_request]
+
+permissions:
+  checks: write
+  actions: read
+  contents: read
 
 jobs:
   ubuntu-latest:
@@ -37,3 +42,10 @@ jobs:
         run: ./build.cmd Test
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Test Report
+        uses: dorny/test-reporter@v3
+        if: success() || failure()
+        with:
+          name: .NET Tests
+          path: ./TestResults/*.trx
+          reporter: dotnet-trx

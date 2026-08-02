@@ -10,6 +10,10 @@
     <File Path=".gitignore" />
     <File Path="Directory.Build.props" />
   </Folder>
+  <Folder Name="/Solution Files/.github/">
+    <File Path=".github/workflows/build-and-test.yml" />
+    <File Path=".github/workflows/build-maui-windows.yml" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/LinqStudio.App.Maui/LinqStudio.App.Maui.csproj" />
   </Folder>
