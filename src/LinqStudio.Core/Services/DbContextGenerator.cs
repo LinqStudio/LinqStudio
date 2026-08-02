@@ -209,6 +209,23 @@ public class DbContextGenerator : IDbContextGenerator
 			}
 		}
 
+		// Some providers (notably MySQL) return DateTime for native date columns.
+		// Keep the generated CLR model as DateOnly while using a provider-neutral
+		// DateTime conversion at the EF boundary.
+		foreach (var table in tableDetails)
+		{
+			var className = classNameByTableName[table.FullName];
+			foreach (var column in table.Columns.Where(c => c.GenericType == DbColumnType.DateOnly))
+			{
+				var propertyName = ToPascalCase(column.Name);
+				var conversion = column.IsNullable
+					? "HasConversion(v => v.HasValue ? v.Value.ToDateTime(TimeOnly.MinValue) : (DateTime?)null, v => v.HasValue ? DateOnly.FromDateTime(v.Value) : (DateOnly?)null)"
+					: "HasConversion(v => v.ToDateTime(TimeOnly.MinValue), v => DateOnly.FromDateTime(v))";
+				sb.AppendLine(
+					$"        modelBuilder.Entity<{className}>().Property(e => e.{propertyName}).HasColumnType(\"date\").{conversion};");
+			}
+		}
+
 		sb.AppendLine("    }");
 		sb.AppendLine("}");
 		return sb.ToString();
@@ -274,7 +291,7 @@ public class DbContextGenerator : IDbContextGenerator
 			or DbColumnType.Int32 or DbColumnType.UInt32
 			or DbColumnType.Int64 or DbColumnType.UInt64
 			or DbColumnType.Float or DbColumnType.Double or DbColumnType.Decimal
-			or DbColumnType.DateTime or DbColumnType.TimeSpan
+			or DbColumnType.DateOnly or DbColumnType.DateTime or DbColumnType.TimeSpan
 			or DbColumnType.DateTimeOffset or DbColumnType.Guid;
 
 	private static string GetCSharpTypeName(DbColumnType type, bool isNullable)
@@ -294,6 +311,7 @@ public class DbContextGenerator : IDbContextGenerator
 			DbColumnType.Double => "double",
 			DbColumnType.Decimal => "decimal",
 			DbColumnType.String => "string",
+			DbColumnType.DateOnly => "DateOnly",
 			DbColumnType.DateTime => "DateTime",
 			DbColumnType.TimeSpan => "TimeSpan",
 			DbColumnType.DateTimeOffset => "DateTimeOffset",

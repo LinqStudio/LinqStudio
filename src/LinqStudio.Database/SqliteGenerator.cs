@@ -76,6 +76,11 @@ public class SqliteGenerator : AdoNetDatabaseGeneratorBase
 		// Date/Time types (stored as TEXT, REAL, or INTEGER)
 		if (type.Contains("date") || type.Contains("time"))
 		{
+			// SQLite preserves the declared type name, so a pure DATE column can
+			// retain date-only semantics while DATETIME remains DateTime.
+			if (type == "date")
+				return DbColumnType.DateOnly;
+
 			// TIMESTAMP should be DateTime, not TimeSpan
 			if (type.Contains("stamp"))
 				return DbColumnType.DateTime;

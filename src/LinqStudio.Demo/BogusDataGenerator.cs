@@ -16,6 +16,13 @@ public static class BogusDataGenerator
 			.RuleFor(c => c.FirstName, f => f.Name.FirstName())
 			.RuleFor(c => c.LastName, f => f.Name.LastName())
 			.RuleFor(c => c.Email, (f, c) => f.Internet.Email(c.FirstName, c.LastName))
+			.RuleFor(c => c.BirthDate, f => DateOnly.FromDateTime(f.Date.Between(
+				DateTime.Today.AddYears(-80),
+				DateTime.Today.AddYears(-18))))
+			.RuleFor(c => c.PreferredContactTime, f => new TimeSpan(f.Random.Int(8, 17), f.Random.Int(0, 59), 0))
+			.RuleFor(c => c.IsActive, f => f.Random.Bool(0.85f))
+			.RuleFor(c => c.LoyaltyTier, f => f.Random.Short(1, 4))
+			.RuleFor(c => c.LifetimePoints, f => f.Random.Long(0, 250_000))
 			.RuleFor(c => c.CreatedDate, f => f.Date.Past(2));
 
 		return faker.Generate(count);
@@ -29,6 +36,8 @@ public static class BogusDataGenerator
 		var faker = new Faker<Product>()
 			.RuleFor(p => p.Name, f => f.Commerce.ProductName())
 			.RuleFor(p => p.Description, f => f.Commerce.ProductDescription())
+			.RuleFor(p => p.Sku, _ => Guid.NewGuid())
+			.RuleFor(p => p.WeightKg, f => Math.Round(f.Random.Double(0.1, 25), 2))
 			.RuleFor(p => p.Price, f => f.Random.Decimal(10, 1000))
 			.RuleFor(p => p.StockQuantity, f => f.Random.Int(0, 100));
 
