@@ -1,19 +1,24 @@
 using Nuke.Common;
 using Nuke.Common.CI.GitHubActions;
+using Nuke.Common.CI.GitHubActions.Configuration;
+using Nuke.Common.Execution;
 using Nuke.Common.ProjectModel;
 using Nuke.Common.Tooling;
+using Nuke.Common.Utilities;
 using Nuke.Common.Tools.DotNet;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using static Nuke.Common.Tools.DotNet.DotNetTasks;
 
-[GitHubActions(
+[TestReportingGitHubActions(
 	"build-and-test",
 	GitHubActionsImage.UbuntuLatest,
 	On = new[] { GitHubActionsTrigger.PullRequest },
 	InvokedTargets = new[] { nameof(Test) },
 	EnableGitHubToken = true,
+	WritePermissions = new[] { GitHubActionsPermissions.Checks },
+	ReadPermissions = new[] { GitHubActionsPermissions.Actions, GitHubActionsPermissions.Contents },
 	FetchDepth = 0)]
 class Build : NukeBuild
 {
@@ -124,6 +129,8 @@ class Build : NukeBuild
 				DotNetTest(s => s
 					.SetProjectFile(project)
 					.SetConfiguration(Configuration)
+					.SetResultsDirectory("TestResults")
+					.SetLoggers($"trx;LogFileName={project.Name}.trx")
 					.EnableNoBuild()
 					.EnableNoRestore());
 			}
@@ -140,6 +147,8 @@ class Build : NukeBuild
 				DotNetTest(s => s
 					.SetProjectFile(project)
 					.SetConfiguration(Configuration)
+					.SetResultsDirectory("TestResults")
+					.SetLoggers($"trx;LogFileName={project.Name}.trx")
 					.EnableNoBuild()
 					.EnableNoRestore());
 			}
@@ -149,4 +158,38 @@ class Build : NukeBuild
 	Target Test => _ => _
 		.DependsOn(UnitTests, E2ETests)
 		.Executes(() => { });
+}
+
+class TestReportingGitHubActionsAttribute : GitHubActionsAttribute
+{
+	public TestReportingGitHubActionsAttribute(
+		string name,
+		GitHubActionsImage image,
+		params GitHubActionsImage[] images)
+		: base(name, image, images)
+	{
+	}
+
+	protected override GitHubActionsJob GetJobs(
+		GitHubActionsImage image,
+		IReadOnlyCollection<ExecutableTarget> relevantTargets)
+	{
+		var job = base.GetJobs(image, relevantTargets);
+		job.Steps = job.Steps.Append(new TestReportStep()).ToArray();
+		return job;
+	}
+}
+
+class TestReportStep : GitHubActionsStep
+{
+	public override void Write(CustomFileWriter writer)
+	{
+		writer.WriteLine("- name: Test Report");
+		writer.WriteLine("  uses: dorny/test-reporter@v3");
+		writer.WriteLine("  if: success() || failure()");
+		writer.WriteLine("  with:");
+		writer.WriteLine("    name: .NET Tests");
+		writer.WriteLine("    path: ./TestResults/*.trx");
+		writer.WriteLine("    reporter: dotnet-trx");
+	}
 }
