@@ -10,6 +10,15 @@ internal sealed record GeneratedSchema(
 internal sealed record GeneratedRelationship(
 	string Name,
 	string SourceTableName,
-	string SourceColumnName,
 	string TargetTableName,
-	string TargetColumnName);
+	string SourceColumnName,
+	string TargetColumnName,
+	RelationshipCardinality Cardinality = RelationshipCardinality.OneToMany,
+	string? SourceNavigationName = null,
+	string? TargetNavigationName = null,
+	bool IsRequired = false,
+	IReadOnlyList<GeneratedKeyPair>? KeyPairs = null,
+	bool IsCustom = false,
+	RelationshipDeleteBehavior DeleteBehavior = RelationshipDeleteBehavior.NoAction);
+
+internal sealed record GeneratedKeyPair(string SourceColumnName, string TargetColumnName);

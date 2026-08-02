@@ -63,6 +63,9 @@ public class RelationshipKeyPairDetectorTests
 			ForeignKeys = foreignKeys ?? [],
 		};
 
+	private static DatabaseTableDetail Table(string name, params TableColumn[] columns)
+		=> Table(name, (IReadOnlyList<TableColumn>)columns);
+
 	private static TableColumn Column(
 		string name,
 		DbColumnType genericType,

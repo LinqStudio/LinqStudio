@@ -20,8 +20,14 @@ public sealed class DbContextGenerator : IDbContextGenerator
 	public async Task<DbContextGeneratorResult> GenerateAsync(
 		IDatabaseQueryGenerator generator,
 		CancellationToken cancellationToken = default)
+		=> await GenerateAsync(generator, [], cancellationToken);
+
+	public async Task<DbContextGeneratorResult> GenerateAsync(
+		IDatabaseQueryGenerator generator,
+		IReadOnlyList<ICustomRelationship> customRelationships,
+		CancellationToken cancellationToken = default)
 	{
-		var schema = await _schemaBuilder.BuildAsync(generator, cancellationToken);
+		var schema = await _schemaBuilder.BuildAsync(generator, customRelationships, cancellationToken);
 		var modelFiles = schema.Tables.ToDictionary(
 			table => $"{schema.ClassNameByTableName[table.FullName]}.cs",
 			table => _modelGenerator.Generate(table, schema));

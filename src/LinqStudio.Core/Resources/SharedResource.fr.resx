@@ -232,6 +232,10 @@
   <data name="CustomRelationships.ContextMenu" xml:space="preserve"><value>Configurer les relations</value></data>
   <data name="CustomRelationships.Tab.DbContext" xml:space="preserve"><value>DbContext</value></data>
   <data name="CustomRelationships.Tab.Models" xml:space="preserve"><value>Modèles</value></data>
+  <data name="CustomRelationships.Tab.GeneratedCode" xml:space="preserve"><value>Code généré</value></data>
+  <data name="CustomRelationships.GeneratedCode.Help" xml:space="preserve"><value>Voici le code source généré pour IntelliSense et la compilation des requêtes.</value></data>
+  <data name="CustomRelationships.GeneratedCode.Empty" xml:space="preserve"><value>Le code généré est indisponible tant qu'une connexion à la base de données n'est pas configurée.</value></data>
+  <data name="CustomRelationships.GeneratedCode.File" xml:space="preserve"><value>Fichier généré</value></data>
   <data name="CustomRelationships.DbContext.Help" xml:space="preserve"><value>Ajoutez le code qui sera placé dans OnModelCreating. L'aperçu affiche la version finale actuelle.</value></data>
   <data name="CustomRelationships.DbContext.ManualCode" xml:space="preserve"><value>Code de configuration manuel</value></data>
   <data name="CustomRelationships.DbContext.FinalVersion" xml:space="preserve"><value>Aperçu de la version finale</value></data>

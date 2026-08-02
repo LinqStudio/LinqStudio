@@ -1,3 +1,5 @@
+﻿using LinqStudio.Abstractions.Models;
+
 namespace LinqStudio.Core.Models;
 
 public enum RelationshipCardinality
@@ -16,13 +18,13 @@ public enum RelationshipDeleteBehavior
 	NoAction,
 }
 
-public sealed class RelationshipKeyPair
+public sealed class RelationshipKeyPair : ICustomRelationshipKeyPair
 {
 	public string PrincipalColumn { get; set; } = string.Empty;
 	public string DependentColumn { get; set; } = string.Empty;
 }
 
-public sealed class CustomRelationship
+public sealed class CustomRelationship : ICustomRelationship
 {
 	public Guid Id { get; set; } = Guid.NewGuid();
 	public string PrincipalTable { get; set; } = string.Empty;
@@ -33,4 +35,8 @@ public sealed class CustomRelationship
 	public string DependentNavigation { get; set; } = string.Empty;
 	public RelationshipDeleteBehavior DeleteBehavior { get; set; } = RelationshipDeleteBehavior.NoAction;
 	public List<RelationshipKeyPair> KeyPairs { get; set; } = [];
+
+	IReadOnlyList<ICustomRelationshipKeyPair> ICustomRelationship.KeyPairs => KeyPairs;
+	int ICustomRelationship.Cardinality => (int)Cardinality;
+	int ICustomRelationship.DeleteBehavior => (int)DeleteBehavior;
 }

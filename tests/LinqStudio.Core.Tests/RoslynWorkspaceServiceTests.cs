@@ -1,5 +1,6 @@
 using LinqStudio.Core.Services;
 using Microsoft.CodeAnalysis;
+using Microsoft.EntityFrameworkCore;
 
 namespace LinqStudio.Core.Tests;
 
@@ -127,5 +128,17 @@ public class RoslynWorkspaceServiceTests
 		var docNames = documents.Select(d => d.Name).ToList();
 		Assert.Contains("DbContext.cs", docNames);
 		Assert.Contains("QueryContainer.cs", docNames);
+	}
+
+	[Fact]
+	public void GetMetadataReferences_IncludesEfCoreAbstractions()
+	{
+		var service = CreateService();
+
+		var assemblyNames = service.GetMetadataReferences()
+			.Select(reference => Path.GetFileNameWithoutExtension(reference.Display))
+			.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+		Assert.Contains(typeof(DeleteBehavior).Assembly.GetName().Name, assemblyNames);
 	}
 }

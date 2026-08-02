@@ -12,4 +12,15 @@ public interface IDbContextGenerator
 	/// for the DbContext and all entity models.
 	/// </summary>
 	Task<DbContextGeneratorResult> GenerateAsync(IDatabaseQueryGenerator generator, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Generates source code using project-defined relationships in addition to physical
+	/// database relationships. The default implementation preserves compatibility with
+	/// existing generators that only understand database metadata.
+	/// </summary>
+	Task<DbContextGeneratorResult> GenerateAsync(
+		IDatabaseQueryGenerator generator,
+		IReadOnlyList<ICustomRelationship> customRelationships,
+		CancellationToken cancellationToken = default)
+		=> GenerateAsync(generator, cancellationToken);
 }

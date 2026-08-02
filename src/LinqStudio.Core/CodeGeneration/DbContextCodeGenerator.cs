@@ -41,10 +41,90 @@ internal sealed class DbContextCodeGenerator
 		builder.AppendLine("    {");
 
 		AppendKeys(builder, schema);
+		AppendCustomRelationships(builder, schema);
 		AppendDateOnlyConversions(builder, schema);
 		builder.AppendLine("    }");
 		builder.AppendLine("}");
 		return builder.ToString();
+	}
+
+	private static void AppendCustomRelationships(StringBuilder builder, GeneratedSchema schema)
+	{
+		foreach (var relationship in schema.Relationships.Where(relationship => relationship.IsCustom))
+		{
+			var sourceClassName = schema.ClassNameByTableName[relationship.SourceTableName];
+			var targetClassName = schema.ClassNameByTableName[relationship.TargetTableName];
+			var sourceNavigationName = GetNavigationName(
+				relationship.SourceNavigationName,
+				GetSourceNavigationFallback(relationship, targetClassName));
+			var targetNavigationName = GetNavigationName(
+				relationship.TargetNavigationName,
+				GetTargetNavigationFallback(relationship, sourceClassName));
+
+			var configuration = relationship.Cardinality switch
+			{
+				RelationshipCardinality.OneToMany =>
+					$"modelBuilder.Entity<{sourceClassName}>().HasOne(e => e.{sourceNavigationName}).WithMany(e => e.{targetNavigationName})",
+				RelationshipCardinality.OneToOne =>
+					$"modelBuilder.Entity<{sourceClassName}>().HasOne(e => e.{sourceNavigationName}).WithOne(e => e.{targetNavigationName})",
+				RelationshipCardinality.ManyToOne =>
+					$"modelBuilder.Entity<{sourceClassName}>().HasMany(e => e.{sourceNavigationName}).WithOne(e => e.{targetNavigationName})",
+				RelationshipCardinality.ManyToMany =>
+					$"modelBuilder.Entity<{sourceClassName}>().HasMany(e => e.{sourceNavigationName}).WithMany(e => e.{targetNavigationName})",
+				_ => throw new ArgumentOutOfRangeException(),
+			};
+
+			if (relationship.Cardinality != RelationshipCardinality.ManyToMany
+				&& relationship.KeyPairs is { Count: > 0 })
+			{
+				var foreignKeyPairs = relationship.Cardinality == RelationshipCardinality.ManyToOne
+					? relationship.KeyPairs.Select(pair => new GeneratedKeyPair(pair.TargetColumnName, pair.SourceColumnName))
+					: relationship.KeyPairs;
+
+				configuration +=
+					$".HasForeignKey({BuildKeyExpression(foreignKeyPairs, useSourceColumn: true)})"
+					+ $".HasPrincipalKey({BuildKeyExpression(foreignKeyPairs, useSourceColumn: false)})";
+			}
+
+			if (relationship.Cardinality != RelationshipCardinality.ManyToMany)
+				configuration += $".OnDelete(DeleteBehavior.{relationship.DeleteBehavior})";
+
+			builder.AppendLine($"        {configuration};");
+		}
+	}
+
+	private static string GetNavigationName(string? configuredName, string fallback) =>
+		string.IsNullOrWhiteSpace(configuredName)
+			? fallback
+			: CodeGenerationNaming.ToPascalCase(configuredName);
+
+	private static string GetSourceNavigationFallback(
+		GeneratedRelationship relationship,
+		string relatedClassName) =>
+		relationship.Cardinality is RelationshipCardinality.ManyToOne or RelationshipCardinality.ManyToMany
+			? CodeGenerationNaming.Pluralize(relatedClassName)
+			: CodeGenerationNaming.Singularize(relatedClassName);
+
+	private static string GetTargetNavigationFallback(
+		GeneratedRelationship relationship,
+		string relatedClassName) =>
+		relationship.Cardinality is RelationshipCardinality.OneToMany or RelationshipCardinality.ManyToMany
+			? CodeGenerationNaming.Pluralize(relatedClassName)
+			: CodeGenerationNaming.Singularize(relatedClassName);
+
+	private static string BuildKeyExpression(
+		IEnumerable<GeneratedKeyPair> keyPairs,
+		bool useSourceColumn)
+	{
+		var columns = keyPairs
+			.Select(pair => useSourceColumn ? pair.SourceColumnName : pair.TargetColumnName)
+			.ToList();
+		if (columns.Count == 1)
+			return $"e => e.{CodeGenerationNaming.ToPascalCase(columns[0])}";
+
+		var properties = string.Join(", ", columns.Select(column =>
+			$"e.{CodeGenerationNaming.ToPascalCase(column)}"));
+		return $"e => new {{ {properties} }}";
 	}
 
 	private static void AppendKeys(StringBuilder builder, GeneratedSchema schema)

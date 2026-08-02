@@ -1,7 +1,10 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using BlazorMonaco;
+using BlazorMonaco.Editor;
 using LinqStudio.Abstractions.Models;
+using LinqStudio.Abstractions;
 using LinqStudio.Core.Models;
 using LinqStudio.Core.CodeGeneration;
 using LinqStudio.Core.Resources;
@@ -11,7 +14,7 @@ using MudBlazor;
 
 namespace LinqStudio.Blazor.Components.Dialogs;
 
-public partial class CustomRelationshipsDialog : ComponentBase
+public partial class CustomRelationshipsDialog : ComponentBase, IDisposable
 {
 	[CascadingParameter]
 	private IMudDialogInstance MudDialog { get; set; } = null!;
@@ -22,14 +25,30 @@ public partial class CustomRelationshipsDialog : ComponentBase
 	[Inject]
 	private ErrorHandlingService ErrorHandlingService { get; set; } = null!;
 
+	[Inject]
+	private IDbContextGenerator DbContextGenerator { get; set; } = null!;
+
 	private readonly List<DatabaseTableDetail> _tables = [];
 	private List<CustomRelationship> _relationships = [];
+	private IReadOnlyDictionary<string, string> _generatedFiles = new Dictionary<string, string>();
 	private CustomRelationship _editRelationship = new();
 	private DatabaseTableDetail? _selectedModel;
 	private string? _onConfigureCode;
+	private string? _selectedGeneratedFile;
 	private bool _isLoading = true;
+	private bool _generatedCodeLoading;
+	private bool _generatedCodeLoaded;
+	private bool _generatedCodeEditorReady;
+	private bool _disposed;
 	private int _activeTab;
 	private bool _keyPairsWereAutoSuggested;
+	private StandaloneCodeEditor? _generatedCodeEditor;
+
+	private string GeneratedCode =>
+		_selectedGeneratedFile is not null
+		&& _generatedFiles.TryGetValue(_selectedGeneratedFile, out var code)
+			? code
+			: string.Empty;
 
 	private string SuggestedPrincipalNavigation =>
 		_editRelationship.Cardinality is RelationshipCardinality.OneToMany or RelationshipCardinality.ManyToMany
@@ -83,6 +102,8 @@ public partial class CustomRelationshipsDialog : ComponentBase
 
 			if (_tables.Count > 0)
 				SelectModel(_tables[0]);
+
+			await LoadGeneratedCodeAsync();
 		}
 		catch (Exception ex)
 		{
@@ -92,6 +113,62 @@ public partial class CustomRelationshipsDialog : ComponentBase
 		{
 			_isLoading = false;
 		}
+	}
+
+	private async Task LoadGeneratedCodeAsync()
+	{
+		if (Project.QueryGenerator is null)
+			return;
+
+		_generatedCodeLoading = true;
+		try
+		{
+			var result = await DbContextGenerator.GenerateAsync(
+				Project.QueryGenerator,
+				_relationships.Cast<ICustomRelationship>().ToList());
+			var files = new Dictionary<string, string>(result.ModelFiles, StringComparer.OrdinalIgnoreCase)
+			{
+				["GeneratedDbContext.cs"] = result.DbContextCode,
+			};
+			_generatedFiles = files
+				.OrderBy(file => file.Key.Equals("GeneratedDbContext.cs", StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+				.ThenBy(file => file.Key, StringComparer.OrdinalIgnoreCase)
+				.ToDictionary(file => file.Key, file => file.Value, StringComparer.OrdinalIgnoreCase);
+			_selectedGeneratedFile ??= _generatedFiles.Keys.FirstOrDefault();
+			_generatedCodeLoaded = true;
+		}
+		catch (Exception ex)
+		{
+			await ErrorHandlingService.HandleErrorAsync(ex, "Failed to generate code preview.");
+		}
+		finally
+		{
+			_generatedCodeLoading = false;
+		}
+	}
+
+	private async Task GeneratedFileChanged(string fileName)
+	{
+		_selectedGeneratedFile = fileName;
+		if (_generatedCodeEditorReady && _generatedCodeEditor is not null)
+			await _generatedCodeEditor.SetValue(GeneratedCode);
+	}
+
+	private StandaloneEditorConstructionOptions GeneratedCodeEditorOptions(StandaloneCodeEditor editor)
+		=> new()
+		{
+			AutomaticLayout = true,
+			Language = "csharp",
+			Theme = "vs-dark",
+			ReadOnly = true,
+			Value = GeneratedCode,
+		};
+
+	private async Task OnGeneratedCodeEditorInitialized()
+	{
+		_generatedCodeEditorReady = true;
+		if (_generatedCodeEditor is not null)
+			await _generatedCodeEditor.SetValue(GeneratedCode);
 	}
 
 	private void SelectModel(DatabaseTableDetail model)
@@ -165,7 +242,7 @@ public partial class CustomRelationshipsDialog : ComponentBase
 
 	private void RemoveRelationship(CustomRelationship relationship) => _relationships.Remove(relationship);
 
-	private void SaveRelationship()
+	private async Task SaveRelationship()
 	{
 		if (string.IsNullOrWhiteSpace(_editRelationship.PrincipalTable)
 			|| string.IsNullOrWhiteSpace(_editRelationship.DependentTable)
@@ -179,6 +256,7 @@ public partial class CustomRelationshipsDialog : ComponentBase
 			_relationships.Add(_editRelationship);
 
 		StartNewRelationship();
+		await LoadGeneratedCodeAsync();
 	}
 
 	private IEnumerable<string> GetColumns(string tableName)
@@ -259,6 +337,27 @@ public partial class CustomRelationshipsDialog : ComponentBase
 	}
 
 	private void Cancel() => MudDialog.Cancel();
+
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (!firstRender)
+			return;
+
+		await Task.Delay(500);
+		if (_disposed)
+			return;
+
+		StateHasChanged();
+	}
+
+	public void Dispose()
+	{
+		if (_disposed)
+			return;
+
+		_disposed = true;
+		GC.SuppressFinalize(this);
+	}
 
 	private static List<CustomRelationship> Clone(IEnumerable<CustomRelationship> relationships)
 	{

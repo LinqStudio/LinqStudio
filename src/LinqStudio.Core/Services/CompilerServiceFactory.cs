@@ -98,7 +98,10 @@ public class TestDbContext : DbContext
 			return await CreateAsync();
 		}
 
-		var result = await generator.GenerateAsync(project.QueryGenerator, cancellationToken);
+		var result = await generator.GenerateAsync(
+			project.QueryGenerator,
+			project.CustomRelationships,
+			cancellationToken);
 		var svc = new CompilerService(result.ContextTypeName, result.Namespace, _roslynWorkspaceService, logger);
 		await svc.Initialize(result.ModelFiles, result.DbContextCode);
 		return svc;

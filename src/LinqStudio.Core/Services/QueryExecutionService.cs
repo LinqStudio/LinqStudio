@@ -53,7 +53,10 @@ public sealed class QueryExecutionService(
 			}
 
 			// Generate models and DbContext from project's database
-			var generatorResult = await _generator.GenerateAsync(project.QueryGenerator!, cancellationToken);
+			var generatorResult = await _generator.GenerateAsync(
+				project.QueryGenerator!,
+				project.CustomRelationships,
+				cancellationToken);
 
 			// Step 1-2: Wrap user query in QueryContainer
 			var wrappedQuery = _roslynWorkspaceService.WrapQuery(userQuery, generatorResult.ContextTypeName, generatorResult.Namespace);

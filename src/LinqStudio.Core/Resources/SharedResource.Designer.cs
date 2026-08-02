@@ -466,6 +466,33 @@ namespace LinqStudio.Core.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Generated code is unavailable until a database connection is configured..
+        /// </summary>
+        public static string CustomRelationships_GeneratedCode_Empty {
+            get {
+                return ResourceManager.GetString("CustomRelationships.GeneratedCode.Empty", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Generated file.
+        /// </summary>
+        public static string CustomRelationships_GeneratedCode_File {
+            get {
+                return ResourceManager.GetString("CustomRelationships.GeneratedCode.File", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to This is the source generated for IntelliSense and query compilation..
+        /// </summary>
+        public static string CustomRelationships_GeneratedCode_Help {
+            get {
+                return ResourceManager.GetString("CustomRelationships.GeneratedCode.Help", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Models.
         /// </summary>
         public static string CustomRelationships_Models_Models {
@@ -489,6 +516,15 @@ namespace LinqStudio.Core.Resources {
         public static string CustomRelationships_Tab_DbContext {
             get {
                 return ResourceManager.GetString("CustomRelationships.Tab.DbContext", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Generated code.
+        /// </summary>
+        public static string CustomRelationships_Tab_GeneratedCode {
+            get {
+                return ResourceManager.GetString("CustomRelationships.Tab.GeneratedCode", resourceCulture);
             }
         }
         

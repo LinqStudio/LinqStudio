@@ -232,6 +232,10 @@
   <data name="CustomRelationships.ContextMenu" xml:space="preserve"><value>Configure relationships</value></data>
   <data name="CustomRelationships.Tab.DbContext" xml:space="preserve"><value>DbContext</value></data>
   <data name="CustomRelationships.Tab.Models" xml:space="preserve"><value>Models</value></data>
+  <data name="CustomRelationships.Tab.GeneratedCode" xml:space="preserve"><value>Generated code</value></data>
+  <data name="CustomRelationships.GeneratedCode.Help" xml:space="preserve"><value>This is the source generated for IntelliSense and query compilation.</value></data>
+  <data name="CustomRelationships.GeneratedCode.Empty" xml:space="preserve"><value>Generated code is unavailable until a database connection is configured.</value></data>
+  <data name="CustomRelationships.GeneratedCode.File" xml:space="preserve"><value>Generated file</value></data>
   <data name="CustomRelationships.DbContext.Help" xml:space="preserve"><value>Add code that will be placed in OnModelCreating. The preview shows the current final version.</value></data>
   <data name="CustomRelationships.DbContext.ManualCode" xml:space="preserve"><value>Manual configuration code</value></data>
   <data name="CustomRelationships.DbContext.FinalVersion" xml:space="preserve"><value>Final version preview</value></data>

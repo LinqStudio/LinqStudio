@@ -51,6 +51,7 @@ public class RoslynWorkspaceService(ILogger<RoslynWorkspaceService>? logger = nu
 		var efCoreAssemblies = new[]
 		{
 			"Microsoft.EntityFrameworkCore",
+			"Microsoft.EntityFrameworkCore.Abstractions",
 			"Microsoft.EntityFrameworkCore.Relational",
 			"Microsoft.EntityFrameworkCore.SqlServer", // Must be able to remove those that aren't needed based on the project type
 			"Microsoft.EntityFrameworkCore.Sqlite",
