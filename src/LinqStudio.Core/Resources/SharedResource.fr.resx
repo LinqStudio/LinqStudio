@@ -228,4 +228,57 @@
   <data name="Editor.NoQueryAlert" xml:space="preserve">
     <value>Aucune requête n'est actuellement ouverte. Faites un clic droit sur la connexion de base de données dans l'explorateur pour créer une nouvelle requête.</value>
   </data>
+  <data name="CustomRelationships.Title" xml:space="preserve"><value>Configurer les relations</value></data>
+  <data name="CustomRelationships.ContextMenu" xml:space="preserve"><value>Configurer les relations</value></data>
+  <data name="CustomRelationships.Tab.DbContext" xml:space="preserve"><value>DbContext</value></data>
+  <data name="CustomRelationships.Tab.Models" xml:space="preserve"><value>Modèles</value></data>
+  <data name="CustomRelationships.Tab.GeneratedCode" xml:space="preserve"><value>Code généré</value></data>
+  <data name="CustomRelationships.GeneratedCode.Help" xml:space="preserve"><value>Voici le code source généré pour IntelliSense et la compilation des requêtes.</value></data>
+  <data name="CustomRelationships.GeneratedCode.Empty" xml:space="preserve"><value>Le code généré est indisponible tant qu'une connexion à la base de données n'est pas configurée.</value></data>
+  <data name="CustomRelationships.GeneratedCode.File" xml:space="preserve"><value>Fichier généré</value></data>
+  <data name="CustomRelationships.DbContext.Help" xml:space="preserve"><value>Ajoutez le code qui sera placé dans OnModelCreating. L'aperçu affiche la version finale actuelle.</value></data>
+  <data name="CustomRelationships.DbContext.ManualCode" xml:space="preserve"><value>Code de configuration manuel</value></data>
+  <data name="CustomRelationships.DbContext.FinalVersion" xml:space="preserve"><value>Aperçu de la version finale</value></data>
+  <data name="CustomRelationships.Models.Models" xml:space="preserve"><value>Modèles</value></data>
+  <data name="CustomRelationships.Models.SelectModel" xml:space="preserve"><value>Sélectionnez un modèle pour configurer ses relations.</value></data>
+  <data name="CustomRelationships.Models.Editing" xml:space="preserve"><value>Modèle en cours de modification</value></data>
+  <data name="CustomRelationships.Error.LoadModels" xml:space="preserve"><value>Impossible de charger les modèles de la base de données.</value></data>
+  <data name="CustomRelationships.Error.GenerateCode" xml:space="preserve"><value>Impossible de générer l'aperçu du code.</value></data>
+  <data name="CustomRelationships.Form.PrincipalTable" xml:space="preserve"><value>Table principale</value></data>
+  <data name="CustomRelationships.Form.Cardinality" xml:space="preserve"><value>Cardinalité</value></data>
+  <data name="CustomRelationships.Form.Cardinality.OneToOne" xml:space="preserve"><value>Un à un</value></data>
+  <data name="CustomRelationships.Form.Cardinality.OneToMany" xml:space="preserve"><value>Un à plusieurs</value></data>
+  <data name="CustomRelationships.Form.Cardinality.ManyToOne" xml:space="preserve"><value>Plusieurs à un</value></data>
+  <data name="CustomRelationships.Form.Cardinality.ManyToMany" xml:space="preserve"><value>Plusieurs à plusieurs</value></data>
+  <data name="CustomRelationships.Form.Required" xml:space="preserve"><value>Chaque {0} doit être lié à {1}</value></data>
+  <data name="CustomRelationships.Form.PrincipalNavigation" xml:space="preserve"><value>Propriété de navigation principale</value></data>
+  <data name="CustomRelationships.Form.DependentNavigation" xml:space="preserve"><value>Propriété de navigation dépendante</value></data>
+  <data name="CustomRelationships.Form.Navigation" xml:space="preserve"><value>Propriétés de navigation</value></data>
+  <data name="CustomRelationships.Form.DeleteBehavior" xml:space="preserve"><value>Comportement de suppression</value></data>
+  <data name="CustomRelationships.Form.DeleteBehavior.ClientSetNull" xml:space="preserve"><value>Définir null côté client</value></data>
+  <data name="CustomRelationships.Form.DeleteBehavior.Cascade" xml:space="preserve"><value>Cascade</value></data>
+  <data name="CustomRelationships.Form.DeleteBehavior.Restrict" xml:space="preserve"><value>Restreindre</value></data>
+  <data name="CustomRelationships.Form.DeleteBehavior.NoAction" xml:space="preserve"><value>Aucune action</value></data>
+  <data name="CustomRelationships.Form.DeleteBehaviorTooltip" xml:space="preserve"><value>Choisissez ce qui arrive aux lignes liées lorsque la ligne de la table principale est supprimée.</value></data>
+  <data name="CustomRelationships.Form.KeyPairs" xml:space="preserve"><value>Paires de clés</value></data>
+  <data name="CustomRelationships.Form.PrincipalColumn" xml:space="preserve"><value>Colonne principale</value></data>
+  <data name="CustomRelationships.Form.DependentColumn" xml:space="preserve"><value>Colonne dépendante</value></data>
+  <data name="CustomRelationships.Form.AddKeyPair" xml:space="preserve"><value>Ajouter une paire de clés</value></data>
+  <data name="CustomRelationships.Form.New" xml:space="preserve"><value>Nouvelle relation</value></data>
+  <data name="CustomRelationships.Form.Save" xml:space="preserve"><value>Enregistrer la relation</value></data>
+  <data name="CustomRelationships.Button.Cancel" xml:space="preserve"><value>Annuler</value></data>
+  <data name="CustomRelationships.Button.Save" xml:space="preserve"><value>Enregistrer</value></data>
+  <data name="CustomRelationships.Form.LinkToTable" xml:space="preserve"><value>Lier à la table</value></data>
+  <data name="CustomRelationships.Form.LinkToTableTooltip" xml:space="preserve"><value>Choisissez la table à laquelle {0} doit être lié.</value></data>
+  <data name="CustomRelationships.Form.SelectedColumn" xml:space="preserve"><value>Colonne dans {0}</value></data>
+  <data name="CustomRelationships.Form.SelectedColumnTooltip" xml:space="preserve"><value>Choisissez la colonne de {0} qui contient le lien.</value></data>
+  <data name="CustomRelationships.Form.MatchingKey" xml:space="preserve"><value>Clé correspondante dans {0}</value></data>
+  <data name="CustomRelationships.Form.MatchingKeyTooltip" xml:space="preserve"><value>Choisissez la clé correspondante dans {0}.</value></data>
+  <data name="CustomRelationships.Form.PrincipalNavigationTooltip" xml:space="preserve"><value>La propriété {1} sera ajoutée à la classe {0} : {2} {1} {{ get; set; }}</value></data>
+  <data name="CustomRelationships.Form.DependentNavigationTooltip" xml:space="preserve"><value>La propriété {1} sera ajoutée à la classe {0} : {2} {1} {{ get; set; }}</value></data>
+  <data name="CustomRelationships.Form.Cardinality.OneToOneTooltip" xml:space="preserve"><value>Un {0} est lié à un {1}.</value></data>
+  <data name="CustomRelationships.Form.Cardinality.OneToManyTooltip" xml:space="preserve"><value>Un {1} peut être lié à plusieurs {0}.</value></data>
+  <data name="CustomRelationships.Form.Cardinality.ManyToOneTooltip" xml:space="preserve"><value>Plusieurs {1} peuvent être liés à un {0}.</value></data>
+  <data name="CustomRelationships.Form.Cardinality.ManyToManyTooltip" xml:space="preserve"><value>Plusieurs {0} peuvent être liés à plusieurs {1}.</value></data>
+  <data name="CustomRelationships.Form.RequiredTooltip" xml:space="preserve"><value>Activez cette option lorsque chaque {0} doit être lié à un {1}.</value></data>
 </root>

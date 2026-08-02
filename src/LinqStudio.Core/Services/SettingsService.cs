@@ -1,5 +1,6 @@
 using LinqStudio.Abstractions;
 using LinqStudio.Core.Extensions;
+using LinqStudio.Core.Interfaces;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 

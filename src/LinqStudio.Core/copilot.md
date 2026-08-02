@@ -10,6 +10,9 @@ Fixed: `Project.cs` QueryGenerator property switch expression was missing Postgr
 ### DbContextGenerator (2026-03-14)
 `DbContextGenerator` implements `IDbContextGenerator` and converts live DB schema (via `IDatabaseQueryGenerator`) into C# model classes + `GeneratedDbContext`. Registered as `AddScoped<IDbContextGenerator, DbContextGenerator>()`. Used by `CompilerServiceFactory.CreateFromProjectAsync()` to power real IntelliSense against the user's actual database. Fixed namespace: `GeneratedModels`, fixed context type: `GeneratedDbContext`.
 
+## Internal organization
+Public service contracts are in `Interfaces/`; Core-only generated-schema metadata is in `Models/`; schema normalization and source rendering helpers are in `CodeGeneration/`. Keep these implementation details out of `Services/`.
+
 ## Repositories
 
 ### FileSystemProjectRepository & FileSystemQueryRepository (2026-03-20)
@@ -19,3 +22,6 @@ Fixed: `Project.cs` QueryGenerator property switch expression was missing Postgr
 - `FileSystemStorageOptions` — configures the `BasePath`.
 - Registered via `services.AddFileSystemRepositories(basePath)` extension in `LinqStudio.Core.Extensions.ServiceCollectionExtensions`.
 - WebServer configures basePath from `LinqStudio:ProjectsPath` config key, defaulting to `~/Documents/LinqStudio/Projects`.
+
+### Custom relationship metadata
+`Project.CustomRelationships` stores user-defined relationship mappings, including composite key pairs, cardinality, navigation names, requiredness, and delete behavior. `Project.DbContextOnConfigureCode` stores manual DbContext configuration until code generation consumes these values.

@@ -221,7 +221,9 @@ LinqStudio/
 │   ├── LinqStudio.Abstractions/       # Interfaces only (IUserSettingsSection, IDatabaseQueryGenerator)
 │   ├── LinqStudio.Core/               # Business logic
 │   │   ├── Extensions/                # ServiceCollectionExtensions
+│   │   ├── Interfaces/                # Public Core service contracts
 │   │   ├── Models/                    # Shared models (ProjectSummary)
+│   │   ├── CodeGeneration/            # Internal schema normalization and source renderers
 │   │   ├── Repositories/              # IProjectRepository, IQueryRepository interfaces + implementations
 │   │   ├── Resources/                 # SharedResource.resx, SharedResource.fr.resx
 │   │   ├── Services/                  # CompilerService, QueryService, ProjectService, etc.

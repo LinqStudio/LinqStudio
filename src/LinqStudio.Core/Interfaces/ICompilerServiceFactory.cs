@@ -1,6 +1,7 @@
 using LinqStudio.Core.Models;
+using LinqStudio.Core.Services;
 
-namespace LinqStudio.Core.Services;
+namespace LinqStudio.Core.Interfaces;
 
 /// <summary>
 /// Factory contract for creating and fully initializing <see cref="CompilerService"/> instances.

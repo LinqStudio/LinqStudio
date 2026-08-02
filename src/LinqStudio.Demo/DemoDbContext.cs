@@ -15,6 +15,8 @@ public class DemoDbContext : DbContext
 	public DbSet<Order> Orders { get; set; } = null!;
 	public DbSet<Product> Products { get; set; } = null!;
 	public DbSet<OrderItem> OrderItems { get; set; } = null!;
+	public DbSet<UserProfile> UserProfiles { get; set; } = null!;
+	public DbSet<SupportTicket> SupportTickets { get; set; } = null!;
 
 	protected override void OnModelCreating(ModelBuilder modelBuilder)
 	{
@@ -82,6 +84,24 @@ public class DemoDbContext : DbContext
 				.WithMany(p => p.OrderItems)
 				.HasForeignKey(e => e.ProductId)
 				.OnDelete(DeleteBehavior.Restrict);
+		});
+
+		// These tables deliberately have no relationship configuration. They are
+		// used to exercise custom relationships in the application.
+		modelBuilder.Entity<UserProfile>(entity =>
+		{
+			entity.HasKey(e => e.Id);
+			entity.Property(e => e.DisplayName).IsRequired().HasMaxLength(150);
+			entity.Property(e => e.Email).IsRequired().HasMaxLength(255);
+		});
+
+		modelBuilder.Entity<SupportTicket>(entity =>
+		{
+			entity.HasKey(e => e.Id);
+			entity.Property(e => e.UserId).IsRequired();
+			entity.Property(e => e.Subject).IsRequired().HasMaxLength(250);
+			entity.Property(e => e.OpenedAt).IsRequired();
+			entity.Property(e => e.IsResolved).IsRequired();
 		});
 	}
 }

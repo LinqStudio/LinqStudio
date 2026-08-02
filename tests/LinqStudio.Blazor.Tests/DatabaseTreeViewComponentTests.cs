@@ -416,6 +416,7 @@ public class DatabaseTreeViewComponentTests : BunitContext
 		cut.WaitForAssertion(() =>
 		{
 			Assert.NotNull(cut.Find("[data-testid='db-tree-connection-new-query']"));
+			Assert.NotNull(cut.Find("[data-testid='db-tree-connection-custom-relationships']"));
 		}, TimeSpan.FromSeconds(3));
 	}
 

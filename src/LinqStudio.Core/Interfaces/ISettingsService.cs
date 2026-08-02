@@ -1,6 +1,6 @@
 using LinqStudio.Abstractions;
 
-namespace LinqStudio.Core.Services;
+namespace LinqStudio.Core.Interfaces;
 
 /// <summary>
 /// Handles persistence (write path) for user settings.

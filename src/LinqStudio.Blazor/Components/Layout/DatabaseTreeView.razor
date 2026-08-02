@@ -49,6 +49,12 @@
 		else if (_contextMenuNode.NodeType == SchemaTreeNodeType.Connection)
 		{
 			<div class="db-tree-context-item"
+				 @onclick="OpenCustomRelationshipsAsync"
+				 data-testid="db-tree-connection-custom-relationships">
+				<MudIcon Icon="@Icons.Material.Filled.AccountTree" Size="Size.Small" Class="mr-2" />
+				@Text("CustomRelationships.ContextMenu", "Configure relationships")
+			</div>
+			<div class="db-tree-context-item"
 				 @onclick="HandleConnectionNewQuery"
 				 data-testid="db-tree-connection-new-query">
 				<MudIcon Icon="@Icons.Material.Filled.Add" Size="Size.Small" Class="mr-2" />

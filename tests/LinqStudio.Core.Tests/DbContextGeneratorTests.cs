@@ -1,5 +1,6 @@
 using LinqStudio.Abstractions;
 using LinqStudio.Abstractions.Models;
+using LinqStudio.Core.Models;
 using LinqStudio.Core.Services;
 
 namespace LinqStudio.Core.Tests;
@@ -232,7 +233,7 @@ public class DbContextGeneratorTests
 			],
 			ForeignKeys =
 			[
-				new ForeignKey { Name = "FK_Orders_Customers", ColumnName = "CustomerId", ReferencedTable = "Customers", ReferencedColumn = "Id" }
+				new ForeignKey { Name = "FK_Orders_Customers", ColumnName = "CustomerId", ReferencedTable = "dbo.Customers", ReferencedColumn = "Id" }
 			]
 		};
 		var customersDetail = new DatabaseTableDetail
@@ -262,6 +263,109 @@ public class DbContextGeneratorTests
 		Assert.Contains("public virtual Customers? Customer", ordersCode);
 		// Parent side (Customers): collection nav prop for child class "Orders"
 		Assert.Contains("ICollection<Orders>", customersCode);
+	}
+
+	[Fact]
+	public async Task GenerateAsync_CustomOneToMany_UsesConfiguredNavigationsAndKeys()
+	{
+		var principalTable = new DatabaseTableName { Name = "Customers" };
+		var dependentTable = new DatabaseTableName { Name = "Orders" };
+		var principalDetail = new DatabaseTableDetail
+		{
+			Name = "Customers",
+			Columns =
+			[
+				new TableColumn { Name = "Id", DataType = "int", GenericType = DbColumnType.Int32, IsNullable = false, IsPrimaryKey = true, IsIdentity = false }
+			],
+			ForeignKeys = []
+		};
+		var dependentDetail = new DatabaseTableDetail
+		{
+			Name = "Orders",
+			Columns =
+			[
+				new TableColumn { Name = "Id", DataType = "int", GenericType = DbColumnType.Int32, IsNullable = false, IsPrimaryKey = true, IsIdentity = false },
+				new TableColumn { Name = "CustomerId", DataType = "int", GenericType = DbColumnType.Int32, IsNullable = false, IsPrimaryKey = false, IsIdentity = false }
+			],
+			ForeignKeys = []
+		};
+		var relationship = new CustomRelationship
+		{
+			PrincipalTable = "Customers",
+			DependentTable = "Orders",
+			Cardinality = RelationshipCardinality.OneToMany,
+			IsRequired = true,
+			PrincipalNavigation = "OrdersPlaced",
+			DependentNavigation = "CustomerAccount",
+			DeleteBehavior = RelationshipDeleteBehavior.Cascade,
+			KeyPairs =
+			[
+				new RelationshipKeyPair { PrincipalColumn = "Id", DependentColumn = "CustomerId" }
+			]
+		};
+
+		var fake = new FakeGenerator(
+			[principalTable, dependentTable],
+			new Dictionary<string, DatabaseTableDetail>
+			{
+				["Customers"] = principalDetail,
+				["Orders"] = dependentDetail
+			});
+		var result = await _generator.GenerateAsync(fake, [relationship]);
+
+		Assert.Contains("public virtual Customers CustomerAccount", result.ModelFiles["Orders.cs"]);
+		Assert.Contains("public virtual ICollection<Orders> OrdersPlaced", result.ModelFiles["Customers.cs"]);
+		Assert.Contains(
+			"modelBuilder.Entity<Orders>().HasOne(e => e.CustomerAccount).WithMany(e => e.OrdersPlaced).HasForeignKey(e => e.CustomerId).HasPrincipalKey(e => e.Id).OnDelete(DeleteBehavior.Cascade);",
+			result.DbContextCode);
+	}
+
+	[Fact]
+	public async Task GenerateAsync_CustomManyToMany_GeneratesCollectionsAndWithMany()
+	{
+		var leftTable = new DatabaseTableName { Name = "Users" };
+		var rightTable = new DatabaseTableName { Name = "Roles" };
+		var leftDetail = new DatabaseTableDetail
+		{
+			Name = "Users",
+			Columns =
+			[
+				new TableColumn { Name = "Id", DataType = "int", GenericType = DbColumnType.Int32, IsNullable = false, IsPrimaryKey = true, IsIdentity = false }
+			],
+			ForeignKeys = []
+		};
+		var rightDetail = new DatabaseTableDetail
+		{
+			Name = "Roles",
+			Columns =
+			[
+				new TableColumn { Name = "Id", DataType = "int", GenericType = DbColumnType.Int32, IsNullable = false, IsPrimaryKey = true, IsIdentity = false }
+			],
+			ForeignKeys = []
+		};
+		var relationship = new CustomRelationship
+		{
+			PrincipalTable = "Users",
+			DependentTable = "Roles",
+			Cardinality = RelationshipCardinality.ManyToMany,
+			PrincipalNavigation = "Roles",
+			DependentNavigation = "Users",
+		};
+
+		var fake = new FakeGenerator(
+			[leftTable, rightTable],
+			new Dictionary<string, DatabaseTableDetail>
+			{
+				["Users"] = leftDetail,
+				["Roles"] = rightDetail
+			});
+		var result = await _generator.GenerateAsync(fake, [relationship]);
+
+		Assert.Contains("ICollection<Users> Users", result.ModelFiles["Roles.cs"]);
+		Assert.Contains("ICollection<Roles> Roles", result.ModelFiles["Users.cs"]);
+		Assert.Contains(
+			"modelBuilder.Entity<Roles>().HasMany(e => e.Users).WithMany(e => e.Roles);",
+			result.DbContextCode);
 	}
 
 	[Fact]

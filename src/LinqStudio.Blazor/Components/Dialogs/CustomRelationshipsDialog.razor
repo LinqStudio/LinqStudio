@@ -1,0 +1,227 @@
+@using LinqStudio.Core.Models
+@using LinqStudio.Abstractions.Models
+@using BlazorMonaco
+@using BlazorMonaco.Editor
+
+<MudDialog Class="custom-relationships-dialog" data-testid="custom-relationships-dialog">
+	<TitleContent>
+		<MudText Typo="Typo.h6">@SharedResource.CustomRelationships_Title</MudText>
+	</TitleContent>
+	<DialogContent>
+		<div class="custom-relationships-dialog-content"
+			 style="height:100%;">
+		@if (_isLoading)
+		{
+			<MudStack AlignItems="AlignItems.Center" Class="pa-6">
+				<MudProgressCircular Indeterminate="true" data-testid="custom-relationships-loading" />
+			</MudStack>
+		}
+		else
+		{
+			<MudTabs Rounded="true" KeepPanelsAlive="true" @bind-ActivePanelIndex="_activeTab">
+				<MudTabPanel Text="@SharedResource.CustomRelationships_Tab_DbContext">
+					<MudStack Spacing="2" Class="pa-2">
+						<MudText Typo="Typo.body2">@SharedResource.CustomRelationships_DbContext_Help</MudText>
+						<MudTextField T="string"
+									  @bind-Value="_onConfigureCode"
+									  Label="@SharedResource.CustomRelationships_DbContext_ManualCode"
+									  Variant="Variant.Outlined"
+									  Lines="8"
+									  Immediate="true"
+									  data-testid="custom-relationships-manual-code" />
+						<MudText Typo="Typo.subtitle2">@SharedResource.CustomRelationships_DbContext_FinalVersion</MudText>
+						<MudTextField T="string"
+									  Value="@FinalOnConfigureCode"
+									  ReadOnly="true"
+									  Variant="Variant.Outlined"
+									  Lines="12"
+									  data-testid="custom-relationships-final-code" />
+					</MudStack>
+				</MudTabPanel>
+				<MudTabPanel Text="@SharedResource.CustomRelationships_Tab_Models">
+					<MudGrid Spacing="2" Class="pa-2">
+						<MudItem xs="12" sm="4">
+							<MudText Typo="Typo.subtitle2">@SharedResource.CustomRelationships_Models_Models</MudText>
+							<MudList T="DatabaseTableDetail" Dense="true" data-testid="custom-relationships-model-list">
+								@foreach (var model in _tables)
+								{
+									<MudListItem T="DatabaseTableDetail"
+												 @key="model.FullName"
+												 OnClick="@(() => SelectModel(model))"
+												 Class="custom-relationship-model"
+												 Style="@GetModelItemStyle(model)"
+												 data-testid="@($"custom-relationship-model-{model.FullName}")">
+										<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+											@if (ReferenceEquals(_selectedModel, model))
+											{
+												<MudIcon Icon="@Icons.Material.Filled.RadioButtonChecked"
+														 Color="Color.Primary"
+														 Size="Size.Small" />
+											}
+											<MudText Color="@(ReferenceEquals(_selectedModel, model) ? Color.Primary : Color.Default)"
+													 Typo="@(ReferenceEquals(_selectedModel, model) ? Typo.subtitle2 : Typo.body1)">
+												@model.FullName
+											</MudText>
+										</MudStack>
+									</MudListItem>
+								}
+							</MudList>
+						</MudItem>
+						<MudItem xs="12" sm="8">
+							@if (_selectedModel is null)
+							{
+								<MudText Color="Color.Secondary">@SharedResource.CustomRelationships_Models_SelectModel</MudText>
+							}
+							else
+							{
+								<MudStack Spacing="2">
+									<MudAlert Severity="Severity.Info" Variant="Variant.Outlined" data-testid="custom-relationship-selected-model">
+										<MudText Typo="Typo.subtitle2">@SharedResource.CustomRelationships_Models_Editing</MudText>
+										<MudText Typo="Typo.body1">@_selectedModel.FullName</MudText>
+									</MudAlert>
+									@if (_selectedRelationships.Count > 0)
+									{
+										<MudList T="CustomRelationship" Dense="true" data-testid="custom-relationship-list">
+											@foreach (var relationship in _selectedRelationships)
+											{
+												<MudListItem T="CustomRelationship" @key="relationship.Id" OnClick="@(() => EditRelationship(relationship))">
+													<MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+														<MudText>@($"{relationship.PrincipalTable} → {relationship.DependentTable} ({GetCardinalityLabel(relationship.Cardinality)})")</MudText>
+														<span @onclick:stopPropagation="true">
+															<MudIconButton Icon="@Icons.Material.Filled.Delete"
+																		   Color="Color.Error"
+																		   Size="Size.Small"
+																		   OnClick="@(() => RemoveRelationship(relationship))"
+																		   data-testid="@($"custom-relationship-delete-{relationship.Id}")" />
+														</span>
+													</MudStack>
+												</MudListItem>
+											}
+										</MudList>
+									}
+									<MudTooltip Text="@Format(SharedResource.CustomRelationships_Form_LinkToTableTooltip, GetModelName(_selectedModel.FullName))" Placement="Placement.Top">
+									<MudSelect T="string" Value="_editRelationship.PrincipalTable" ValueChanged="PrincipalTableChanged" Label="@SharedResource.CustomRelationships_Form_LinkToTable" Variant="Variant.Outlined" Dense="true" data-testid="custom-relationship-principal-table">
+										@foreach (var table in _tables)
+										{
+											<MudSelectItem T="string" Value="@table.FullName">@table.FullName</MudSelectItem>
+										}
+									</MudSelect>
+									</MudTooltip>
+									<MudTooltip Text="@GetCardinalityTooltip()" Placement="Placement.Top">
+									<MudSelect T="RelationshipCardinality" @bind-Value="_editRelationship.Cardinality" Label="@SharedResource.CustomRelationships_Form_Cardinality" Variant="Variant.Outlined" Dense="true" data-testid="custom-relationship-cardinality">
+										@foreach (var cardinality in Enum.GetValues<RelationshipCardinality>())
+										{
+											<MudSelectItem T="RelationshipCardinality" Value="@cardinality">@GetCardinalityLabel(cardinality)</MudSelectItem>
+										}
+									</MudSelect>
+									</MudTooltip>
+									<MudTooltip Text="@Format(SharedResource.CustomRelationships_Form_RequiredTooltip, GetModelName(_selectedModel.FullName), GetModelName(_editRelationship.PrincipalTable))" Placement="Placement.Top">
+										<MudCheckBox @bind-Value="_editRelationship.IsRequired" Label="@Format(SharedResource.CustomRelationships_Form_Required, GetModelName(_selectedModel.FullName), GetModelName(_editRelationship.PrincipalTable))" Color="Color.Primary" data-testid="custom-relationship-required" />
+									</MudTooltip>
+									<MudTooltip Text="@SharedResource.CustomRelationships_Form_DeleteBehaviorTooltip" Placement="Placement.Top">
+									<MudSelect T="RelationshipDeleteBehavior" @bind-Value="_editRelationship.DeleteBehavior" Label="@SharedResource.CustomRelationships_Form_DeleteBehavior" Variant="Variant.Outlined" Dense="true">
+										@foreach (var behavior in Enum.GetValues<RelationshipDeleteBehavior>())
+										{
+											<MudSelectItem T="RelationshipDeleteBehavior" Value="@behavior">@GetDeleteBehaviorLabel(behavior)</MudSelectItem>
+										}
+									</MudSelect>
+									</MudTooltip>
+									<MudText Typo="Typo.subtitle2">@SharedResource.CustomRelationships_Form_KeyPairs</MudText>
+									@foreach (var pair in _editRelationship.KeyPairs)
+									{
+										<div class="d-flex align-center ga-2" @key="pair">
+											<MudTooltip Text="@Format(SharedResource.CustomRelationships_Form_SelectedColumnTooltip, GetModelName(_selectedModel.FullName))" Placement="Placement.Top">
+												<MudSelect Class="key-pair-column-select" T="string" Value="@pair.DependentColumn" ValueChanged="@(value => DependentColumnChanged(pair, value))" Label="@Format(SharedResource.CustomRelationships_Form_SelectedColumn, GetModelName(_selectedModel.FullName))" Variant="Variant.Outlined" Dense="true">
+												@foreach (var column in _selectedModel.Columns.Select(x => x.Name))
+												{
+													<MudSelectItem T="string" Value="@column">@column</MudSelectItem>
+												}
+											</MudSelect>
+											</MudTooltip>
+											<MudTooltip Text="@Format(SharedResource.CustomRelationships_Form_MatchingKeyTooltip, GetModelName(_editRelationship.PrincipalTable))" Placement="Placement.Top">
+											<MudSelect Class="key-pair-column-select" T="string" Value="@pair.PrincipalColumn" ValueChanged="@(value => PrincipalColumnChanged(pair, value))" Label="@Format(SharedResource.CustomRelationships_Form_MatchingKey, GetModelName(_editRelationship.PrincipalTable))" Variant="Variant.Outlined" Dense="true">
+												@foreach (var column in GetColumns(_editRelationship.PrincipalTable))
+												{
+													<MudSelectItem T="string" Value="@column">@column</MudSelectItem>
+												}
+											</MudSelect>
+											</MudTooltip>
+											<MudIconButton Icon="@Icons.Material.Filled.RemoveCircleOutline" Color="Color.Error" OnClick="@(() => _editRelationship.KeyPairs.Remove(pair))" />
+										</div>
+									}
+									<MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add" OnClick="AddKeyPair" data-testid="custom-relationship-add-key">
+										@SharedResource.CustomRelationships_Form_AddKeyPair
+									</MudButton>
+									<MudText Typo="Typo.subtitle2">@SharedResource.CustomRelationships_Form_Navigation</MudText>
+									<MudTooltip Text="@GetPrincipalNavigationTooltip()" Placement="Placement.Top">
+									<MudTextField T="string" @bind-Value="_editRelationship.PrincipalNavigation" Label="@SharedResource.CustomRelationships_Form_PrincipalNavigation" Placeholder="@SuggestedPrincipalNavigation" Variant="Variant.Outlined" />
+									</MudTooltip>
+									<MudTooltip Text="@GetDependentNavigationTooltip()" Placement="Placement.Top">
+									<MudTextField T="string" @bind-Value="_editRelationship.DependentNavigation" Label="@SharedResource.CustomRelationships_Form_DependentNavigation" Placeholder="@SuggestedDependentNavigation" Variant="Variant.Outlined" />
+									</MudTooltip>
+									<MudStack Row="true" Justify="Justify.FlexEnd">
+										<MudButton Variant="Variant.Outlined" OnClick="StartNewRelationship" data-testid="custom-relationship-new">
+											@SharedResource.CustomRelationships_Form_New
+										</MudButton>
+										<MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="SaveRelationship" data-testid="custom-relationship-save">
+											@SharedResource.CustomRelationships_Form_Save
+										</MudButton>
+									</MudStack>
+								</MudStack>
+							}
+						</MudItem>
+					</MudGrid>
+				</MudTabPanel>
+				<MudTabPanel Text="@SharedResource.CustomRelationships_Tab_GeneratedCode">
+					<MudStack Spacing="2" Class="pa-2 generated-code-tab" Style="height:100%;">
+						<MudText Typo="Typo.body2">
+							@SharedResource.CustomRelationships_GeneratedCode_Help
+						</MudText>
+						@if (_generatedCodeLoading)
+						{
+							<MudProgressLinear Indeterminate="true" data-testid="custom-relationships-generated-code-loading" />
+						}
+						else if (!_generatedCodeLoaded)
+						{
+							<MudAlert Severity="Severity.Info">
+								@SharedResource.CustomRelationships_GeneratedCode_Empty
+							</MudAlert>
+						}
+						else
+						{
+							<MudSelect T="string"
+									   Value="@_selectedGeneratedFile"
+									   ValueChanged="GeneratedFileChanged"
+									   Label="@SharedResource.CustomRelationships_GeneratedCode_File"
+									   Variant="Variant.Outlined"
+									   Dense="true"
+									   data-testid="custom-relationships-generated-file">
+								@foreach (var file in _generatedFiles.Keys)
+								{
+									<MudSelectItem T="string" Value="@file">@file</MudSelectItem>
+								}
+							</MudSelect>
+							<div class="generated-code-editor">
+								@if (_generatedCodeLoaded)
+								{
+									<StandaloneCodeEditor @ref="_generatedCodeEditor"
+														  Id="custom-relationships-generated-code-editor"
+														  CssClass="code-viewer"
+														  ConstructionOptions="GeneratedCodeEditorOptions"
+														  OnDidInit="OnGeneratedCodeEditorInitialized" />
+								}
+							</div>
+						}
+					</MudStack>
+				</MudTabPanel>
+			</MudTabs>
+		}
+		</div>
+	</DialogContent>
+	<DialogActions>
+		<MudButton OnClick="Cancel" data-testid="custom-relationships-cancel">@SharedResource.CustomRelationships_Button_Cancel</MudButton>
+		<MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Save" Disabled="_isLoading" data-testid="custom-relationships-save">
+			@SharedResource.CustomRelationships_Button_Save
+		</MudButton>
+	</DialogActions>
+</MudDialog>

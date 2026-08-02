@@ -6,6 +6,7 @@ using System.Runtime.Loader;
 using LinqStudio.Abstractions;
 using LinqStudio.Abstractions.Models;
 using LinqStudio.Core.Models;
+using LinqStudio.Core.Interfaces;
 using LinqStudio.Core.Settings;
 using LinqStudio.Databases;
 using LinqStudio.Databases.PostgreSQL;
@@ -52,7 +53,10 @@ public sealed class QueryExecutionService(
 			}
 
 			// Generate models and DbContext from project's database
-			var generatorResult = await _generator.GenerateAsync(project.QueryGenerator!, cancellationToken);
+			var generatorResult = await _generator.GenerateAsync(
+				project.QueryGenerator!,
+				project.CustomRelationships,
+				cancellationToken);
 
 			// Step 1-2: Wrap user query in QueryContainer
 			var wrappedQuery = _roslynWorkspaceService.WrapQuery(userQuery, generatorResult.ContextTypeName, generatorResult.Namespace);

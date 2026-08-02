@@ -22,3 +22,11 @@ Replaces native OS file dialogs for browsing, opening, and saving projects. Supp
 - Inline delete (trash icon per item) reloads the list automatically via `IProjectRepository.DeleteProjectAsync`.
 
 > ⚠️ **Known gap (tracked issue):** The inline delete currently has **no confirmation dialog** — one click irreversibly deletes the project. All other destructive actions in NavMenu (New, Open, Close) already guard against data loss. A confirmation step matching the pattern of `ShowUnsavedChangesDialogAsync` should be added here before this dialog is considered production-safe.
+
+### Relationship key inference
+
+`CustomRelationshipsDialog` detects existing foreign-key metadata first, then fills key pairs using principal primary keys and `{PrincipalType}{Key}` naming conventions such as `CustomerId` → `Id`. Suggestions are replaced when the principal changes until the user edits a key pair.
+
+## CustomRelationshipsDialog
+
+Opened from the database connection context menu. It edits a working copy of the project's custom relationship metadata, supports composite key pairs and relationship cardinalities, and persists changes when the parent project is saved.

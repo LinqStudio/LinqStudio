@@ -1,4 +1,6 @@
-namespace LinqStudio.Core.Services;
+using LinqStudio.Core.Services;
+
+namespace LinqStudio.Core.Interfaces;
 
 /// <summary>
 /// Creates an isolated query execution service for a single editor panel.

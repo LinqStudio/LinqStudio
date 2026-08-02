@@ -1,7 +1,7 @@
 using LinqStudio.Abstractions.Models;
 using LinqStudio.Core.Models;
 
-namespace LinqStudio.Core.Services;
+namespace LinqStudio.Core.Interfaces;
 
 /// <summary>
 /// Service for executing LINQ queries against a database and returning results.
