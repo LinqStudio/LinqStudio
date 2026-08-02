@@ -261,8 +261,12 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 		_app.MockQueryExecutionService.ResetSaveChangesCallCount();
 		var clock = page.Locator(".mud-picker-time-clock-mask");
 		await Expect(clock).ToBeVisibleAsync();
-		await clock.Locator(".mud-picker-stick-inner[data-stick-value='6']").ClickAsync(new() { Force = true });
-		await clock.Locator(".mud-time-picker-minute").GetByText("05", new() { Exact = true }).ClickAsync(new() { Force = true });
+		var hour = clock.Locator(".mud-picker-stick-inner[data-stick-value='6']");
+		await Expect(hour).ToBeVisibleAsync();
+		await hour.ClickAsync(new() { Force = true });
+		var minute = clock.Locator(".mud-time-picker-minute").GetByText("05", new() { Exact = true });
+		await Expect(minute).ToBeVisibleAsync();
+		await minute.ClickAsync(new() { Force = true });
 		await Expect(temporalInputs.Nth(1)).ToHaveValueAsync("06:05:00");
 
 		Assert.Equal(new DateTime(2024, 1, 2, 6, 5, 0), row.DateTimeValue);
