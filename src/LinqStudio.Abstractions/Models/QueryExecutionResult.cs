@@ -7,9 +7,9 @@ namespace LinqStudio.Abstractions.Models;
 public record QueryExecutionResult
 {
 	/// <summary>
-	/// The data rows returned by the query. Each row is a dictionary of column name to value.
+	/// The materialized result objects. Entity queries use these for typed editing.
 	/// </summary>
-	public required IReadOnlyList<IReadOnlyDictionary<string, object?>> Rows { get; init; }
+	public required IReadOnlyList<object> Items { get; init; }
 
 	/// <summary>
 	/// The column names in the result set, in the order they appear.
@@ -52,7 +52,7 @@ public record QueryExecutionResult
 	/// </summary>
 	public static QueryExecutionResult Empty(TimeSpan elapsed) => new()
 	{
-		Rows = [],
+		Items = [],
 		ColumnNames = [],
 		Elapsed = elapsed
 	};
@@ -62,7 +62,7 @@ public record QueryExecutionResult
 	/// </summary>
 	public static QueryExecutionResult FromError(string message, bool isCompileError, TimeSpan elapsed) => new()
 	{
-		Rows = [],
+		Items = [],
 		ColumnNames = [],
 		Elapsed = elapsed,
 		ErrorMessage = message,

@@ -1,6 +1,7 @@
 using LinqStudio.Abstractions.Models;
 using LinqStudio.App.WebServer.E2ETests.Fixtures;
 using LinqStudio.App.WebServer.E2ETests.Helpers;
+using Microsoft.Playwright;
 using Xunit;
 using static Microsoft.Playwright.Assertions;
 
@@ -43,17 +44,17 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 		await Expect(resultTable).ToBeVisibleAsync(new() { Timeout = 10000 });
 
 		// Verify column headers exist by data-testid
-		var headerIds = page.Locator("[data-testid='column-header-Id']");
+		var headerIds = resultTable.GetByRole(AriaRole.Columnheader).Filter(new() { HasText = "Id" });
 		await Expect(headerIds).ToBeVisibleAsync();
 
-		var headerName = page.Locator("[data-testid='column-header-Name']");
+		var headerName = resultTable.GetByRole(AriaRole.Columnheader).Filter(new() { HasText = "Name" });
 		await Expect(headerName).ToBeVisibleAsync();
 
-		var headerValue = page.Locator("[data-testid='column-header-Value']");
+		var headerValue = resultTable.GetByRole(AriaRole.Columnheader).Filter(new() { HasText = "Value" });
 		await Expect(headerValue).ToBeVisibleAsync();
 
 		// Verify at least one row is rendered (via first cell)
-		var firstRowCell = page.Locator("[data-testid='cell-0-Id']");
+		var firstRowCell = resultTable.GetByRole(AriaRole.Row).Nth(1).GetByRole(AriaRole.Cell).Nth(0);
 		await Expect(firstRowCell).ToBeVisibleAsync();
 	}
 
@@ -72,10 +73,10 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 		var result = new QueryExecutionResult
 		{
 			ColumnNames = ["Id", "Name", "Value"],
-			Rows =
+			Items =
 			[
-				new Dictionary<string, object?> { ["Id"] = 1, ["Name"] = "First", ["Value"] = null },
-				new Dictionary<string, object?> { ["Id"] = 2, ["Name"] = null, ["Value"] = "HasValue" }
+				new { Id = 1, Name = (string?)"First", Value = (string?)null },
+				new { Id = 2, Name = (string?)null, Value = (string?)"HasValue" }
 			],
 			Elapsed = TimeSpan.FromMilliseconds(12)
 		};
@@ -92,20 +93,20 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 		var resultTable = resultContainer.Locator(".mud-table-root");
 		await Expect(resultTable).ToBeVisibleAsync(new() { Timeout = 10000 });
 
-		// Verify NULL text appears for null cells
-		var cellWithNull = page.Locator("[data-testid='cell-0-Value']");
+		// MudBlazor's default PropertyColumn renderer leaves null cells empty.
+		var cellWithNull = resultTable.GetByRole(AriaRole.Row).Nth(1).GetByRole(AriaRole.Cell).Nth(2);
 		await Expect(cellWithNull).ToBeVisibleAsync();
-		await Expect(cellWithNull).ToContainTextAsync("NULL");
+		await Expect(cellWithNull).ToBeEmptyAsync();
 
-		var anotherNullCell = page.Locator("[data-testid='cell-1-Name']");
+		var anotherNullCell = resultTable.GetByRole(AriaRole.Row).Nth(2).GetByRole(AriaRole.Cell).Nth(1);
 		await Expect(anotherNullCell).ToBeVisibleAsync();
-		await Expect(anotherNullCell).ToContainTextAsync("NULL");
+		await Expect(anotherNullCell).ToBeEmptyAsync();
 
 		// Verify non-null values display correctly
-		var normalCell = page.Locator("[data-testid='cell-0-Name']");
+		var normalCell = resultTable.GetByRole(AriaRole.Row).Nth(1).GetByRole(AriaRole.Cell).Nth(1);
 		await Expect(normalCell).ToContainTextAsync("First");
 
-		var normalCell2 = page.Locator("[data-testid='cell-1-Value']");
+		var normalCell2 = resultTable.GetByRole(AriaRole.Row).Nth(2).GetByRole(AriaRole.Cell).Nth(2);
 		await Expect(normalCell2).ToContainTextAsync("HasValue");
 	}
 
@@ -135,7 +136,7 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 		await Expect(resultTable).ToBeVisibleAsync(new() { Timeout = 10000 });
 
 		// Click a cell — click bubbles up to the row and triggers row selection
-		var cell = page.Locator("[data-testid='cell-0-Name']");
+		var cell = resultTable.GetByRole(AriaRole.Row).Nth(1).GetByRole(AriaRole.Cell).Nth(1);
 		await Expect(cell).ToBeVisibleAsync();
 		await cell.ClickAsync();
 
@@ -176,7 +177,7 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 		await Expect(resultTable).ToBeVisibleAsync(new() { Timeout = 10000 });
 
 		// Click the first row via a cell (cell click triggers row selection)
-		var firstCell = page.Locator("[data-testid='cell-0-Id']");
+		var firstCell = resultTable.GetByRole(AriaRole.Row).Nth(1).GetByRole(AriaRole.Cell).Nth(0);
 		await Expect(firstCell).ToBeVisibleAsync();
 		await firstCell.ClickAsync();
 
@@ -221,7 +222,7 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 		await Expect(resultTable).ToBeVisibleAsync(new() { Timeout = 10000 });
 
 		// Select first row by clicking it
-		var firstRowCell = page.Locator("[data-testid='cell-0-Id']");
+		var firstRowCell = resultTable.GetByRole(AriaRole.Row).Nth(1).GetByRole(AriaRole.Cell).Nth(0);
 		await Expect(firstRowCell).ToBeVisibleAsync();
 		await firstRowCell.ClickAsync();
 
@@ -231,7 +232,7 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 		await Expect(selectionCount).ToContainTextAsync("1", new() { UseInnerText = true });
 
 		// Ctrl+Click second row to add to selection
-		var secondRowCell = page.Locator("[data-testid='cell-1-Id']");
+		var secondRowCell = resultTable.GetByRole(AriaRole.Row).Nth(2).GetByRole(AriaRole.Cell).Nth(0);
 		await Expect(secondRowCell).ToBeVisibleAsync();
 		await secondRowCell.ClickAsync(new() { Modifiers = [Microsoft.Playwright.KeyboardModifier.Control] });
 
@@ -343,7 +344,7 @@ public class QueryResultGridInteractiveE2ETests(AppServerFixture app, Playwright
 		await Expect(resultTable).ToBeVisibleAsync(new() { Timeout = 10000 });
 
 		// Select a row in Tab 1
-		var firstRowCell = page.Locator("[data-testid='cell-0-Id']");
+		var firstRowCell = resultTable.GetByRole(AriaRole.Row).Nth(1).GetByRole(AriaRole.Cell).Nth(0);
 		await Expect(firstRowCell).ToBeVisibleAsync();
 		await firstRowCell.ClickAsync();
 

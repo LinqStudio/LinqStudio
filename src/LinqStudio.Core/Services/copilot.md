@@ -80,6 +80,8 @@ await connectionService.TestConnectionAsync(DatabaseType.Mssql, connectionString
 ## QueryExecutionService
 Query execution is created per `QueryEditorPanel` through `IQueryExecutionServiceFactory`. A successful execution retains its collectible assembly load context and generated `DbContext` for future row-editing operations; the previous pair is asynchronously disposed and unloaded before the next execution, and the service cleans up on disposal.
 
+Entity results retain a reference from each result row dictionary to its tracked entity. `IsEntityResult`, `GetEditableColumns`, `UpdateEntityProperty`, and `SaveChangesAsync` keep scalar editing and persistence behind the query execution service interface.
+
 ### Key Features
 - Compiles LINQ queries to IL using Roslyn
 - Loads compiled assemblies and executes via reflection

@@ -10,16 +10,33 @@ namespace LinqStudio.Blazor.Components;
 
 public partial class QueryResultGrid : ComponentBase
 {
+	public sealed record CellChanged(object Row, string ColumnName, string? Value);
+
 	[Parameter]
 	public QueryExecutionResult? Result { get; set; }
 
 	[Parameter]
 	public bool IsExecuting { get; set; }
 
+	[Parameter]
+	public bool IsEditable { get; set; }
+
+	[Parameter]
+	public IReadOnlySet<string> EditableColumns { get; set; } = new HashSet<string>(StringComparer.Ordinal);
+
+	[Parameter]
+	public object? EditableRow { get; set; }
+
+	[Parameter]
+	public EventCallback<CellChanged> OnCellChanged { get; set; }
+
+	[Parameter]
+	public EventCallback<object> OnRowSelected { get; set; }
+
 	[Inject]
 	private IClipboardService ClipboardService { get; set; } = null!;
 
-	private MudDataGrid<IReadOnlyDictionary<string, object?>>? _dataGrid;
+	private MudDataGrid<object>? _dataGrid;
 	private HashSet<int> _selectedRows = new();
 	private int _lastClickedRowIndex = -1;
 	private QueryExecutionResult? _previousResult;
@@ -47,28 +64,81 @@ public partial class QueryResultGrid : ComponentBase
 		return $"{elapsed.TotalSeconds:F2}s";
 	}
 
-	private int GetRowIndex(IReadOnlyDictionary<string, object?> row)
+	private IReadOnlyList<object> GridItems
+		=> Result?.Items ?? [];
+
+	private bool HasEditableRuntimeItems
+		=> GridItems.Count > 0 && GetRuntimeProperty(Result!.ColumnNames.FirstOrDefault() ?? string.Empty) is not null;
+
+	private System.Reflection.PropertyInfo? GetRuntimeProperty(string columnName)
+		=> GridItems.Count > 0
+			? GridItems[0].GetType().GetProperty(columnName)
+			: null;
+
+	private Dictionary<string, object> GetRuntimeColumnParameters(
+		string columnName,
+		System.Reflection.PropertyInfo property)
+	{
+		var parameters = new Dictionary<string, object>
+		{
+			["ColumnName"] = columnName,
+			["IsEditable"] = IsEditable
+				&& EditableColumns.Contains(columnName)
+				&& SupportsDefaultEditor(property.PropertyType),
+			["OnCellChanged"] = OnCellChanged,
+			["PropertyInfo"] = property
+		};
+
+		return parameters;
+	}
+
+	private static bool SupportsDefaultEditor(Type propertyType)
+	{
+		var type = Nullable.GetUnderlyingType(propertyType) ?? propertyType;
+		return type == typeof(string)
+			|| type == typeof(byte)
+			|| type == typeof(sbyte)
+			|| type == typeof(short)
+			|| type == typeof(ushort)
+			|| type == typeof(int)
+			|| type == typeof(uint)
+			|| type == typeof(long)
+			|| type == typeof(ulong)
+			|| type == typeof(float)
+			|| type == typeof(double)
+			|| type == typeof(decimal);
+	}
+
+	private object? GetCellValue(object item, string columnName)
+	{
+		var property = GetRuntimeProperty(columnName);
+		return property is not null
+			? property.GetValue(item)
+			: columnName == "Value" ? item : null;
+	}
+
+	private int GetRowIndex(object row)
 	{
 		if (Result is null) return -1;
-		for (int i = 0; i < Result.Rows.Count; i++)
+		for (int i = 0; i < GridItems.Count; i++)
 		{
-			if (ReferenceEquals(Result.Rows[i], row))
+			if (ReferenceEquals(GridItems[i], row))
 				return i;
 		}
 		return -1;
 	}
 
-	private string GetRowClass(IReadOnlyDictionary<string, object?> row, int index)
+	private string GetRowClass(object row, int index)
 	{
 		return _selectedRows.Contains(index) ? "row-selected" : "";
 	}
 
-	private void OnMudRowClick(DataGridRowClickEventArgs<IReadOnlyDictionary<string, object?>> args)
+	private async Task OnMudRowClick(DataGridRowClickEventArgs<object> args)
 	{
-		OnRowClick(args.Item, args.MouseEventArgs);
+		await OnRowClick(args.Item, args.MouseEventArgs);
 	}
 
-	private void OnRowClick(IReadOnlyDictionary<string, object?> row, MouseEventArgs e)
+	private async Task OnRowClick(object row, MouseEventArgs e)
 	{
 		var rowIndex = GetRowIndex(row);
 		if (rowIndex == -1)
@@ -96,6 +166,7 @@ public partial class QueryResultGrid : ComponentBase
 		}
 
 		_lastClickedRowIndex = rowIndex;
+		await OnRowSelected.InvokeAsync(row);
 		StateHasChanged();
 	}
 
@@ -116,10 +187,10 @@ public partial class QueryResultGrid : ComponentBase
 
 		foreach (var rowIndex in _selectedRows.OrderBy(i => i))
 		{
-			var row = Result.Rows[rowIndex];
+			var row = GridItems[rowIndex];
 			var values = Result.ColumnNames.Select(col =>
 			{
-				var cellValue = row.GetValueOrDefault(col);
+				var cellValue = GetCellValue(row, col);
 				return cellValue?.ToString() ?? "NULL";
 			});
 			tsv.AppendLine(string.Join("\t", values));

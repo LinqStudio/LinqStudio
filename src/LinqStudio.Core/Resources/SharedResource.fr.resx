@@ -132,6 +132,12 @@
   <data name="Global.MessageBox.Yes" xml:space="preserve">
     <value>Oui</value>
   </data>
+  <data name="QueryEditor.Error.SaveEditedRow" xml:space="preserve">
+    <value>Échec de l'enregistrement de la ligne modifiée.</value>
+  </data>
+  <data name="QueryEditor.Error.UpdateEditedCell" xml:space="preserve">
+    <value>Échec de la mise à jour de la cellule modifiée.</value>
+  </data>
   <data name="SettingsPage.Button.SaveAll" xml:space="preserve">
     <value>Sauvegarder le tout</value>
   </data>

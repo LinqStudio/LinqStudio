@@ -1,12 +1,10 @@
 using BlazorMonaco;
 using BlazorMonaco.Editor;
 using BlazorMonaco.Languages;
-using LinqStudio.Abstractions;
 using LinqStudio.Abstractions.Models;
-using LinqStudio.Blazor.Components.Dialogs;
-using LinqStudio.Blazor.Constants;
 using LinqStudio.Blazor.Extensions;
 using LinqStudio.Blazor.Services;
+using LinqStudio.Core.Resources;
 using LinqStudio.Core.Services;
 using LinqStudio.Core.Settings;
 using Microsoft.AspNetCore.Components;
@@ -115,6 +113,8 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 	private CancellationTokenSource? _executionCts;
 	private int _selectedTimeout = 30;
 	private IQueryExecutionService? _queryExecutionService;
+	private object? _selectedEntity;
+	private IReadOnlySet<string> _editableColumns = new HashSet<string>(StringComparer.Ordinal);
 
 	private bool _delay = true;
 	private bool _splitterInitialized;
@@ -651,6 +651,8 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 			return;
 		}
 
+		await SaveEditedRowAsync();
+
 		_executionCts?.Cancel();
 		_executionCts?.Dispose();
 
@@ -667,6 +669,8 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 		{
 			var result = await _queryExecutionService!.ExecuteQueryAsync(queryText, Workspace.CurrentProject, _executionCts.Token);
 			_result = result;
+			_selectedEntity = null;
+			_editableColumns = _queryExecutionService.GetEditableColumns(result);
 
 			// Update viewer editors if they are already mounted (e.g. user ran a second query
 			// without the editors being unmounted). Since _result = null clears them at the start
@@ -684,9 +688,10 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 
 			if (result.Success)
 			{
-				Snackbar.Add($"Query executed successfully. {result.Rows.Count} row(s) returned.", Severity.Success);
+				Snackbar.Add($"Query executed successfully. {result.Items.Count} row(s) returned.", Severity.Success);
 			}
 		}
+
 		catch (OperationCanceledException)
 		{
 			_result = QueryExecutionResult.FromError("Query execution was cancelled.", false, TimeSpan.Zero);
@@ -703,6 +708,45 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 			_executionCts?.Dispose();
 			_executionCts = null;
 			StateHasChanged();
+		}
+	}
+
+	private async Task OnEntityRowSelected(object entity)
+	{
+		await SaveEditedRowAsync();
+		_selectedEntity = entity;
+	}
+
+	private async Task OnEntityCellChanged(QueryResultGrid.CellChanged change)
+	{
+		try
+		{
+			if (_queryExecutionService is not null)
+				_queryExecutionService.UpdateEntityProperty(change.Row, change.ColumnName, change.Value);
+
+			_selectedEntity ??= change.Row;
+		}
+		catch (Exception ex)
+		{
+			Logger.LogError(ex, "Failed to update edited query result cell.");
+			await ErrorHandlingService.HandleErrorAsync(ex, SharedResource.QueryEditor_Error_UpdateEditedCell);
+		}
+	}
+
+	private async Task SaveEditedRowAsync()
+	{
+		if (_selectedEntity is null || _queryExecutionService is null || _result is null
+			|| !_queryExecutionService.IsEntityResult(_result))
+			return;
+
+		try
+		{
+			await _queryExecutionService.SaveChangesAsync();
+		}
+		catch (Exception ex)
+		{
+			Logger.LogError(ex, "Failed to save edited query result row.");
+			await ErrorHandlingService.HandleErrorAsync(ex, SharedResource.QueryEditor_Error_SaveEditedRow);
 		}
 	}
 
@@ -735,7 +779,7 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 	/// </remarks>
 	public async ValueTask DisposeAsync()
 	{
-		if(_disposed)
+		if (_disposed)
 		{
 			return;
 		}
@@ -780,7 +824,7 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 	/// </remarks>
 	public void Dispose()
 	{
-		if(_disposed)
+		if (_disposed)
 		{
 			return;
 		}

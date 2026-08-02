@@ -21,6 +21,7 @@ The editor info bar contains a "Refresh Schema" button that re-initializes the `
 - All Monaco logic: `_lastQueryText`, `_debounceTokenSource`, `_delay`, `_splitterInitialized`
 - Compiler fallback: creates a `_localCompiler` in `OnEditorInitialized` if the shared `Compiler` param is null
 - Query execution: creates an isolated `IQueryExecutionService` during initialization and disposes it with the panel
+- Entity results expose scalar inputs in `QueryResultGrid`; edits update tracked entities and are saved when the selected result row changes (and before re-execution)
 
 ### Key method: `OnTabActivatedAsync()`
 Called by `Editor.OnActivePanelIndexChanged` when a tab becomes active:

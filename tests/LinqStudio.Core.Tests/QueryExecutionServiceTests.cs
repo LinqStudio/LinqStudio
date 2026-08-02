@@ -23,7 +23,7 @@ public class QueryExecutionServiceTests
 
 		// Assert
 		Assert.NotNull(result);
-		Assert.Empty(result.Rows);
+		Assert.Empty(result.Items);
 		Assert.Empty(result.ColumnNames);
 		Assert.True(result.Success);
 		Assert.Equal(elapsed, result.Elapsed);
@@ -47,7 +47,7 @@ public class QueryExecutionServiceTests
 		Assert.True(result.IsCompileError);
 		Assert.Equal(errorMessage, result.ErrorMessage);
 		Assert.Equal(elapsed, result.Elapsed);
-		Assert.Empty(result.Rows);
+		Assert.Empty(result.Items);
 		Assert.Empty(result.ColumnNames);
 	}
 
@@ -67,7 +67,7 @@ public class QueryExecutionServiceTests
 		Assert.False(result.IsCompileError);
 		Assert.Equal(errorMessage, result.ErrorMessage);
 		Assert.Equal(elapsed, result.Elapsed);
-		Assert.Empty(result.Rows);
+		Assert.Empty(result.Items);
 		Assert.Empty(result.ColumnNames);
 	}
 
@@ -261,4 +261,3 @@ public class QueryExecutionServiceTests
 
 	#endregion
 }
-

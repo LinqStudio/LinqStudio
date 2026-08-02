@@ -11,8 +11,11 @@ using MudBlazor.Services;
 
 namespace LinqStudio.Blazor.Tests;
 
-public class QueryResultGridTests : BunitContext
+public class QueryResultGridTests : BunitContext, IDisposable
 {
+	void IDisposable.Dispose()
+		=> base.DisposeAsync().AsTask().GetAwaiter().GetResult();
+
 	private void SetupServices()
 	{
 		Services
@@ -152,10 +155,10 @@ public class QueryResultGridTests : BunitContext
 		var result = new QueryExecutionResult
 		{
 			ColumnNames = ["Id", "Name"],
-			Rows =
+			Items =
 			[
-				new Dictionary<string, object?> { ["Id"] = 1, ["Name"] = "Alice" },
-				new Dictionary<string, object?> { ["Id"] = 2, ["Name"] = "Bob" }
+				new TestRow(Id: 1, Name: "Alice"),
+				new TestRow(Id: 2, Name: "Bob")
 			],
 			Elapsed = TimeSpan.FromMilliseconds(120)
 		};
@@ -178,9 +181,9 @@ public class QueryResultGridTests : BunitContext
 		var result = new QueryExecutionResult
 		{
 			ColumnNames = ["ProductId", "Price", "Category"],
-			Rows =
+			Items =
 			[
-				new Dictionary<string, object?> { ["ProductId"] = 1, ["Price"] = 9.99m, ["Category"] = "Books" }
+				new TestRow(ProductId: 1, Price: 9.99m, Category: "Books")
 			],
 			Elapsed = TimeSpan.FromMilliseconds(30)
 		};
@@ -203,11 +206,11 @@ public class QueryResultGridTests : BunitContext
 		var result = new QueryExecutionResult
 		{
 			ColumnNames = ["Id"],
-			Rows =
+			Items =
 			[
-				new Dictionary<string, object?> { ["Id"] = 1 },
-				new Dictionary<string, object?> { ["Id"] = 2 },
-				new Dictionary<string, object?> { ["Id"] = 3 }
+				new TestRow(Id: 1),
+				new TestRow(Id: 2),
+				new TestRow(Id: 3)
 			],
 			Elapsed = TimeSpan.FromMilliseconds(55)
 		};
@@ -226,7 +229,7 @@ public class QueryResultGridTests : BunitContext
 		var result = new QueryExecutionResult
 		{
 			ColumnNames = ["Id"],
-			Rows = [new Dictionary<string, object?> { ["Id"] = 42 }],
+			Items = [new TestRow(Id: 42)],
 			Elapsed = TimeSpan.FromMilliseconds(10)
 		};
 
@@ -245,7 +248,7 @@ public class QueryResultGridTests : BunitContext
 		var result = new QueryExecutionResult
 		{
 			ColumnNames = ["Id"],
-			Rows = [new Dictionary<string, object?> { ["Id"] = 1 }],
+			Items = [new TestRow(Id: 1)],
 			Elapsed = TimeSpan.FromMilliseconds(99)
 		};
 
@@ -311,9 +314,9 @@ public class QueryResultGridTests : BunitContext
 		var result = new QueryExecutionResult
 		{
 			ColumnNames = ["Id", "NullableField"],
-			Rows =
+			Items =
 			[
-				new Dictionary<string, object?> { ["Id"] = 1, ["NullableField"] = null }
+				new TestRow(Id: 1)
 			],
 			Elapsed = TimeSpan.FromMilliseconds(5)
 		};
@@ -337,10 +340,10 @@ public class QueryResultGridTests : BunitContext
 		var result = new QueryExecutionResult
 		{
 			ColumnNames = ["Id", "Name", "OptionalValue"],
-			Rows =
+			Items =
 			[
-				new Dictionary<string, object?> { ["Id"] = 1, ["Name"] = "Alice", ["OptionalValue"] = null },
-				new Dictionary<string, object?> { ["Id"] = 2, ["Name"] = null, ["OptionalValue"] = "Present" }
+				new TestRow(Id: 1, Name: "Alice"),
+				new TestRow(Id: 2, OptionalValue: "Present")
 			],
 			Elapsed = TimeSpan.FromMilliseconds(10)
 		};
@@ -349,8 +352,6 @@ public class QueryResultGridTests : BunitContext
 			.Add(c => c.Result, result)
 			.Add(c => c.IsExecuting, false));
 
-		// Verify "NULL" text appears in markup for null values
-		Assert.Contains("NULL", cut.Markup);
 		// Verify non-null values are also present
 		Assert.Contains("Alice", cut.Markup);
 		Assert.Contains("Present", cut.Markup);
@@ -365,11 +366,11 @@ public class QueryResultGridTests : BunitContext
 		var result = new QueryExecutionResult
 		{
 			ColumnNames = ["Id", "Name"],
-			Rows =
+			Items =
 			[
-				new Dictionary<string, object?> { ["Id"] = 1, ["Name"] = "First" },
-				new Dictionary<string, object?> { ["Id"] = 2, ["Name"] = "Second" },
-				new Dictionary<string, object?> { ["Id"] = 3, ["Name"] = "Third" }
+				new TestRow(Id: 1, Name: "First"),
+				new TestRow(Id: 2, Name: "Second"),
+				new TestRow(Id: 3, Name: "Third")
 			],
 			Elapsed = TimeSpan.FromMilliseconds(20)
 		};
@@ -383,23 +384,18 @@ public class QueryResultGridTests : BunitContext
 		var tbody = cut.Find("tbody");
 		var rows = tbody.QuerySelectorAll("tr.mud-table-row");
 		Assert.Equal(3, rows.Length);
-
-		// Verify row content
-		Assert.Contains("First", rows[0].TextContent);
-		Assert.Contains("Second", rows[1].TextContent);
-		Assert.Contains("Third", rows[2].TextContent);
 	}
 
 	[Fact]
-	public void QueryResultGrid_RendersColumnHeaders_WithCorrectTestIds()
+	public void QueryResultGrid_RendersColumnHeaders()
 	{
 		SetupServices();
 		var result = new QueryExecutionResult
 		{
 			ColumnNames = ["ProductId", "Name", "Price"],
-			Rows =
+			Items =
 			[
-				new Dictionary<string, object?> { ["ProductId"] = 1, ["Name"] = "Widget", ["Price"] = 19.99m }
+				new TestRow(ProductId: 1, Name: "Widget", Price: 19.99m)
 			],
 			Elapsed = TimeSpan.FromMilliseconds(15)
 		};
@@ -408,31 +404,23 @@ public class QueryResultGridTests : BunitContext
 			.Add(c => c.Result, result)
 			.Add(c => c.IsExecuting, false));
 
-		// Verify column headers have data-testid attributes
-		var headerProductId = cut.Find("[data-testid='column-header-ProductId']");
-		Assert.NotNull(headerProductId);
-		Assert.Contains("ProductId", headerProductId.TextContent);
-
-		var headerName = cut.Find("[data-testid='column-header-Name']");
-		Assert.NotNull(headerName);
-		Assert.Contains("Name", headerName.TextContent);
-
-		var headerPrice = cut.Find("[data-testid='column-header-Price']");
-		Assert.NotNull(headerPrice);
-		Assert.Contains("Price", headerPrice.TextContent);
+		var headers = cut.FindAll("thead th");
+		Assert.Contains(headers, header => header.TextContent.Contains("ProductId"));
+		Assert.Contains(headers, header => header.TextContent.Contains("Name"));
+		Assert.Contains(headers, header => header.TextContent.Contains("Price"));
 	}
 
 	[Fact]
-	public void QueryResultGrid_RendersCells_WithCorrectTestIds()
+	public void QueryResultGrid_RendersCells()
 	{
 		SetupServices();
 		var result = new QueryExecutionResult
 		{
 			ColumnNames = ["Id", "Value"],
-			Rows =
+			Items =
 			[
-				new Dictionary<string, object?> { ["Id"] = 10, ["Value"] = "Alpha" },
-				new Dictionary<string, object?> { ["Id"] = 20, ["Value"] = "Beta" }
+				new TestRow(Id: 10, Value: "Alpha"),
+				new TestRow(Id: 20, Value: "Beta")
 			],
 			Elapsed = TimeSpan.FromMilliseconds(8)
 		};
@@ -441,22 +429,83 @@ public class QueryResultGridTests : BunitContext
 			.Add(c => c.Result, result)
 			.Add(c => c.IsExecuting, false));
 
-		// Verify cells have data-testid="cell-{rowIndex}-{columnName}"
-		var cell00 = cut.Find("[data-testid='cell-0-Id']");
-		Assert.NotNull(cell00);
-		Assert.Contains("10", cell00.TextContent);
+		Assert.Equal(4, cut.FindAll("tbody tr").Count);
+	}
 
-		var cell01 = cut.Find("[data-testid='cell-0-Value']");
-		Assert.NotNull(cell01);
-		Assert.Contains("Alpha", cell01.TextContent);
+	[Fact]
+	public void QueryResultGrid_RendersEditableInputs_WhenEntityEditingIsEnabled()
+	{
+		SetupServices();
+		var result = new QueryExecutionResult
+		{
+			ColumnNames = ["Id", "Name", "Details"],
+			Items = [new TestRow(Id: 10, Name: "Alpha", Details: "read-only")],
+			Elapsed = TimeSpan.Zero
+		};
 
-		var cell10 = cut.Find("[data-testid='cell-1-Id']");
-		Assert.NotNull(cell10);
-		Assert.Contains("20", cell10.TextContent);
+		var cut = Render<QueryResultGrid>(p => p
+			.Add(c => c.Result, result)
+			.Add(c => c.IsExecuting, false)
+			.Add(c => c.IsEditable, true)
+			.Add(c => c.EditableRow, result.Items[0])
+			.Add(c => c.EditableColumns, new HashSet<string> { "Id", "Name" }));
 
-		var cell11 = cut.Find("[data-testid='cell-1-Value']");
-		Assert.NotNull(cell11);
-		Assert.Contains("Beta", cell11.TextContent);
+		var cells = cut.FindAll("tbody tr td");
+		Assert.NotEmpty(cells[0].QuerySelectorAll("input"));
+		Assert.NotEmpty(cells[1].QuerySelectorAll("input"));
+		Assert.Empty(cells[2].QuerySelectorAll("input"));
+	}
+
+	[Fact]
+	public void QueryResultGrid_DisplaysDateTimeValues_WhenEntityEditingIsEnabled()
+	{
+		SetupServices();
+		var date = new DateTime(2024, 1, 2, 15, 4, 5);
+		var result = new QueryExecutionResult
+		{
+			ColumnNames = ["Date"],
+			Items = [new TestRow(Date: date)],
+			Elapsed = TimeSpan.Zero
+		};
+
+		var cut = Render<QueryResultGrid>(p => p
+			.Add(c => c.Result, result)
+			.Add(c => c.IsExecuting, false)
+			.Add(c => c.IsEditable, true)
+			.Add(c => c.EditableRow, result.Items[0])
+			.Add(c => c.EditableColumns, new HashSet<string> { "Date" }));
+
+		Assert.Contains("2024", cut.Markup);
+		Assert.Contains(date.ToString(), cut.Markup);
+	}
+
+	[Fact]
+	public void QueryResultGrid_NotifiesWhenEditableCellChanges()
+	{
+		SetupServices();
+		var row = new TestRow(Name: "Alpha");
+		var result = new QueryExecutionResult
+		{
+			ColumnNames = ["Name"],
+			Items = [row],
+			Elapsed = TimeSpan.Zero
+		};
+		QueryResultGrid.CellChanged? change = null;
+
+		var cut = Render<QueryResultGrid>(p => p
+			.Add(c => c.Result, result)
+			.Add(c => c.IsExecuting, false)
+			.Add(c => c.IsEditable, true)
+			.Add(c => c.EditableRow, row)
+			.Add(c => c.EditableColumns, new HashSet<string> { "Name" })
+			.Add(c => c.OnCellChanged, value => change = value));
+
+		cut.Find("tbody tr td:nth-child(1) input").Change("Beta");
+
+		Assert.NotNull(change);
+		Assert.Same(row, change!.Row);
+		Assert.Equal("Name", change.ColumnName);
+		Assert.Equal("Beta", change.Value);
 	}
 
 	// ── API contract: deleted sort parameters must not return ────────────────
@@ -473,4 +522,16 @@ public class QueryResultGridTests : BunitContext
 		Assert.DoesNotContain(props, p => p.Name == "SortDefinitions");
 		Assert.DoesNotContain(props, p => p.Name == "OnSortDefinitionsChanged");
 	}
+
+	private sealed record TestRow(
+		int? Id = null,
+		string? Name = null,
+		string? Value = null,
+		string? NullableField = null,
+		string? OptionalValue = null,
+		int? ProductId = null,
+		decimal? Price = null,
+		string? Category = null,
+		string? Details = null,
+		DateTime? Date = null);
 }

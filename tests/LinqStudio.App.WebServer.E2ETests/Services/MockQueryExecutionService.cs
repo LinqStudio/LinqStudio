@@ -61,6 +61,20 @@ public class MockQueryExecutionService : IQueryExecutionService, IQueryExecution
 
 	public IQueryExecutionService Create() => this;
 
+	public bool IsEntityResult(QueryExecutionResult result) => false;
+
+	public IReadOnlySet<string> GetEditableColumns(QueryExecutionResult result) => new HashSet<string>();
+
+	public void UpdateEntityProperty(
+		object entity,
+		string propertyName,
+		string? value)
+	{
+		throw new InvalidOperationException("Entity editing is not supported by the mock service.");
+	}
+
+	public Task SaveChangesAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
 	public void Dispose()
 	{
 	}
