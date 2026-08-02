@@ -54,7 +54,6 @@ else if (Result is not null)
                          RowClick="@OnMudRowClick"
                          RowClassFunc="@GetRowClass"
                          Elevation="0"
-                         @ref="_dataGrid"
                          data-testid="query-result-grid">
                 <Columns>
                     @foreach (var colName in Result.ColumnNames)

@@ -1,0 +1,66 @@
+@typeparam TProperty
+@using MudBlazor
+
+@if (IsDateOnlyProperty)
+{
+    <PropertyColumn T="object"
+                    TProperty="TProperty"
+                    Title="@ColumnName"
+                    Property="@Property"
+                    Editable="@IsEditable">
+        <EditTemplate Context="context">
+            <MudDatePicker Date="@GetDateOnlyValue(context.Item)"
+                           DateChanged="@((DateTime? value) => OnDateOnlyChanged(context.Item, value))"
+                           DateFormat="yyyy-MM-dd"
+                           Margin="Margin.Dense"
+                           Variant="Variant.Text" />
+        </EditTemplate>
+    </PropertyColumn>
+}
+else if (IsDateTimeProperty)
+{
+    <PropertyColumn T="object"
+                    TProperty="TProperty"
+                    Title="@ColumnName"
+                    Property="@Property"
+                    Editable="@IsEditable">
+        <EditTemplate Context="context">
+            <MudStack Row="true" Spacing="1">
+                <MudDatePicker Date="@GetDateValue(context.Item)"
+                               DateChanged="@((DateTime? value) => OnDateChanged(context.Item, value))"
+                               DateFormat="yyyy-MM-dd"
+                               Margin="Margin.Dense"
+                               Variant="Variant.Text" />
+                <MudTimePicker Time="@GetTimeValue(context.Item)"
+                               TimeChanged="@((TimeSpan? value) => OnTimeChanged(context.Item, value))"
+                               TimeFormat="HH:mm:ss"
+                               Margin="Margin.Dense"
+                               Variant="Variant.Text" />
+            </MudStack>
+        </EditTemplate>
+    </PropertyColumn>
+}
+else if (IsTimeSpanProperty)
+{
+    <PropertyColumn T="object"
+                    TProperty="TProperty"
+                    Title="@ColumnName"
+                    Property="@Property"
+                    Editable="@IsEditable">
+        <EditTemplate Context="context">
+            <MudTimePicker Time="@GetTimeValue(context.Item)"
+                           TimeChanged="@((TimeSpan? value) => OnTimeSpanChanged(context.Item, value))"
+                           TimeFormat="HH:mm:ss"
+                           Margin="Margin.Dense"
+                           Variant="Variant.Text" />
+        </EditTemplate>
+    </PropertyColumn>
+}
+else
+{
+    <PropertyColumn T="object"
+                    TProperty="TProperty"
+                    Title="@ColumnName"
+                    Property="@Property"
+                    Editable="@IsEditable" />
+}

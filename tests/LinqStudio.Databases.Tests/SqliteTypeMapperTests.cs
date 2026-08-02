@@ -117,8 +117,8 @@ public class SqliteTypeMapperTests : IClassFixture<SqliteDatabaseFixture>
 	[Theory]
 	[InlineData("DATETIME", DbColumnType.DateTime)]
 	[InlineData("datetime", DbColumnType.DateTime)]
-	[InlineData("DATE", DbColumnType.DateTime)]
-	[InlineData("date", DbColumnType.DateTime)]
+	[InlineData("DATE", DbColumnType.DateOnly)]
+	[InlineData("date", DbColumnType.DateOnly)]
 	[InlineData("TIMESTAMP", DbColumnType.DateTime)]
 	public void MapToGenericType_DateTimeTypes_ReturnsDateTime(string sqliteType, DbColumnType expected)
 	{

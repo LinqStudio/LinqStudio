@@ -11,6 +11,8 @@ public class Customer
 	public required string FirstName { get; set; }
 	public required string LastName { get; set; }
 	public required string Email { get; set; }
+	public DateOnly BirthDate { get; set; }
+	public TimeSpan PreferredTime { get; set; }
 	public DateTime CreatedDate { get; set; }
 	public ICollection<Order> Orders { get; set; } = new List<Order>();
 }
@@ -70,6 +72,8 @@ public static class BogusDataGenerator
 			.RuleFor(c => c.FirstName, f => f.Name.FirstName())
 			.RuleFor(c => c.LastName, f => f.Name.LastName())
 			.RuleFor(c => c.Email, (f, c) => f.Internet.Email(c.FirstName, c.LastName))
+			.RuleFor(c => c.BirthDate, f => DateOnly.FromDateTime(f.Date.Past(2)))
+			.RuleFor(c => c.PreferredTime, f => TimeSpan.FromHours(f.Random.Int(0, 23)))
 			.RuleFor(c => c.CreatedDate, f => f.Date.Past(2));
 
 		return faker.Generate(count);

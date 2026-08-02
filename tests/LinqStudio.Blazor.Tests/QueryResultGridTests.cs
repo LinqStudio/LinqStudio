@@ -5,6 +5,7 @@ using LinqStudio.Blazor.Components;
 using LinqStudio.Blazor.Extensions;
 using LinqStudio.Core.Extensions;
 using LinqStudio.Abstractions.Models;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using MudBlazor;
 using MudBlazor.Services;
@@ -447,7 +448,6 @@ public class QueryResultGridTests : BunitContext, IDisposable
 			.Add(c => c.Result, result)
 			.Add(c => c.IsExecuting, false)
 			.Add(c => c.IsEditable, true)
-			.Add(c => c.EditableRow, result.Items[0])
 			.Add(c => c.EditableColumns, new HashSet<string> { "Id", "Name" }));
 
 		var cells = cut.FindAll("tbody tr td");
@@ -472,15 +472,262 @@ public class QueryResultGridTests : BunitContext, IDisposable
 			.Add(c => c.Result, result)
 			.Add(c => c.IsExecuting, false)
 			.Add(c => c.IsEditable, true)
-			.Add(c => c.EditableRow, result.Items[0])
 			.Add(c => c.EditableColumns, new HashSet<string> { "Date" }));
 
-		Assert.Contains("2024", cut.Markup);
-		Assert.Contains(date.ToString(), cut.Markup);
+		var inputs = cut.FindAll("tbody tr td input");
+		Assert.NotEmpty(inputs);
+		Assert.Contains(inputs, input => !string.IsNullOrWhiteSpace(input.GetAttribute("value")));
+
+		var datePicker = cut.FindComponents<MudDatePicker>();
+		var timePicker = cut.FindComponents<MudTimePicker>();
+		Assert.Single(datePicker);
+		Assert.Single(timePicker);
+		Assert.Equal(date, datePicker[0].Instance.Date);
+		Assert.Equal(date.TimeOfDay, timePicker[0].Instance.Time);
 	}
 
 	[Fact]
-	public void QueryResultGrid_NotifiesWhenEditableCellChanges()
+	public void QueryResultGrid_RendersTimeEditor_WhenTimeSpanIsEditable()
+	{
+		SetupServices();
+		var time = new TimeSpan(15, 4, 5);
+		var result = new QueryExecutionResult
+		{
+			ColumnNames = ["Time"],
+			Items = [new TestRow(Time: time)],
+			Elapsed = TimeSpan.Zero
+		};
+
+		var cut = Render<QueryResultGrid>(p => p
+			.Add(c => c.Result, result)
+			.Add(c => c.IsExecuting, false)
+			.Add(c => c.IsEditable, true)
+			.Add(c => c.EditableColumns, new HashSet<string> { "Time" }));
+
+		Assert.NotEmpty(cut.FindAll("tbody tr td input"));
+	}
+
+	[Fact]
+	public void QueryResultGrid_RendersDateEditor_WhenDateOnlyIsEditable()
+	{
+		SetupServices();
+		var result = new QueryExecutionResult
+		{
+			ColumnNames = ["DateOnlyValue"],
+			Items = [new TestRow(DateOnlyValue: new DateOnly(2024, 1, 2))],
+			Elapsed = TimeSpan.Zero
+		};
+
+		var cut = Render<QueryResultGrid>(p => p
+			.Add(c => c.Result, result)
+			.Add(c => c.IsExecuting, false)
+			.Add(c => c.IsEditable, true)
+			.Add(c => c.EditableColumns, new HashSet<string> { "DateOnlyValue" }));
+
+		Assert.Single(cut.FindComponents<MudDatePicker>());
+		Assert.Empty(cut.FindComponents<MudTimePicker>());
+	}
+
+	[Fact]
+	public async Task QueryResultGrid_UpdatesDateOnly_WhenDatePickerChanges()
+	{
+		SetupServices();
+		var row = new TestRow(DateOnlyValue: new DateOnly(2024, 1, 2));
+		var result = new QueryExecutionResult
+		{
+			ColumnNames = ["DateOnlyValue"],
+			Items = [row],
+			Elapsed = TimeSpan.Zero
+		};
+
+		var cut = Render<QueryResultGrid>(p => p
+			.Add(c => c.Result, result)
+			.Add(c => c.IsExecuting, false)
+			.Add(c => c.IsEditable, true)
+			.Add(c => c.EditableColumns, new HashSet<string> { "DateOnlyValue" }));
+
+		var datePicker = cut.FindComponent<MudDatePicker>();
+		await cut.InvokeAsync(() => datePicker.Instance.DateChanged.InvokeAsync(new DateTime(2024, 2, 3, 18, 30, 0)));
+
+		Assert.Equal(new DateOnly(2024, 2, 3), row.DateOnlyValue);
+	}
+
+	[Fact]
+	public async Task QueryResultGrid_UpdatesDateOnly_WhenDatePickerInputIsClickedAndChanged()
+	{
+		SetupServices();
+		var row = new TestRow(DateOnlyValue: new DateOnly(2024, 1, 2));
+		var result = new QueryExecutionResult
+		{
+			ColumnNames = ["DateOnlyValue"],
+			Items = [row],
+			Elapsed = TimeSpan.Zero
+		};
+
+		var cut = Render<QueryResultGrid>(p => p
+			.Add(c => c.Result, result)
+			.Add(c => c.IsExecuting, false)
+			.Add(c => c.IsEditable, true)
+			.Add(c => c.EditableColumns, new HashSet<string> { "DateOnlyValue" }));
+
+		var input = cut.FindComponent<MudDatePicker>().Find("input");
+		input.Click();
+		await cut.InvokeAsync(() => input.Change("2024-02-03"));
+
+		Assert.Equal(new DateOnly(2024, 2, 3), row.DateOnlyValue);
+	}
+
+	[Fact]
+	public async Task QueryResultGrid_UpdatesDateTimeDate_WhenDatePickerChanges()
+	{
+		SetupServices();
+		var original = new DateTime(2024, 1, 2, 15, 4, 5);
+		var row = new TestRow(Date: original);
+		var result = new QueryExecutionResult
+		{
+			ColumnNames = ["Date"],
+			Items = [row],
+			Elapsed = TimeSpan.Zero
+		};
+		var cut = Render<QueryResultGrid>(p => p
+			.Add(c => c.Result, result)
+			.Add(c => c.IsExecuting, false)
+			.Add(c => c.IsEditable, true)
+			.Add(c => c.EditableColumns, new HashSet<string> { "Date" }));
+
+		var datePicker = cut.FindComponent<MudDatePicker>();
+		await cut.InvokeAsync(() => datePicker.Instance.DateChanged.InvokeAsync(new DateTime(2024, 2, 3)));
+
+		Assert.Equal(new DateTime(2024, 2, 3, 15, 4, 5), row.Date);
+	}
+
+	[Fact]
+	public async Task QueryResultGrid_UpdatesDateTimeDate_WhenDatePickerInputIsClickedAndChanged()
+	{
+		SetupServices();
+		var row = new TestRow(Date: new DateTime(2024, 1, 2, 15, 4, 5));
+		var result = new QueryExecutionResult
+		{
+			ColumnNames = ["Date"],
+			Items = [row],
+			Elapsed = TimeSpan.Zero
+		};
+
+		var cut = Render<QueryResultGrid>(p => p
+			.Add(c => c.Result, result)
+			.Add(c => c.IsExecuting, false)
+			.Add(c => c.IsEditable, true)
+			.Add(c => c.EditableColumns, new HashSet<string> { "Date" }));
+
+		var input = cut.FindComponents<MudDatePicker>()[0].Find("input");
+		input.Click();
+		await cut.InvokeAsync(() => input.Change("2024-02-03"));
+
+		Assert.Equal(new DateTime(2024, 2, 3, 15, 4, 5), row.Date);
+	}
+
+	[Fact]
+	public async Task QueryResultGrid_UpdatesDateTimeTime_WhenTimePickerChanges()
+	{
+		SetupServices();
+		var original = new DateTime(2024, 1, 2, 15, 4, 5);
+		var row = new TestRow(Date: original);
+		var result = new QueryExecutionResult
+		{
+			ColumnNames = ["Date"],
+			Items = [row],
+			Elapsed = TimeSpan.Zero
+		};
+		var cut = Render<QueryResultGrid>(p => p
+			.Add(c => c.Result, result)
+			.Add(c => c.IsExecuting, false)
+			.Add(c => c.IsEditable, true)
+			.Add(c => c.EditableColumns, new HashSet<string> { "Date" }));
+
+		var timePicker = cut.FindComponent<MudTimePicker>();
+		Assert.Equal(original.TimeOfDay, timePicker.Instance.Time);
+		await cut.InvokeAsync(() => timePicker.Instance.TimeChanged.InvokeAsync(new TimeSpan(6, 7, 8)));
+
+		Assert.Equal(new DateTime(2024, 1, 2, 6, 7, 8), row.Date);
+	}
+
+	[Fact]
+	public async Task QueryResultGrid_UpdatesDateTimeTime_WhenTimePickerInputIsClickedAndChanged()
+	{
+		SetupServices();
+		var row = new TestRow(Date: new DateTime(2024, 1, 2, 15, 4, 5));
+		var result = new QueryExecutionResult
+		{
+			ColumnNames = ["Date"],
+			Items = [row],
+			Elapsed = TimeSpan.Zero
+		};
+
+		var cut = Render<QueryResultGrid>(p => p
+			.Add(c => c.Result, result)
+			.Add(c => c.IsExecuting, false)
+			.Add(c => c.IsEditable, true)
+			.Add(c => c.EditableColumns, new HashSet<string> { "Date" }));
+
+		var input = cut.FindComponent<MudTimePicker>().Find("input");
+		input.Click();
+		await cut.InvokeAsync(() => input.Change("06:07:08"));
+
+		Assert.Equal(new DateTime(2024, 1, 2, 6, 7, 8), row.Date);
+	}
+
+	[Fact]
+	public async Task QueryResultGrid_UpdatesTimeSpan_WhenTimePickerChanges()
+	{
+		SetupServices();
+		var row = new TestRow(Time: new TimeSpan(15, 4, 5));
+		var result = new QueryExecutionResult
+		{
+			ColumnNames = ["Time"],
+			Items = [row],
+			Elapsed = TimeSpan.Zero
+		};
+
+		var cut = Render<QueryResultGrid>(p => p
+			.Add(c => c.Result, result)
+			.Add(c => c.IsExecuting, false)
+			.Add(c => c.IsEditable, true)
+			.Add(c => c.EditableColumns, new HashSet<string> { "Time" }));
+
+		var timePicker = cut.FindComponent<MudTimePicker>();
+		Assert.Equal(row.Time, timePicker.Instance.Time);
+		await cut.InvokeAsync(() => timePicker.Instance.TimeChanged.InvokeAsync(new TimeSpan(6, 7, 8)));
+
+		Assert.Equal(new TimeSpan(6, 7, 8), row.Time);
+	}
+
+	[Fact]
+	public async Task QueryResultGrid_UpdatesTimeSpan_WhenTimePickerInputIsClickedAndChanged()
+	{
+		SetupServices();
+		var row = new TestRow(Time: new TimeSpan(15, 4, 5));
+		var result = new QueryExecutionResult
+		{
+			ColumnNames = ["Time"],
+			Items = [row],
+			Elapsed = TimeSpan.Zero
+		};
+
+		var cut = Render<QueryResultGrid>(p => p
+			.Add(c => c.Result, result)
+			.Add(c => c.IsExecuting, false)
+			.Add(c => c.IsEditable, true)
+			.Add(c => c.EditableColumns, new HashSet<string> { "Time" }));
+
+		var input = cut.FindComponent<MudTimePicker>().Find("input");
+		input.Click();
+		await cut.InvokeAsync(() => input.Change("06:07:08"));
+
+		Assert.Equal(new TimeSpan(6, 7, 8), row.Time);
+	}
+
+	[Fact]
+	public void QueryResultGrid_UpdatesEditableCellValue()
 	{
 		SetupServices();
 		var row = new TestRow(Name: "Alpha");
@@ -490,22 +737,15 @@ public class QueryResultGridTests : BunitContext, IDisposable
 			Items = [row],
 			Elapsed = TimeSpan.Zero
 		};
-		QueryResultGrid.CellChanged? change = null;
-
 		var cut = Render<QueryResultGrid>(p => p
 			.Add(c => c.Result, result)
 			.Add(c => c.IsExecuting, false)
 			.Add(c => c.IsEditable, true)
-			.Add(c => c.EditableRow, row)
-			.Add(c => c.EditableColumns, new HashSet<string> { "Name" })
-			.Add(c => c.OnCellChanged, value => change = value));
+			.Add(c => c.EditableColumns, new HashSet<string> { "Name" }));
 
 		cut.Find("tbody tr td:nth-child(1) input").Change("Beta");
 
-		Assert.NotNull(change);
-		Assert.Same(row, change!.Row);
-		Assert.Equal("Name", change.ColumnName);
-		Assert.Equal("Beta", change.Value);
+		Assert.Equal("Beta", row.Name);
 	}
 
 	// ── API contract: deleted sort parameters must not return ────────────────
@@ -533,5 +773,7 @@ public class QueryResultGridTests : BunitContext, IDisposable
 		decimal? Price = null,
 		string? Category = null,
 		string? Details = null,
-		DateTime? Date = null);
+		DateTime? Date = null,
+		DateOnly? DateOnlyValue = null,
+		TimeSpan? Time = null);
 }

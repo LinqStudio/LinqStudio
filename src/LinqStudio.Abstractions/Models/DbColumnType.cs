@@ -90,8 +90,14 @@ public enum DbColumnType
 	String,
 
 	/// <summary>
+	/// Date-only type (C# DateOnly).
+	/// Maps to: SQL Server date, PostgreSQL date, MySQL date, and SQLite date.
+	/// </summary>
+	DateOnly,
+
+	/// <summary>
 	/// Date and time type (C# DateTime).
-	/// Maps to: SQL Server datetime/datetime2/smalldatetime/date, PostgreSQL timestamp/date, MySQL datetime/timestamp/date, SQLite text/real/integer.
+	/// Maps to: SQL Server datetime/datetime2/smalldatetime, PostgreSQL timestamp, MySQL datetime/timestamp, SQLite datetime/timestamp.
 	/// </summary>
 	DateTime,
 

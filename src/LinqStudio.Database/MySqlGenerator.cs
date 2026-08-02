@@ -58,7 +58,8 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 			"enum" or "set" => DbColumnType.String,
 
 			// Date/Time types
-			"date" or "datetime" or "timestamp" or "year" => DbColumnType.DateTime,
+			"date" => DbColumnType.DateOnly,
+			"datetime" or "timestamp" or "year" => DbColumnType.DateTime,
 			"time" => DbColumnType.TimeSpan,
 
 			// Binary types

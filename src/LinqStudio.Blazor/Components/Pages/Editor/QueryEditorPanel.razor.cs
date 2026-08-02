@@ -113,7 +113,6 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 	private CancellationTokenSource? _executionCts;
 	private int _selectedTimeout = 30;
 	private IQueryExecutionService? _queryExecutionService;
-	private object? _selectedEntity;
 	private IReadOnlySet<string> _editableColumns = new HashSet<string>(StringComparer.Ordinal);
 
 	private bool _delay = true;
@@ -669,7 +668,6 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 		{
 			var result = await _queryExecutionService!.ExecuteQueryAsync(queryText, Workspace.CurrentProject, _executionCts.Token);
 			_result = result;
-			_selectedEntity = null;
 			_editableColumns = _queryExecutionService.GetEditableColumns(result);
 
 			// Update viewer editors if they are already mounted (e.g. user ran a second query
@@ -714,30 +712,14 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 	private async Task OnEntityRowSelected(object entity)
 	{
 		await SaveEditedRowAsync();
-		_selectedEntity = entity;
-	}
-
-	private async Task OnEntityCellChanged(QueryResultGrid.CellChanged change)
-	{
-		try
-		{
-			if (_queryExecutionService is not null)
-				_queryExecutionService.UpdateEntityProperty(change.Row, change.ColumnName, change.Value);
-
-			_selectedEntity ??= change.Row;
-		}
-		catch (Exception ex)
-		{
-			Logger.LogError(ex, "Failed to update edited query result cell.");
-			await ErrorHandlingService.HandleErrorAsync(ex, SharedResource.QueryEditor_Error_UpdateEditedCell);
-		}
 	}
 
 	private async Task SaveEditedRowAsync()
 	{
-		if (_selectedEntity is null || _queryExecutionService is null || _result is null
-			|| !_queryExecutionService.IsEntityResult(_result))
+		if (_queryExecutionService is null || _result is null || !_queryExecutionService.IsEntityResult(_result))
+		{
 			return;
+		}
 
 		try
 		{

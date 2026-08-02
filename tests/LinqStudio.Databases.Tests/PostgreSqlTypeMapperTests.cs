@@ -114,9 +114,9 @@ public class PostgreSqlTypeMapperTests : IClassFixture<PostgreSqlDatabaseFixture
 	[Theory]
 	[InlineData("timestamp", DbColumnType.DateTime)]
 	[InlineData("timestamp without time zone", DbColumnType.DateTime)]
-	[InlineData("date", DbColumnType.DateTime)]
+	[InlineData("date", DbColumnType.DateOnly)]
 	[InlineData("TIMESTAMP", DbColumnType.DateTime)]
-	[InlineData("DATE", DbColumnType.DateTime)]
+	[InlineData("DATE", DbColumnType.DateOnly)]
 	public void MapToGenericType_DateTimeTypes_ReturnsDateTime(string pgType, DbColumnType expected)
 	{
 		var result = _generator.MapToGenericType(pgType);

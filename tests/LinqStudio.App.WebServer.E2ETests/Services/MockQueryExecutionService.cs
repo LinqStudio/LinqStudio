@@ -12,6 +12,8 @@ namespace LinqStudio.App.WebServer.E2ETests.Services;
 public class MockQueryExecutionService : IQueryExecutionService, IQueryExecutionServiceFactory
 {
 	private QueryExecutionResult? _nextResult;
+	private QueryExecutionResult? _entityResult;
+	private IReadOnlySet<string> _editableColumns = new HashSet<string>(StringComparer.Ordinal);
 	private readonly object _lock = new();
 
 	/// <summary>
@@ -30,8 +32,28 @@ public class MockQueryExecutionService : IQueryExecutionService, IQueryExecution
 		lock (_lock)
 		{
 			_nextResult = result;
+			_entityResult = null;
+			_editableColumns = new HashSet<string>(StringComparer.Ordinal);
 		}
 	}
+
+	public void SetNextEntityResult(
+		QueryExecutionResult result,
+		IReadOnlySet<string> editableColumns)
+	{
+		lock (_lock)
+		{
+			_nextResult = result;
+			_entityResult = result;
+			_editableColumns = editableColumns;
+			SaveChangesCallCount = 0;
+		}
+	}
+
+	public int SaveChangesCallCount { get; private set; }
+
+	public void ResetSaveChangesCallCount()
+		=> SaveChangesCallCount = 0;
 
 	public async Task<QueryExecutionResult> ExecuteQueryAsync(
 		string userQuery,
@@ -61,9 +83,13 @@ public class MockQueryExecutionService : IQueryExecutionService, IQueryExecution
 
 	public IQueryExecutionService Create() => this;
 
-	public bool IsEntityResult(QueryExecutionResult result) => false;
+	public bool IsEntityResult(QueryExecutionResult result)
+		=> ReferenceEquals(result, _entityResult);
 
-	public IReadOnlySet<string> GetEditableColumns(QueryExecutionResult result) => new HashSet<string>();
+	public IReadOnlySet<string> GetEditableColumns(QueryExecutionResult result)
+		=> ReferenceEquals(result, _entityResult)
+			? _editableColumns
+			: new HashSet<string>();
 
 	public void UpdateEntityProperty(
 		object entity,
@@ -73,7 +99,11 @@ public class MockQueryExecutionService : IQueryExecutionService, IQueryExecution
 		throw new InvalidOperationException("Entity editing is not supported by the mock service.");
 	}
 
-	public Task SaveChangesAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+	public Task SaveChangesAsync(CancellationToken cancellationToken = default)
+	{
+		SaveChangesCallCount++;
+		return Task.CompletedTask;
+	}
 
 	public void Dispose()
 	{

@@ -29,6 +29,7 @@ public sealed class QueryExecutionService(
 	private readonly RoslynWorkspaceService _roslynWorkspaceService = roslynWorkspaceService;
 	private readonly IOptionsMonitor<QueryExecutionSettings> _settings = settings;
 	private readonly ILogger<QueryExecutionService>? _logger = logger;
+	private readonly SemaphoreSlim _saveLock = new(1, 1);
 
 	private AssemblyLoadContext? _lastAssemblyLoadContext;
 	private DbContext? _lastDbContext;
@@ -225,8 +226,16 @@ public sealed class QueryExecutionService(
 
 	public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
 	{
-		if (_lastDbContext is not null)
-			await _lastDbContext.SaveChangesAsync(cancellationToken);
+		await _saveLock.WaitAsync(cancellationToken);
+		try
+		{
+			if (_lastDbContext is not null)
+				await _lastDbContext.SaveChangesAsync(cancellationToken);
+		}
+		finally
+		{
+			_saveLock.Release();
+		}
 	}
 
 	public async ValueTask DisposeAsync()
@@ -362,7 +371,8 @@ public sealed class QueryExecutionService(
 
 		// Check if it's a primitive/simple type
 		if (type.IsPrimitive || type == typeof(string) || type == typeof(decimal)
-			|| type == typeof(DateTime) || type == typeof(DateTimeOffset) || type == typeof(Guid))
+			|| type == typeof(DateOnly) || type == typeof(DateTime)
+			|| type == typeof(DateTimeOffset) || type == typeof(Guid))
 		{
 			var columns = new[] { "Value" };
 			return columns;
@@ -387,6 +397,7 @@ public sealed class QueryExecutionService(
 		return underlyingType == typeof(string)
 			|| underlyingType.IsPrimitive
 			|| underlyingType == typeof(decimal)
+			|| underlyingType == typeof(DateOnly)
 			|| underlyingType == typeof(DateTime)
 			|| underlyingType == typeof(DateTimeOffset)
 			|| underlyingType == typeof(TimeSpan)
@@ -414,6 +425,9 @@ public sealed class QueryExecutionService(
 
 		if (conversionType == typeof(DateTime))
 			return DateTime.Parse(value, CultureInfo.CurrentCulture);
+
+		if (conversionType == typeof(DateOnly))
+			return DateOnly.Parse(value, CultureInfo.CurrentCulture);
 
 		if (conversionType == typeof(DateTimeOffset))
 			return DateTimeOffset.Parse(value, CultureInfo.CurrentCulture);

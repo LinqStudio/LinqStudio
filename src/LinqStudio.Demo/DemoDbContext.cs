@@ -27,6 +27,16 @@ public class DemoDbContext : DbContext
 			entity.Property(e => e.FirstName).IsRequired().HasMaxLength(100);
 			entity.Property(e => e.LastName).IsRequired().HasMaxLength(100);
 			entity.Property(e => e.Email).IsRequired().HasMaxLength(255);
+			entity.Property(e => e.BirthDate)
+				.IsRequired()
+				.HasColumnType("date")
+				.HasConversion(
+					value => value.ToDateTime(TimeOnly.MinValue),
+					value => DateOnly.FromDateTime(value));
+			entity.Property(e => e.PreferredContactTime).IsRequired();
+			entity.Property(e => e.IsActive).IsRequired();
+			entity.Property(e => e.LoyaltyTier).IsRequired();
+			entity.Property(e => e.LifetimePoints).IsRequired();
 			entity.Property(e => e.CreatedDate).IsRequired();
 		});
 
@@ -50,6 +60,8 @@ public class DemoDbContext : DbContext
 			entity.HasKey(e => e.Id);
 			entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
 			entity.Property(e => e.Description).IsRequired().HasMaxLength(1000);
+			entity.Property(e => e.Sku).IsRequired();
+			entity.Property(e => e.WeightKg).IsRequired();
 			entity.Property(e => e.Price).HasPrecision(18, 2);
 			entity.Property(e => e.StockQuantity).IsRequired();
 		});

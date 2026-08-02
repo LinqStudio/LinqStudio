@@ -67,7 +67,8 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 			"char" or "nchar" or "varchar" or "nvarchar" or "text" or "ntext" => DbColumnType.String,
 
 			// Date/Time types
-			"date" or "datetime" or "datetime2" or "smalldatetime" => DbColumnType.DateTime,
+			"date" => DbColumnType.DateOnly,
+			"datetime" or "datetime2" or "smalldatetime" => DbColumnType.DateTime,
 			"time" => DbColumnType.TimeSpan,
 			"datetimeoffset" => DbColumnType.DateTimeOffset,
 

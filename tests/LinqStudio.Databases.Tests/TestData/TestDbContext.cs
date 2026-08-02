@@ -27,6 +27,13 @@ public class TestDbContext : DbContext
 			entity.Property(e => e.FirstName).IsRequired().HasMaxLength(100);
 			entity.Property(e => e.LastName).IsRequired().HasMaxLength(100);
 			entity.Property(e => e.Email).IsRequired().HasMaxLength(255);
+			entity.Property(e => e.BirthDate)
+				.IsRequired()
+				.HasColumnType("date")
+				.HasConversion(
+					value => value.ToDateTime(TimeOnly.MinValue),
+					value => DateOnly.FromDateTime(value));
+			entity.Property(e => e.PreferredTime).IsRequired();
 			entity.Property(e => e.CreatedDate).IsRequired();
 		});
 
