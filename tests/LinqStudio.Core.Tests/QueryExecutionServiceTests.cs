@@ -211,8 +211,8 @@ public class QueryExecutionServiceTests
 				await connection.OpenAsync();
 				await using var command = connection.CreateCommand();
 				command.CommandText = """
-					CREATE TABLE SOMETHING_NAME (Id INTEGER PRIMARY KEY, Value TEXT NOT NULL);
-					INSERT INTO SOMETHING_NAME (Value) VALUES ('expected');
+					CREATE TABLE SOMETHING_NAME (Id INTEGER PRIMARY KEY, SOME_COLUMN TEXT NOT NULL);
+					INSERT INTO SOMETHING_NAME (SOME_COLUMN) VALUES ('expected');
 					""";
 				await command.ExecuteNonQueryAsync();
 			}
@@ -224,7 +224,7 @@ public class QueryExecutionServiceTests
 			{
 				_ = typeof(RequiredAttribute).Assembly;
 				var result = await service.ExecuteQueryAsync(
-					"context.SOMETHINGNAME.Select(row => (object)row)",
+					"context.SOMETHINGNAME.Select(row => (object)row.SOMECOLUMN)",
 					new Project
 					{
 						DatabaseType = DatabaseType.Sqlite,
@@ -233,6 +233,7 @@ public class QueryExecutionServiceTests
 
 				Assert.True(result.Success, result.ErrorMessage);
 				Assert.Single(result.Items);
+				Assert.Equal("expected", result.Items[0]);
 			}
 		}
 		finally
