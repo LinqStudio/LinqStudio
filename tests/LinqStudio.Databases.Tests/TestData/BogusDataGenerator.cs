@@ -73,7 +73,7 @@ public static class BogusDataGenerator
 			.RuleFor(c => c.LastName, f => f.Name.LastName())
 			.RuleFor(c => c.Email, (f, c) => f.Internet.Email(c.FirstName, c.LastName))
 			.RuleFor(c => c.BirthDate, f => DateOnly.FromDateTime(f.Date.Past(2)))
-			.RuleFor(c => c.PreferredTime, f => TimeSpan.FromHours(f.Random.Int(0, 23)))
+			.RuleFor(c => c.PreferredTime, f => TimeSpan.FromHours(f.Random.Int(1, 23)))
 			.RuleFor(c => c.CreatedDate, f => f.Date.Past(2));
 
 		return faker.Generate(count);

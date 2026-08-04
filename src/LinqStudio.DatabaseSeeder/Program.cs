@@ -4,20 +4,15 @@ using Microsoft.EntityFrameworkCore;
 try
 {
 	// Read connection strings from environment (injected by Aspire)
-	var mssqlConnectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DemoMssql");
-	var mysqlConnectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DemoMysql");
-
-	var tasks = new List<Task>();
-
-	if (!string.IsNullOrEmpty(mssqlConnectionString))
+	var targets = new[]
 	{
-		tasks.Add(SeedDatabaseAsync(mssqlConnectionString, DatabaseProvider.SqlServer, "MSSQL"));
-	}
+		new SeedTarget("DemoMssql2024", DatabaseProvider.SqlServer, "MSSQL 2024", new DateTime(2024, 1, 1)),
+		new SeedTarget("DemoMssql2025", DatabaseProvider.SqlServer, "MSSQL 2025", new DateTime(2025, 1, 1)),
+		new SeedTarget("DemoMysql2024", DatabaseProvider.MySql, "MySQL 2024", new DateTime(2024, 1, 1)),
+		new SeedTarget("DemoMysql2025", DatabaseProvider.MySql, "MySQL 2025", new DateTime(2025, 1, 1))
+	};
 
-	if (!string.IsNullOrEmpty(mysqlConnectionString))
-	{
-		tasks.Add(SeedDatabaseAsync(mysqlConnectionString, DatabaseProvider.MySql, "MySQL"));
-	}
+	var tasks = targets.Select(SeedTargetAsync).ToList();
 
 	await Task.WhenAll(tasks);
 	Console.WriteLine("Demo seeding complete.");
@@ -29,14 +24,20 @@ catch (Exception ex)
 	Environment.Exit(1);
 }
 
-static async Task SeedDatabaseAsync(string connectionString, DatabaseProvider provider, string name)
+static async Task SeedTargetAsync(SeedTarget target)
 {
+	var connectionString = Environment.GetEnvironmentVariable($"ConnectionStrings__{target.ConfigurationName}");
+	if (string.IsNullOrEmpty(connectionString))
+	{
+		return;
+	}
+
 	var retries = 10;
 	while (retries-- > 0)
 	{
 		try
 		{
-			var options = provider switch
+			var options = target.Provider switch
 			{
 				DatabaseProvider.SqlServer => new DbContextOptionsBuilder<DemoDbContext>()
 					.UseSqlServer(connectionString).Options,
@@ -47,19 +48,21 @@ static async Task SeedDatabaseAsync(string connectionString, DatabaseProvider pr
 			await using var ctx = new DemoDbContext(options);
 			await using var tx = await ctx.Database.BeginTransactionAsync();
 
-			await DemoSeeder.SeedAsync(ctx);
+			await DemoSeeder.SeedAsync(ctx, target.SnapshotDate);
 
 			await tx.CommitAsync();
-			Console.WriteLine($"[{name}] Seeded successfully.");
+			Console.WriteLine($"[{target.DisplayName}] Seeded successfully.");
 			return;
 		}
 		catch (Exception ex)
 		{
-			Console.WriteLine($"[{name}] Retry {10 - retries}/10: {ex.ToString()}");
+			Console.WriteLine($"[{target.DisplayName}] Retry {10 - retries}/10: {ex}");
 			await Task.Delay(3000);
 		}
 	}
-	throw new Exception($"[{name}] Failed to seed after 10 retries.");
+	throw new Exception($"[{target.DisplayName}] Failed to seed after 10 retries.");
 }
+
+record SeedTarget(string ConfigurationName, DatabaseProvider Provider, string DisplayName, DateTime SnapshotDate);
 
 enum DatabaseProvider { SqlServer, MySql }

@@ -14,15 +14,19 @@ var mysqlPassword = builder.AddParameter("mysql-password", value: "root_password
 // MySQL: Server=127.0.0.1;Port=13306;Database=linqstudio-mysql-demo;User=root;Password=root_password_123;
 var mssql = builder.AddSqlServer("demo-mssql", password: sqlPassword, port: 14330)
 	.WithLifetime(ContainerLifetime.Persistent);
-var mssqlDb = mssql.AddDatabase("linqstudio-mssql-demo");
+var mssql2024Db = mssql.AddDatabase("linqstudio-mssql-2024");
+var mssql2025Db = mssql.AddDatabase("linqstudio-mssql-2025");
 
 var mysql = builder.AddMySql("demo-mysql", password: mysqlPassword, port: 13306)
 	.WithLifetime(ContainerLifetime.Persistent);
-var mysqlDb = mysql.AddDatabase("linqstudio-mysql-demo");
+var mysql2024Db = mysql.AddDatabase("linqstudio-mysql-2024");
+var mysql2025Db = mysql.AddDatabase("linqstudio-mysql-2025");
 
 var seeder = builder.AddProject<Projects.LinqStudio_DatabaseSeeder>("demo-seeder")
-	.WithReference(mssqlDb, "DemoMssql")
-	.WithReference(mysqlDb, "DemoMysql")
+	.WithReference(mssql2024Db, "DemoMssql2024")
+	.WithReference(mssql2025Db, "DemoMssql2025")
+	.WithReference(mysql2024Db, "DemoMysql2024")
+	.WithReference(mysql2025Db, "DemoMysql2025")
 	.WaitFor(mssql)
 	.WaitFor(mysql);
 
@@ -34,8 +38,10 @@ var startMaui = bool.TryParse(builder.Configuration["LinqStudio:Apps:Maui"], out
 if (startWebServer)
 {
 	builder.AddProject<Projects.LinqStudio_App_WebServer>("linqstudio-webserver")
-		.WithReference(mssqlDb, "DemoMssql")
-		.WithReference(mysqlDb, "DemoMysql");
+		.WithReference(mssql2024Db, "DemoMssql2024")
+		.WithReference(mssql2025Db, "DemoMssql2025")
+		.WithReference(mysql2024Db, "DemoMysql2024")
+		.WithReference(mysql2025Db, "DemoMysql2025");
 }
 
 if (startMaui)
@@ -43,8 +49,10 @@ if (startMaui)
 	// MAUI Blazor Hybrid: launches the desktop window (Windows only).
 	// No HTTP health endpoint — Aspire tracks it as a process resource.
 	builder.AddProject<Projects.LinqStudio_App_Maui>("linqstudio-maui")
-		.WithReference(mssqlDb, "DemoMssql")
-		.WithReference(mysqlDb, "DemoMysql");
+		.WithReference(mssql2024Db, "DemoMssql2024")
+		.WithReference(mssql2025Db, "DemoMssql2025")
+		.WithReference(mysql2024Db, "DemoMysql2024")
+		.WithReference(mysql2025Db, "DemoMysql2025");
 }
 
 builder.Build().Run();
