@@ -1,22 +1,17 @@
-using System.Diagnostics;
-using System.ComponentModel;
-using System.Globalization;
-using System.Reflection;
-using System.Runtime.Loader;
 using LinqStudio.Abstractions;
 using LinqStudio.Abstractions.Models;
-using LinqStudio.Core.Models;
 using LinqStudio.Core.Interfaces;
 using LinqStudio.Core.Settings;
-using LinqStudio.Databases;
-using LinqStudio.Databases.PostgreSQL;
-using LinqStudio.Databases.SQLite;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Globalization;
+using System.Reflection;
+using System.Runtime.Loader;
 
 namespace LinqStudio.Core.Services;
 
@@ -30,7 +25,7 @@ public sealed class QueryExecutionService(
 	private readonly RoslynWorkspaceService _roslynWorkspaceService = roslynWorkspaceService;
 	private readonly IOptionsMonitor<QueryExecutionSettings> _settings = settings;
 	private readonly ILogger<QueryExecutionService>? _logger = logger;
-	private readonly SemaphoreSlim _saveLock = new(1, 1);
+	private readonly SemaphoreSlim _executionLock = new(1, 1);
 
 	private AssemblyLoadContext? _lastAssemblyLoadContext;
 	private DbContext? _lastDbContext;
@@ -38,7 +33,20 @@ public sealed class QueryExecutionService(
 	private readonly List<object> _entityItems = [];
 
 	public async Task<QueryExecutionResult> ExecuteQueryAsync(string userQuery, Models.Project project, CancellationToken cancellationToken = default)
-	{ 
+	{
+		await _executionLock.WaitAsync(cancellationToken);
+		try
+		{
+			return await ExecuteQueryCoreAsync(userQuery, project, cancellationToken);
+		}
+		finally
+		{
+			_executionLock.Release();
+		}
+	}
+
+	private async Task<QueryExecutionResult> ExecuteQueryCoreAsync(string userQuery, Models.Project project, CancellationToken cancellationToken)
+	{
 		var stopwatch = Stopwatch.StartNew();
 		try
 		{
@@ -54,7 +62,7 @@ public sealed class QueryExecutionService(
 
 			// Generate models and DbContext from project's database
 			var generatorResult = await _generator.GenerateAsync(
-				project.QueryGenerator!,
+				project.CreateQueryGenerator(),
 				project.CustomRelationships,
 				cancellationToken);
 
@@ -136,7 +144,7 @@ public sealed class QueryExecutionService(
 				{
 					using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
 					using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
-					
+
 					var items = await queryable.ToListAsync(linkedCts.Token);
 					var columnNames = ExtractColumnNames(items);
 
@@ -230,7 +238,7 @@ public sealed class QueryExecutionService(
 
 	public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
 	{
-		await _saveLock.WaitAsync(cancellationToken);
+		await _executionLock.WaitAsync(cancellationToken);
 		try
 		{
 			if (_lastDbContext is not null)
@@ -238,14 +246,23 @@ public sealed class QueryExecutionService(
 		}
 		finally
 		{
-			_saveLock.Release();
+			_executionLock.Release();
 		}
 	}
 
 	public async ValueTask DisposeAsync()
 	{
-		await CleanupExecutionResourcesAsync();
-		GC.SuppressFinalize(this);
+		await _executionLock.WaitAsync();
+		try
+		{
+			await CleanupExecutionResourcesAsync();
+		}
+		finally
+		{
+			_executionLock.Release();
+			_executionLock.Dispose();
+			GC.SuppressFinalize(this);
+		}
 	}
 
 	private async ValueTask CleanupExecutionResourcesAsync()
@@ -364,7 +381,7 @@ public sealed class QueryExecutionService(
 
 	private IReadOnlyList<string> ExtractColumnNames(List<object> items)
 	{
-		if (items.Count == 0) 
+		if (items.Count == 0)
 			return [];
 
 		var firstItem = items[0];

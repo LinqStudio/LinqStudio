@@ -61,14 +61,7 @@ public class Project
 
 			if (!string.IsNullOrEmpty(ConnectionString))
 			{
-				field = DatabaseType switch
-				{
-					DatabaseType.Mssql => MssqlGenerator.Create(ConnectionString),
-					DatabaseType.MySql => MySqlGenerator.Create(ConnectionString),
-					DatabaseType.PostgreSql => PostgreSqlGenerator.Create(ConnectionString),
-					DatabaseType.Sqlite => SqliteGenerator.Create(ConnectionString),
-					_ => throw new NotSupportedException($"Database type {DatabaseType} is not supported.")
-				};
+				field = CreateQueryGenerator();
 
 				return field;
 			}
@@ -76,6 +69,25 @@ public class Project
 			return null;
 		}
 		private set;
+	}
+
+	/// <summary>
+	/// Creates an independent database generator for operations that must not share
+	/// the cached schema connection used by the UI.
+	/// </summary>
+	public IDatabaseQueryGenerator CreateQueryGenerator()
+	{
+		if (string.IsNullOrWhiteSpace(ConnectionString))
+			throw new InvalidOperationException("A connection string is required to create a query generator.");
+
+		return DatabaseType switch
+		{
+			DatabaseType.Mssql => MssqlGenerator.Create(ConnectionString),
+			DatabaseType.MySql => MySqlGenerator.Create(ConnectionString),
+			DatabaseType.PostgreSql => PostgreSqlGenerator.Create(ConnectionString),
+			DatabaseType.Sqlite => SqliteGenerator.Create(ConnectionString),
+			_ => throw new NotSupportedException($"Database type {DatabaseType} is not supported.")
+		};
 	}
 
 	public void UpdateConnection(DatabaseType databaseType, string connectionString)
