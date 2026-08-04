@@ -1,6 +1,6 @@
-using System.Text;
 using LinqStudio.Abstractions.Models;
 using LinqStudio.Core.Models;
+using System.Text;
 
 namespace LinqStudio.Core.CodeGeneration;
 
@@ -134,9 +134,10 @@ internal sealed class DbContextCodeGenerator
 			var className = schema.ClassNameByTableName[table.FullName];
 			var primaryKeyColumns = table.Columns.Where(column => column.IsPrimaryKey).ToList();
 			if (primaryKeyColumns.Count == 0)
-				continue;
-
-			if (primaryKeyColumns.Count == 1)
+			{
+				builder.AppendLine($"        modelBuilder.Entity<{className}>().HasNoKey();");
+			}
+			else if (primaryKeyColumns.Count == 1)
 			{
 				builder.AppendLine(
 					$"        modelBuilder.Entity<{className}>().HasKey(e => e.{CodeGenerationNaming.ToPascalCase(primaryKeyColumns[0].Name)});");

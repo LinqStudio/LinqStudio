@@ -83,6 +83,34 @@ public class DbContextGeneratorTests
 	}
 
 	[Fact]
+	public async Task GenerateAsync_TableWithoutPrimaryKey_ConfiguresKeylessEntity()
+	{
+		var table = new DatabaseTableName { Name = "BIP00" };
+		var detail = new DatabaseTableDetail
+		{
+			Name = "BIP00",
+			Columns =
+			[
+				new TableColumn
+				{
+					Name = "Description",
+					DataType = "nvarchar",
+					GenericType = DbColumnType.String,
+					IsNullable = true,
+					IsPrimaryKey = false,
+					IsIdentity = false
+				}
+			],
+			ForeignKeys = []
+		};
+
+		var fake = new FakeGenerator([table], new Dictionary<string, DatabaseTableDetail> { ["BIP00"] = detail });
+		var result = await _generator.GenerateAsync(fake);
+
+		Assert.Contains("modelBuilder.Entity<BIP00>().HasNoKey();", result.DbContextCode);
+	}
+
+	[Fact]
 	public async Task GenerateAsync_NonNullableStringColumn_HasRequiredAnnotation()
 	{
 		var table = new DatabaseTableName { Name = "Products" };
