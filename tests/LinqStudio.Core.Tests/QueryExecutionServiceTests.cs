@@ -3,8 +3,10 @@ using LinqStudio.Abstractions.Models;
 using LinqStudio.Core.Models;
 using LinqStudio.Core.Services;
 using LinqStudio.Core.Settings;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using System.ComponentModel.DataAnnotations;
 
 namespace LinqStudio.Core.Tests;
 
@@ -194,6 +196,49 @@ public class QueryExecutionServiceTests
 		Assert.NotNull(result);
 		Assert.False(result.Success);
 		Assert.NotNull(result.ErrorMessage);
+	}
+
+	[Fact]
+	public async Task ExecuteQueryAsync_WithUnderscoredTableName_MapsGeneratedEntityToPhysicalTable()
+	{
+		var databasePath = Path.Combine(Path.GetTempPath(), $"linqstudio-{Guid.NewGuid():N}.db");
+		var connectionString = $"Data Source={databasePath};Pooling=False";
+
+		try
+		{
+			await using (var connection = new SqliteConnection(connectionString))
+			{
+				await connection.OpenAsync();
+				await using var command = connection.CreateCommand();
+				command.CommandText = """
+					CREATE TABLE SOMETHING_NAME (Id INTEGER PRIMARY KEY, Value TEXT NOT NULL);
+					INSERT INTO SOMETHING_NAME (Value) VALUES ('expected');
+					""";
+				await command.ExecuteNonQueryAsync();
+			}
+
+			await using (var service = new QueryExecutionService(
+				new DbContextGenerator(),
+				new RoslynWorkspaceService(),
+				CreateSettings()))
+			{
+				_ = typeof(RequiredAttribute).Assembly;
+				var result = await service.ExecuteQueryAsync(
+					"context.SOMETHINGNAME.Select(row => (object)row)",
+					new Project
+					{
+						DatabaseType = DatabaseType.Sqlite,
+						ConnectionString = connectionString
+					});
+
+				Assert.True(result.Success, result.ErrorMessage);
+				Assert.Single(result.Items);
+			}
+		}
+		finally
+		{
+			File.Delete(databasePath);
+		}
 	}
 
 	#endregion

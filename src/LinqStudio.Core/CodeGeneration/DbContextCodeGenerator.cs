@@ -41,6 +41,7 @@ internal sealed class DbContextCodeGenerator
 		builder.AppendLine("    {");
 
 		AppendKeys(builder, schema);
+		AppendTableMappings(builder, schema);
 		AppendCustomRelationships(builder, schema);
 		AppendDateOnlyConversions(builder, schema);
 		builder.AppendLine("    }");
@@ -151,6 +152,20 @@ internal sealed class DbContextCodeGenerator
 			}
 		}
 	}
+
+	private static void AppendTableMappings(StringBuilder builder, GeneratedSchema schema)
+	{
+		foreach (var table in schema.Tables)
+		{
+			var className = schema.ClassNameByTableName[table.FullName];
+			builder.AppendLine(
+				$"        modelBuilder.Entity<{className}>().ToTable(\"{EscapeString(table.Name)}\");");
+		}
+	}
+
+	private static string EscapeString(string value) =>
+		value.Replace("\\", "\\\\", StringComparison.Ordinal)
+			.Replace("\"", "\\\"", StringComparison.Ordinal);
 
 	private static void AppendDateOnlyConversions(StringBuilder builder, GeneratedSchema schema)
 	{
