@@ -23,8 +23,8 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 	/// <summary>Root collection for the MudTreeView — contains the single Connection node.</summary>
 	private List<SchemaTreeNode> _rootNodes = [];
 
-	/// <summary>Back-reference to the Tables folder node for targeted refresh.</summary>
-	private SchemaTreeNode? _tablesFolderNode;
+	/// <summary>Tables folders keyed by database name for targeted refresh.</summary>
+	private Dictionary<string, SchemaTreeNode> _tablesFolderNodes = new(StringComparer.OrdinalIgnoreCase);
 
 	// ── Column-loading state (retained from original) ────────────────────────
 	private Dictionary<string, DatabaseTableDetail> _tableDetailsCache = new();
@@ -41,9 +41,9 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 	private DatabaseType? _trackedDatabaseType;
 
 	/// <summary>
-	/// Exposes the Tables folder node for test assertions.
+	/// Exposes the first Tables folder node for test assertions and compatibility.
 	/// </summary>
-	internal SchemaTreeNode? TablesFolderNode => _tablesFolderNode;
+	internal SchemaTreeNode? TablesFolderNode => _tablesFolderNodes.Values.FirstOrDefault();
 
 	/// <summary>Placeholder node used as Value for the loading-spinner tree item.</summary>
 	private static readonly SchemaTreeNode _spinnerNode = new()
@@ -76,8 +76,8 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 		if (_rootNodes.Count == 0 && Workspace.CurrentProject != null)
 			BuildTree(Workspace.CurrentProject);
 
-		// Load tables if the tables folder exists but has no children yet (initial load).
-		if (_tablesFolderNode != null && !_tablesLoaded && !_isLoading)
+		// Load databases and tables once the connection skeleton exists.
+		if (_rootNodes.Count > 0 && !_tablesLoaded && !_isLoading)
 			await LoadTablesAsync();
 	}
 
@@ -101,7 +101,7 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 		_trackedDatabaseType = newDatabaseType;
 
 		_rootNodes.Clear();
-		_tablesFolderNode = null;
+		_tablesFolderNodes.Clear();
 		_tableDetailsCache.Clear();
 		_loadingTables.Clear();
 		_tablesLoaded = false;
@@ -124,21 +124,12 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 	// ── Tree construction ─────────────────────────────────────────────────────
 
 	/// <summary>
-	/// Builds the Connection → TablesFolder skeleton from the open project.
+	/// Builds the connection skeleton from the open project.
 	/// Tables are populated separately by <see cref="LoadTablesAsync"/>.
 	/// </summary>
 	private void BuildTree(Project project)
 	{
 		var connectionInfo = ConnectionInfo.FromProject(project);
-
-		_tablesFolderNode = new SchemaTreeNode
-		{
-			NodeType = SchemaTreeNodeType.TablesFolder,
-			Label = SharedResource.DatabaseTreeView_Tables,
-			Icon = Icons.Material.Filled.TableChart,
-			ConnectionInfo = connectionInfo,
-			IsExpanded = _expandedNodeKeys.Contains("folder:tables"),
-		};
 
 		var connectionNode = new SchemaTreeNode
 		{
@@ -146,7 +137,6 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 			Label = connectionInfo.DisplayName,
 			Icon = Icons.Material.Filled.Storage,
 			ConnectionInfo = connectionInfo,
-			Children = [_tablesFolderNode],
 			IsExpanded = _expandedNodeKeys.Contains($"connection:{connectionInfo.DisplayName}"),
 		};
 
@@ -167,27 +157,63 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 
 		try
 		{
-			var tables = await Workspace.CurrentProject.QueryGenerator.GetTablesAsync();
-
-			if (_tablesFolderNode != null)
+			var databases = await Workspace.CurrentProject.QueryGenerator.GetDatabasesAsync();
+			var tablesByDatabase = new Dictionary<string, IReadOnlyList<DatabaseTableName>>(StringComparer.OrdinalIgnoreCase);
+			if (databases.Count == 0)
 			{
-				_tablesFolderNode.Children.Clear();
-				foreach (var table in tables
-					.OrderBy(table => table.Schema ?? string.Empty, StringComparer.OrdinalIgnoreCase)
-					.ThenBy(table => table.Name, StringComparer.OrdinalIgnoreCase))
+				var tables = await Workspace.CurrentProject.QueryGenerator.GetTablesAsync();
+				foreach (var group in tables.GroupBy(table => string.IsNullOrWhiteSpace(table.DatabaseName) ? "Database" : table.DatabaseName, StringComparer.OrdinalIgnoreCase))
+					tablesByDatabase[group.Key] = group.ToList();
+				databases = tablesByDatabase.Keys
+					.Select(name => new DatabaseInfo { Name = name })
+					.ToList();
+				if (databases.Count == 0)
+					databases = [new DatabaseInfo { Name = "Database" }];
+			}
+
+			if (_rootNodes.FirstOrDefault() is { } connectionNode)
+			{
+				connectionNode.Children.Clear();
+				_tablesFolderNodes.Clear();
+				foreach (var database in databases.OrderBy(database => database.Name, StringComparer.OrdinalIgnoreCase))
 				{
-					_tablesFolderNode.Children.Add(new SchemaTreeNode
+					var tablesFolderNode = new SchemaTreeNode
 					{
-						NodeType = SchemaTreeNodeType.Table,
-						Label = table.FullName,
-						Icon = Icons.Material.Filled.TableRows,
-						TableName = table,
-						IsExpanded = _expandedNodeKeys.Contains($"table:{table.FullName}"),
-					});
+						NodeType = SchemaTreeNodeType.TablesFolder,
+						Label = SharedResource.DatabaseTreeView_Tables,
+						Icon = Icons.Material.Filled.TableChart,
+						ConnectionInfo = connectionNode.ConnectionInfo,
+						DatabaseInfo = database,
+						IsExpanded = _expandedNodeKeys.Contains($"folder:tables:{database.Name}"),
+					};
+					var databaseNode = new SchemaTreeNode
+					{
+						NodeType = SchemaTreeNodeType.Database,
+						Label = database.Name,
+						Icon = Icons.Material.Filled.Storage,
+						DatabaseInfo = database,
+						Children = [tablesFolderNode],
+						IsExpanded = true,
+					};
+					if (!tablesByDatabase.TryGetValue(database.Name, out var tables))
+						tables = await Workspace.CurrentProject.QueryGenerator.GetTablesAsync(database.Name);
+					foreach (var table in tables
+						.OrderBy(table => table.Schema ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+						.ThenBy(table => table.Name, StringComparer.OrdinalIgnoreCase))
+						tablesFolderNode.Children.Add(new SchemaTreeNode
+						{
+							NodeType = SchemaTreeNodeType.Table,
+							Label = table.FullName,
+							Icon = Icons.Material.Filled.TableRows,
+							TableName = table,
+							IsExpanded = _expandedNodeKeys.Contains($"table:{table.DatabaseName}:{table.FullName}"),
+						});
+					connectionNode.Children.Add(databaseNode);
+					_tablesFolderNodes[database.Name] = tablesFolderNode;
 				}
 			}
 
-			Logger.LogInformation("Loaded {TableCount} tables from database.", tables.Count);
+			Logger.LogInformation("Loaded {DatabaseCount} databases from server.", databases.Count);
 			_tableDetailsCache.Clear();
 			EnsureSelectedNodeExists();
 		}
@@ -216,7 +242,7 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 		if (!expanded || tableNode.TableName == null)
 			return;
 
-		if (_tableDetailsCache.ContainsKey(tableNode.TableName.FullName))
+		if (_tableDetailsCache.ContainsKey(tableNode.Key))
 		{
 			// Columns already cached — populate node children from cache
 			PopulateColumnsFromCache(tableNode);
@@ -233,13 +259,15 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 
 		tableNode.IsLoading = true;
 		tableNode.LoadError = null;
-		_loadingTables.Add(tableNode.TableName.FullName);
+		_loadingTables.Add(tableNode.Key);
 		StateHasChanged();
 
 		try
 		{
-			var tableDetail = await Workspace.CurrentProject.QueryGenerator.GetTableAsync(tableNode.TableName);
-			_tableDetailsCache[tableNode.TableName.FullName] = tableDetail;
+			var tableDetail = string.IsNullOrWhiteSpace(tableNode.TableName.DatabaseName)
+				? await Workspace.CurrentProject.QueryGenerator.GetTableAsync(tableNode.TableName.FullName)
+				: await Workspace.CurrentProject.QueryGenerator.GetTableAsync(tableNode.TableName);
+			_tableDetailsCache[tableNode.Key] = tableDetail;
 
 			tableNode.Children.Clear();
 			foreach (var column in tableDetail.Columns)
@@ -270,7 +298,7 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 		finally
 		{
 			if (tableNode.TableName != null)
-				_loadingTables.Remove(tableNode.TableName.FullName);
+				_loadingTables.Remove(tableNode.Key);
 			tableNode.IsLoading = false;
 			StateHasChanged();
 		}
@@ -279,7 +307,7 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 	private void PopulateColumnsFromCache(SchemaTreeNode tableNode)
 	{
 		if (tableNode.TableName == null
-			|| !_tableDetailsCache.TryGetValue(tableNode.TableName.FullName, out var detail))
+			|| !_tableDetailsCache.TryGetValue(tableNode.Key, out var detail))
 			return;
 
 		tableNode.Children.Clear();
@@ -353,18 +381,36 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 
 	private IEnumerable<SchemaTreeNode> GetVisibleTableNodes()
 	{
-		if (_tablesFolderNode == null)
-			return [];
-
+		var tables = _rootNodes
+			.SelectMany(connection => connection.Children)
+			.SelectMany(database => database.Children)
+			.Where(node => node.NodeType == SchemaTreeNodeType.TablesFolder)
+			.SelectMany(folder => folder.Children);
 		if (string.IsNullOrWhiteSpace(_filterText))
-			return _tablesFolderNode.Children;
+			return tables;
 
-		return _tablesFolderNode.Children.Where(table =>
+		return tables.Where(table =>
 			table.Label.Contains(_filterText, StringComparison.OrdinalIgnoreCase));
 	}
 
-	private string GetTablesFolderLabel()
-		=> $"{_tablesFolderNode?.Label ?? SharedResource.DatabaseTreeView_Tables} ({_tablesFolderNode?.Children.Count ?? 0})";
+	private IEnumerable<SchemaTreeNode> GetVisibleDatabaseNodes()
+		=> _rootNodes.SelectMany(connection => connection.Children).Where(database =>
+			string.IsNullOrWhiteSpace(_filterText)
+			|| database.Label.Contains(_filterText, StringComparison.OrdinalIgnoreCase)
+			|| database.Children.SelectMany(folder => folder.Children)
+				.Any(table => table.Label.Contains(_filterText, StringComparison.OrdinalIgnoreCase)))
+			?? [];
+
+	private IEnumerable<SchemaTreeNode> GetVisibleTableNodes(SchemaTreeNode databaseNode)
+		=> databaseNode.Children
+			.Where(node => node.NodeType == SchemaTreeNodeType.TablesFolder)
+			.SelectMany(folder => folder.Children)
+			.Where(table =>
+			string.IsNullOrWhiteSpace(_filterText)
+			|| table.Label.Contains(_filterText, StringComparison.OrdinalIgnoreCase));
+
+	private static string GetTablesFolderLabel(SchemaTreeNode tablesFolderNode)
+		=> $"{tablesFolderNode.Label} ({tablesFolderNode.Children.Count})";
 
 	private string GetColumnTitle(SchemaTreeNode columnNode)
 		=> string.IsNullOrWhiteSpace(columnNode.ColumnTypeDisplay)
@@ -393,10 +439,10 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 
 	private void EnsureSelectedNodeExists()
 	{
-		if (_selectedNodeKey == null || _tablesFolderNode == null)
+		if (_selectedNodeKey == null)
 			return;
 
-		if (!_tablesFolderNode.Children.Any(table => table.Key == _selectedNodeKey))
+		if (!GetVisibleTableNodes().Any(table => table.Key == _selectedNodeKey))
 			_selectedNodeKey = null;
 	}
 
@@ -460,10 +506,11 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 	/// </summary>
 	internal async Task RefreshTablesFolderAsync()
 	{
-		if (_tablesFolderNode == null)
+		if (_tablesFolderNodes.Count == 0)
 			return;
 
-		_tablesFolderNode.Children.Clear();
+		foreach (var tablesFolderNode in _tablesFolderNodes.Values)
+			tablesFolderNode.Children.Clear();
 		_tableDetailsCache.Clear();
 		_loadingTables.Clear();
 		_tablesLoaded = false;
@@ -477,12 +524,20 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 	/// </summary>
 	internal async Task RefreshTableNodeAsync(SchemaTreeNode tableNode)
 	{
+		if (tableNode.NodeType == SchemaTreeNodeType.Database)
+		{
+			foreach (var tablesFolderNode in tableNode.Children)
+				foreach (var childTable in tablesFolderNode.Children)
+					await RefreshTableNodeAsync(childTable);
+			return;
+		}
+
 		if (tableNode.TableName == null)
 			return;
 
 		tableNode.Children.Clear();
-		_tableDetailsCache.Remove(tableNode.TableName.FullName);
-		_loadingTables.Remove(tableNode.TableName.FullName);
+		_tableDetailsCache.Remove(tableNode.Key);
+		_loadingTables.Remove(tableNode.Key);
 		tableNode.LoadError = null;
 
 		await LoadTableDetailsAsync(tableNode);

@@ -35,6 +35,8 @@ public class MySqlGeneratorTests : BaseGeneratorTests, IClassFixture<MySqlDataba
 	private readonly MySqlDatabaseFixture _fixture;
 
 	protected override IDatabaseQueryGenerator Generator { get; }
+	protected override IDatabaseQueryGenerator GeneratorWithoutDatabase
+		=> new MySqlGenerator(new MySqlConnection(_fixture.ServerConnectionString));
 
 	public MySqlGeneratorTests(MySqlDatabaseFixture fixture)
 	{
@@ -57,5 +59,6 @@ public class MySqlGeneratorTests : BaseGeneratorTests, IClassFixture<MySqlDataba
 		Assert.Contains(tables, t => t.Name == "Orders");
 		Assert.Contains(tables, t => t.Name == "Products");
 		Assert.Contains(tables, t => t.Name == "OrderItems");
+		Assert.All(tables, table => Assert.Equal(_fixture.DbContext.Database.GetDbConnection().Database, table.DatabaseName));
 	}
 }

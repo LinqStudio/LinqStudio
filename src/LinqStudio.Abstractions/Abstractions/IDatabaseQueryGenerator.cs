@@ -8,11 +8,39 @@ namespace LinqStudio.Abstractions;
 public interface IDatabaseQueryGenerator
 {
 	/// <summary>
-	/// Gets a flat list of all tables in the database with their schema and name.
+	/// Gets databases/catalogs visible to the connection.
+	/// </summary>
+	async Task<IReadOnlyList<DatabaseInfo>> GetDatabasesAsync(CancellationToken cancellationToken = default)
+	{
+		var tables = await GetTablesAsync(cancellationToken);
+		return tables
+			.Select(table => table.DatabaseName)
+			.Where(name => !string.IsNullOrWhiteSpace(name))
+			.Distinct(StringComparer.OrdinalIgnoreCase)
+			.Select(name => new DatabaseInfo { Name = name! })
+			.ToList();
+	}
+
+	/// <summary>
+	/// Gets the tables in the connected database with their database, schema, and name.
 	/// </summary>
 	/// <param name="cancellationToken">Cancellation token.</param>
-	/// <returns>List of database tables with basic information (schema and name only).</returns>
+	/// <returns>List of database tables with basic information.</returns>
 	Task<IReadOnlyList<DatabaseTableName>> GetTablesAsync(CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Gets tables from a specific database/catalog.
+	/// </summary>
+	async Task<IReadOnlyList<DatabaseTableName>> GetTablesAsync(
+		string databaseName,
+		CancellationToken cancellationToken = default)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(databaseName, nameof(databaseName));
+		var tables = await GetTablesAsync(cancellationToken);
+		return tables
+			.Where(table => string.Equals(table.DatabaseName, databaseName, StringComparison.OrdinalIgnoreCase))
+			.ToList();
+	}
 
 	/// <summary>
 	/// Gets detailed information about a specific table including columns and foreign keys.
@@ -30,6 +58,7 @@ public interface IDatabaseQueryGenerator
 	/// <returns>Detailed table information including columns and foreign keys.</returns>
 	public Task<DatabaseTableDetail> GetTableAsync(DatabaseTableName table, CancellationToken cancellationToken = default)
 	{
+		ArgumentNullException.ThrowIfNull(table);
 		return GetTableAsync(table.FullName, cancellationToken);
 	}
 

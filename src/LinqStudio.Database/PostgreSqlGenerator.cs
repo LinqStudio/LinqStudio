@@ -9,15 +9,71 @@ namespace LinqStudio.Databases.PostgreSQL;
 /// </summary>
 public class PostgreSqlGenerator : AdoNetDatabaseGeneratorBase
 {
+	private readonly string _connectionString;
+	private readonly string? _explicitDatabaseName;
+
 	/// <summary>
 	/// Creates a new instance of the PostgreSQL generator.
 	/// </summary>
 	/// <param name="connection">Database connection.</param>
 	public PostgreSqlGenerator(DbConnection connection) : base(connection)
 	{
+		_connectionString = connection.ConnectionString;
+		var builder = new Npgsql.NpgsqlConnectionStringBuilder(_connectionString);
+		_explicitDatabaseName = string.IsNullOrWhiteSpace(builder.Database) ? null : builder.Database;
 	}
 
 	public static PostgreSqlGenerator Create(string connectionString) => new(new Npgsql.NpgsqlConnection(connectionString));
+
+	public async Task<IReadOnlyList<DatabaseInfo>> GetDatabasesAsync(CancellationToken cancellationToken = default)
+	{
+		if (_explicitDatabaseName is not null)
+			return [new DatabaseInfo { Name = _explicitDatabaseName, IsExplicitlySelected = true }];
+
+		var wasOpen = Connection.State == ConnectionState.Open;
+		if (!wasOpen)
+			await Connection.OpenAsync(cancellationToken);
+		try
+		{
+			const string query = """
+				SELECT datname
+				FROM pg_database
+				WHERE datallowconn = true
+					AND has_database_privilege(current_user, datname, 'CONNECT')
+				ORDER BY datname
+				""";
+			await using var command = Connection.CreateCommand();
+			command.CommandText = query;
+			await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+			var result = new List<DatabaseInfo>();
+			while (await reader.ReadAsync(cancellationToken))
+				result.Add(new DatabaseInfo
+				{
+					Name = reader.GetString(0),
+					IsExplicitlySelected = string.Equals(reader.GetString(0), Connection.Database, StringComparison.OrdinalIgnoreCase)
+				});
+			return result;
+		}
+
+			finally
+		{
+			if (!wasOpen)
+				await Connection.CloseAsync();
+		}
+	}
+
+	public async Task<IReadOnlyList<DatabaseTableName>> GetTablesAsync(
+			string databaseName,
+			CancellationToken cancellationToken = default)
+		{
+			ArgumentException.ThrowIfNullOrWhiteSpace(databaseName, nameof(databaseName));
+			if (string.Equals(databaseName, Connection.Database, StringComparison.OrdinalIgnoreCase))
+				return await GetTablesAsync(cancellationToken);
+
+			await using var connection = CreateDatabaseConnection(databaseName);
+			await connection.OpenAsync(cancellationToken);
+			return await GetTablesFromConnectionAsync(connection, cancellationToken);
+		}
 
 	/// <inheritdoc/>
 	public override DbColumnType MapToGenericType(string dataType)
@@ -101,6 +157,7 @@ public class PostgreSqlGenerator : AdoNetDatabaseGeneratorBase
 
 		return new DatabaseTableName
 		{
+			DatabaseName = Connection.Database,
 			Schema = schema,
 			Name = tableName
 		};
@@ -128,17 +185,75 @@ public class PostgreSqlGenerator : AdoNetDatabaseGeneratorBase
 
 			return new DatabaseTableDetail
 			{
+				DatabaseName = Connection.Database,
 				Schema = schema,
 				Name = name,
 				Columns = columns,
 				ForeignKeys = foreignKeys
 			};
 		}
-		finally
+
+			finally
 		{
 			if (!wasOpen)
 				await Connection.CloseAsync();
 		}
+	}
+
+	public async Task<DatabaseTableDetail> GetTableAsync(
+		DatabaseTableName table,
+		CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(table);
+		if (string.IsNullOrWhiteSpace(table.DatabaseName)
+			|| string.Equals(table.DatabaseName, Connection.Database, StringComparison.OrdinalIgnoreCase))
+			return await GetTableAsync(table.FullName, cancellationToken);
+
+		await using var connection = CreateDatabaseConnection(table.DatabaseName);
+		await connection.OpenAsync(cancellationToken);
+		var schema = table.Schema ?? "public";
+		return new DatabaseTableDetail
+		{
+			DatabaseName = table.DatabaseName,
+			Schema = schema,
+			Name = table.Name,
+			Columns = await GetColumnsAsync(connection, schema, table.Name, cancellationToken),
+			ForeignKeys = await GetForeignKeysAsync(connection, schema, table.Name, cancellationToken)
+		};
+	}
+
+	private Npgsql.NpgsqlConnection CreateDatabaseConnection(string databaseName)
+	{
+		var builder = new Npgsql.NpgsqlConnectionStringBuilder(_connectionString)
+		{
+			Database = databaseName
+		};
+		return new Npgsql.NpgsqlConnection(builder.ConnectionString);
+	}
+
+	private static async Task<IReadOnlyList<DatabaseTableName>> GetTablesFromConnectionAsync(
+		DbConnection connection,
+		CancellationToken cancellationToken)
+	{
+		const string query = """
+			SELECT table_catalog, table_schema, table_name
+			FROM information_schema.tables
+			WHERE table_type = 'BASE TABLE'
+				AND table_schema NOT IN ('pg_catalog', 'information_schema')
+			ORDER BY table_schema, table_name
+			""";
+		await using var command = connection.CreateCommand();
+		command.CommandText = query;
+		await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+		var tables = new List<DatabaseTableName>();
+		while (await reader.ReadAsync(cancellationToken))
+			tables.Add(new DatabaseTableName
+			{
+				DatabaseName = reader.GetString(0),
+				Schema = reader.GetString(1),
+				Name = reader.GetString(2)
+			});
+		return tables;
 	}
 
 	private async Task<IReadOnlyList<TableColumn>> GetColumnsAsync(DbConnection connection, string? schema, string tableName, CancellationToken cancellationToken)

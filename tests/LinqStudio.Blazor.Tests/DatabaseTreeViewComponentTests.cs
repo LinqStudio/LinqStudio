@@ -219,6 +219,62 @@ public class DatabaseTreeViewComponentTests : BunitContext
 	}
 
 	[Fact]
+	public async Task DatabaseTreeView_ShowsDatabasesBeforeTables_WhenMultipleDatabasesAreAvailable()
+	{
+		SetupServices();
+		var workspace = Services.GetRequiredService<ProjectWorkspace>();
+		await workspace.CreateNewAsync("MyApp");
+
+		var tables = new List<DatabaseTableName>
+		{
+			new() { DatabaseName = "Sales", Schema = "dbo", Name = "Orders" },
+			new() { DatabaseName = "Warehouse", Schema = "dbo", Name = "Products" },
+		};
+		var mockGen = CreateMockGenerator(tables);
+		SetQueryGenerator(workspace.CurrentProject!, mockGen.Object);
+
+		var cut = Render<DatabaseTreeView>();
+
+		cut.WaitForAssertion(() =>
+		{
+			Assert.NotNull(cut.Find("[data-testid='db-tree-database-Sales']"));
+			Assert.NotNull(cut.Find("[data-testid='db-tree-database-Warehouse']"));
+			Assert.NotNull(cut.Find("[data-testid='table-dbo.Orders']"));
+			Assert.NotNull(cut.Find("[data-testid='table-dbo.Products']"));
+
+			var salesDatabase = cut.Find("[data-testid='db-tree-database-Sales']");
+			var tablesFolder = salesDatabase.QuerySelector("[data-testid='db-tree-tables-folder']");
+			Assert.NotNull(tablesFolder);
+			Assert.Contains("Tables", tablesFolder!.TextContent, StringComparison.OrdinalIgnoreCase);
+		}, TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task DatabaseTreeView_ShowsSelectedDatabaseBeforeTables_WhenConnectionSelectsDatabase()
+	{
+		SetupServices();
+		var workspace = Services.GetRequiredService<ProjectWorkspace>();
+		await workspace.CreateNewAsync("MyApp");
+
+		var tables = new List<DatabaseTableName>
+		{
+			new() { DatabaseName = "LinqStudio", Schema = "dbo", Name = "Customers" },
+		};
+		var mockGen = CreateMockGenerator(tables);
+		SetQueryGenerator(workspace.CurrentProject!, mockGen.Object);
+
+		var cut = Render<DatabaseTreeView>();
+
+		cut.WaitForAssertion(() =>
+		{
+			var database = cut.Find("[data-testid='db-tree-database-LinqStudio']");
+			Assert.Contains("LinqStudio", database.TextContent, StringComparison.OrdinalIgnoreCase);
+			Assert.NotNull(database.QuerySelector("[data-testid='db-tree-tables-folder']"));
+			Assert.NotNull(cut.Find("[data-testid='table-dbo.Customers']"));
+		}, TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
 	public async Task DatabaseTreeView_ShowsTableName_WhenNoSchema()
 	{
 		// Arrange — table without a schema: FullName = "Users" (not "null.Users")

@@ -36,6 +36,8 @@ public class PostgreSqlGeneratorTests : BaseGeneratorTests, IClassFixture<Postgr
 	private readonly PostgreSqlDatabaseFixture _fixture;
 
 	protected override IDatabaseQueryGenerator Generator { get; }
+	protected override IDatabaseQueryGenerator GeneratorWithoutDatabase
+		=> new PostgreSqlGenerator(new NpgsqlConnection(_fixture.ServerConnectionString));
 
 	public PostgreSqlGeneratorTests(PostgreSqlDatabaseFixture fixture)
 	{
@@ -62,5 +64,7 @@ public class PostgreSqlGeneratorTests : BaseGeneratorTests, IClassFixture<Postgr
 
 		// PostgreSQL tables should have schema information
 		Assert.All(tables, t => Assert.False(string.IsNullOrWhiteSpace(t.Schema)));
+		Assert.All(tables, t => Assert.Equal(_fixture.DbContext.Database.GetDbConnection().Database, t.DatabaseName));
+		Assert.DoesNotContain(tables, t => t.Name == "OtherOnlyTable");
 	}
 }

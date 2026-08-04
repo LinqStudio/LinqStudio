@@ -61,7 +61,11 @@ public class SqliteGeneratorTests : BaseGeneratorTests, IClassFixture<SqliteData
 		{
 			// Create a simple table using raw SQL
 			using var createCmd = connection.CreateCommand();
-			createCmd.CommandText = "CREATE TABLE TestTable (Id INTEGER PRIMARY KEY, Name TEXT);";
+			createCmd.CommandText = """
+				CREATE TABLE TestTable (Id INTEGER PRIMARY KEY, Name TEXT);
+				ATTACH DATABASE ':memory:' AS other;
+				CREATE TABLE other.OtherOnlyTable (Id INTEGER PRIMARY KEY);
+				""";
 			await createCmd.ExecuteNonQueryAsync();
 
 			var generator = new SqliteGenerator(connection);
@@ -69,6 +73,8 @@ public class SqliteGeneratorTests : BaseGeneratorTests, IClassFixture<SqliteData
 
 			Assert.NotEmpty(tables);
 			Assert.Contains(tables, t => t.Name == "TestTable");
+			Assert.All(tables, t => Assert.Equal("main", t.DatabaseName));
+			Assert.DoesNotContain(tables, t => t.Name == "OtherOnlyTable");
 		}
 		finally
 		{

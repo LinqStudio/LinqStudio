@@ -19,6 +19,28 @@ public class SqliteGenerator : AdoNetDatabaseGeneratorBase
 
 	public static SqliteGenerator Create(string connectionString) => new(new Microsoft.Data.Sqlite.SqliteConnection(connectionString));
 
+	public async Task<IReadOnlyList<DatabaseInfo>> GetDatabasesAsync(CancellationToken cancellationToken = default)
+	{
+		var wasOpen = Connection.State == ConnectionState.Open;
+		if (!wasOpen)
+			await Connection.OpenAsync(cancellationToken);
+		try
+		{
+			await using var command = Connection.CreateCommand();
+			command.CommandText = "PRAGMA database_list";
+			await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+			var result = new List<DatabaseInfo>();
+			while (await reader.ReadAsync(cancellationToken))
+				result.Add(new DatabaseInfo { Name = reader.GetString(1) });
+			return result;
+		}
+		finally
+		{
+			if (!wasOpen)
+				await Connection.CloseAsync();
+		}
+	}
+
 	/// <inheritdoc/>	
 	public override DbColumnType MapToGenericType(string dataType)
 	{
@@ -147,6 +169,7 @@ public class SqliteGenerator : AdoNetDatabaseGeneratorBase
 				var tableName = reader.GetString(0);
 				tables.Add(new DatabaseTableName
 				{
+					DatabaseName = "main",
 					Schema = "main",
 					Name = tableName
 				});
@@ -159,6 +182,32 @@ public class SqliteGenerator : AdoNetDatabaseGeneratorBase
 		}
 
 		return tables;
+	}
+
+	public async Task<IReadOnlyList<DatabaseTableName>> GetTablesAsync(
+		string databaseName,
+		CancellationToken cancellationToken = default)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(databaseName, nameof(databaseName));
+		var wasOpen = Connection.State == ConnectionState.Open;
+		if (!wasOpen)
+			await Connection.OpenAsync(cancellationToken);
+		try
+		{
+			var identifier = databaseName.Replace("\"", "\"\"", StringComparison.Ordinal);
+			await using var command = Connection.CreateCommand();
+			command.CommandText = $"SELECT name FROM \"{identifier}\".sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name";
+			await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+			var result = new List<DatabaseTableName>();
+			while (await reader.ReadAsync(cancellationToken))
+				result.Add(new DatabaseTableName { DatabaseName = databaseName, Schema = databaseName, Name = reader.GetString(0) });
+			return result;
+		}
+		finally
+		{
+			if (!wasOpen)
+				await Connection.CloseAsync();
+		}
 	}
 
 	/// <inheritdoc/>
@@ -176,13 +225,14 @@ public class SqliteGenerator : AdoNetDatabaseGeneratorBase
 		try
 		{
 			// Get columns using database-specific query
-			var columns = await GetColumnsAsync(Connection, name, cancellationToken);
+			var columns = await GetColumnsAsync(Connection, schema, name, cancellationToken);
 
 			// Get foreign keys using database-specific query
-			var foreignKeys = await GetForeignKeysAsync(Connection, name, cancellationToken);
+			var foreignKeys = await GetForeignKeysAsync(Connection, schema, name, cancellationToken);
 
 			return new DatabaseTableDetail
 			{
+				DatabaseName = schema,
 				Schema = schema,
 				Name = name,
 				Columns = columns,
@@ -196,15 +246,46 @@ public class SqliteGenerator : AdoNetDatabaseGeneratorBase
 		}
 	}
 
-	private async Task<IReadOnlyList<TableColumn>> GetColumnsAsync(DbConnection connection, string tableName, CancellationToken cancellationToken)
+	public async Task<DatabaseTableDetail> GetTableAsync(
+		DatabaseTableName table,
+		CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(table);
+		var databaseName = string.IsNullOrWhiteSpace(table.DatabaseName) ? "main" : table.DatabaseName;
+		var schema = string.IsNullOrWhiteSpace(table.Schema) ? databaseName : table.Schema;
+		var wasOpen = Connection.State == ConnectionState.Open;
+		if (!wasOpen)
+			await Connection.OpenAsync(cancellationToken);
+		try
+		{
+			return new DatabaseTableDetail
+			{
+				DatabaseName = databaseName,
+				Schema = schema,
+				Name = table.Name,
+				Columns = await GetColumnsAsync(Connection, databaseName, table.Name, cancellationToken),
+				ForeignKeys = await GetForeignKeysAsync(Connection, databaseName, table.Name, cancellationToken)
+			};
+		}
+		finally
+		{
+			if (!wasOpen)
+				await Connection.CloseAsync();
+		}
+	}
+
+	private async Task<IReadOnlyList<TableColumn>> GetColumnsAsync(
+		DbConnection connection,
+		string databaseName,
+		string tableName,
+		CancellationToken cancellationToken)
 	{
 		var columns = new List<TableColumn>();
 
 		// SQLite: use PRAGMA table_info to get columns
 		// Note: PRAGMA commands don't support parameterized table names
 		// Sanitize table name by ensuring it only contains valid identifier characters
-		var sanitizedTableName = SanitizeIdentifier(tableName);
-		var query = $"PRAGMA table_info({sanitizedTableName})";
+		var query = $"PRAGMA {QuoteIdentifier(databaseName)}.table_info({QuoteIdentifier(tableName)})";
 
 		await using var command = connection.CreateCommand();
 		command.CommandText = query;
@@ -254,7 +335,7 @@ public class SqliteGenerator : AdoNetDatabaseGeneratorBase
 			{
 				// Check if this is an INTEGER PRIMARY KEY with AUTOINCREMENT
 				// This requires checking the table's CREATE statement
-				isIdentity = await IsAutoIncrementColumnAsync(connection, tableName, columnName, cancellationToken);
+				isIdentity = await IsAutoIncrementColumnAsync(connection, databaseName, tableName, columnName, cancellationToken);
 			}
 
 			columns.Add(new TableColumn
@@ -274,11 +355,16 @@ public class SqliteGenerator : AdoNetDatabaseGeneratorBase
 		return columns;
 	}
 
-	private async Task<bool> IsAutoIncrementColumnAsync(DbConnection connection, string tableName, string columnName, CancellationToken cancellationToken)
+	private async Task<bool> IsAutoIncrementColumnAsync(
+		DbConnection connection,
+		string databaseName,
+		string tableName,
+		string columnName,
+		CancellationToken cancellationToken)
 	{
 		// Check if the column is an INTEGER PRIMARY KEY (which is auto-increment in SQLite)
 		// or explicitly has AUTOINCREMENT
-		var query = $"SELECT sql FROM sqlite_master WHERE type='table' AND name=@TableName";
+		var query = $"SELECT sql FROM {QuoteIdentifier(databaseName)}.sqlite_master WHERE type='table' AND name=@TableName";
 
 		await using var command = connection.CreateCommand();
 		command.CommandText = query;
@@ -310,15 +396,18 @@ public class SqliteGenerator : AdoNetDatabaseGeneratorBase
 		return false;
 	}
 
-	private async Task<IReadOnlyList<ForeignKey>> GetForeignKeysAsync(DbConnection connection, string tableName, CancellationToken cancellationToken)
+	private async Task<IReadOnlyList<ForeignKey>> GetForeignKeysAsync(
+		DbConnection connection,
+		string databaseName,
+		string tableName,
+		CancellationToken cancellationToken)
 	{
 		var foreignKeys = new List<ForeignKey>();
 
 		// SQLite: use PRAGMA foreign_key_list to get foreign keys
 		// Note: PRAGMA commands don't support parameterized table names
 		// Sanitize table name by ensuring it only contains valid identifier characters
-		var sanitizedTableName = SanitizeIdentifier(tableName);
-		var query = $"PRAGMA foreign_key_list({sanitizedTableName})";
+		var query = $"PRAGMA {QuoteIdentifier(databaseName)}.foreign_key_list({QuoteIdentifier(tableName)})";
 
 		await using var command = connection.CreateCommand();
 		command.CommandText = query;
@@ -335,9 +424,9 @@ public class SqliteGenerator : AdoNetDatabaseGeneratorBase
 
 			foreignKeys.Add(new ForeignKey
 			{
-				Name = $"FK_{sanitizedTableName}_{referencedTable}_{fkId}",
+				Name = $"FK_{tableName}_{referencedTable}_{fkId}",
 				ColumnName = columnName,
-				ReferencedTable = $"main.{referencedTable}",
+				ReferencedTable = $"{databaseName}.{referencedTable}",
 				ReferencedColumn = referencedColumn
 			});
 		}
@@ -349,15 +438,11 @@ public class SqliteGenerator : AdoNetDatabaseGeneratorBase
 	/// Sanitizes a table name to prevent SQL injection in PRAGMA commands.
 	/// SQLite PRAGMA commands don't support parameterized table names.
 	/// </summary>
-	private static string SanitizeIdentifier(string identifier)
+	private static string QuoteIdentifier(string identifier)
 	{
-		// Remove any characters that aren't alphanumeric or underscore
-		// This is a conservative approach that prevents SQL injection
-		var sanitized = new string(identifier.Where(c => char.IsLetterOrDigit(c) || c == '_').ToArray());
-		
-		if (string.IsNullOrEmpty(sanitized))
+		if (string.IsNullOrWhiteSpace(identifier))
 			throw new ArgumentException($"Invalid table name: {identifier}", nameof(identifier));
-		
-		return sanitized;
+
+		return $"\"{identifier.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
 	}
 }

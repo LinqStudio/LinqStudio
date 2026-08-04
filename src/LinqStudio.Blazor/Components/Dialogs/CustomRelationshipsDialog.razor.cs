@@ -98,7 +98,7 @@ public partial class CustomRelationshipsDialog : ComponentBase, IDisposable
 		{
 			var tableNames = await Project.QueryGenerator.GetTablesAsync();
 			foreach (var table in tableNames)
-				_tables.Add(await Project.QueryGenerator.GetTableAsync(table.FullName));
+				_tables.Add(await Project.QueryGenerator.GetTableAsync(table));
 
 			if (_tables.Count > 0)
 				SelectModel(_tables[0]);
