@@ -1,9 +1,12 @@
 ﻿@inherits LayoutComponentBase;
 @implements IDisposable
+@implements IAsyncDisposable
+@using Microsoft.JSInterop
 @inject IOptionsMonitor<UISettings> UISettings;
 @inject ISettingsService SettingsService;
 @inject ErrorHandlingService ErrorHandlingService;
 @inject ProjectWorkspace Workspace;
+@inject IJSRuntime JSRuntime;
 
 <MudThemeProvider Theme="@_theme" IsDarkMode="UISettings.CurrentValue.IsDarkMode" />
 <MudPopoverProvider />
@@ -75,6 +78,13 @@
                 <DatabaseTreeView />
             </section>
         </div>
+        <div class="drawer-resize-splitter"
+             id="drawer-resize-splitter"
+             role="separator"
+             aria-orientation="vertical"
+             aria-label="@SharedResource.Shell_Explorer_Resize"
+             tabindex="0"
+             data-testid="drawer-resize-splitter"></div>
     </MudDrawer>
 
     <MudMainContent Class="mainBody linqstudio-main-content pt-16 pa-4">
@@ -108,6 +118,8 @@
     private bool _drawerOpen = true;
     private MudTheme? _theme = null;
     private IDisposable? _SettingsDisposable;
+    private bool _drawerSplitterInitialized;
+    private bool _disposed;
 
     protected override void OnInitialized()
     {
@@ -124,10 +136,52 @@
         Workspace.WorkspaceChanged += OnWorkspaceChanged;
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+
+        if (firstRender && !_drawerSplitterInitialized)
+        {
+            _drawerSplitterInitialized = true;
+            await JSRuntime.InvokeVoidAsync(
+                "initDrawerSplitter",
+                "drawer-resize-splitter",
+                "nav-drawer");
+        }
+    }
+
     public void Dispose()
     {
+        if (_disposed)
+            return;
+
+        _disposed = true;
         _SettingsDisposable?.Dispose();
         Workspace.WorkspaceChanged -= OnWorkspaceChanged;
+        GC.SuppressFinalize(this);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed)
+            return;
+
+        _disposed = true;
+
+        if (_drawerSplitterInitialized)
+        {
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("disposeDrawerSplitter", "drawer-resize-splitter");
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+        }
+
+        _SettingsDisposable?.Dispose();
+        Workspace.WorkspaceChanged -= OnWorkspaceChanged;
+        GC.SuppressFinalize(this);
     }
 
     private void DrawerToggle()

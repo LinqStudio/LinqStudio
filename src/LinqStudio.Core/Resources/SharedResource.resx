@@ -135,6 +135,9 @@
   <data name="Shell.Explorer.Title" xml:space="preserve">
     <value>Object Explorer</value>
   </data>
+  <data name="Shell.Explorer.Resize" xml:space="preserve">
+    <value>Resize object explorer</value>
+  </data>
   <data name="Shell.Navigation.Label" xml:space="preserve">
     <value>Navigation</value>
   </data>

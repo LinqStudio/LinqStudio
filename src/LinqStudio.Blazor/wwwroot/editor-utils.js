@@ -68,6 +68,74 @@ window.disposeSplitter = function(splitterId) {
     }
 };
 
+// Draggable vertical splitter for the database explorer drawer.
+window.initDrawerSplitter = function(splitterId, drawerId) {
+    const splitter = document.getElementById(splitterId);
+    const drawer = document.getElementById(drawerId);
+
+    if (!splitter || !drawer) {
+        return false;
+    }
+
+    const container = drawer.closest('.mud-drawer-container') || drawer.parentElement;
+    if (!container) {
+        return false;
+    }
+
+    let isDragging = false;
+    const minWidth = 180;
+    const maxWidth = Math.min(520, window.innerWidth * 0.5);
+
+    const setWidth = function(width) {
+        const clampedWidth = Math.max(minWidth, Math.min(maxWidth, width));
+        const widthValue = clampedWidth + 'px';
+        container.style.setProperty('--mud-drawer-width-left', widthValue);
+        drawer.style.setProperty('--mud-drawer-width', widthValue);
+    };
+
+    const onMouseDown = function(e) {
+        isDragging = true;
+        e.preventDefault();
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        splitter.classList.add('dragging');
+    };
+
+    const onMouseMove = function(e) {
+        if (!isDragging) return;
+        const drawerRect = drawer.getBoundingClientRect();
+        setWidth(e.clientX - drawerRect.left);
+    };
+
+    const onMouseUp = function() {
+        if (!isDragging) return;
+        isDragging = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        splitter.classList.remove('dragging');
+    };
+
+    splitter.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+
+    window._drawerSplitterCleanups = window._drawerSplitterCleanups || {};
+    window._drawerSplitterCleanups[splitterId] = function() {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        onMouseUp();
+    };
+
+    return true;
+};
+
+window.disposeDrawerSplitter = function(splitterId) {
+    if (window._drawerSplitterCleanups && window._drawerSplitterCleanups[splitterId]) {
+        window._drawerSplitterCleanups[splitterId]();
+        delete window._drawerSplitterCleanups[splitterId];
+    }
+};
+
 // Force Monaco editor to re-measure and re-layout its container.
 // Called after a tab panel becomes visible again (KeepPanelsAlive hides via display:none).
 // Passing no dimension to layout() causes Monaco to auto-read the container size.
