@@ -34,10 +34,19 @@ public sealed class QueryExecutionService(
 
 	public async Task<QueryExecutionResult> ExecuteQueryAsync(string userQuery, Models.Project project, CancellationToken cancellationToken = default)
 	{
-		await _executionLock.WaitAsync(cancellationToken);
+		var stopwatch = Stopwatch.StartNew();
 		try
 		{
-			return await ExecuteQueryCoreAsync(userQuery, project, cancellationToken);
+			await _executionLock.WaitAsync(cancellationToken);
+		}
+		catch (OperationCanceledException)
+		{
+			return QueryExecutionResult.FromError("No database connection configured", isCompileError: false, stopwatch.Elapsed);
+		}
+
+		try
+		{
+			return await ExecuteQueryCoreAsync(stopwatch, userQuery, project, cancellationToken);
 		}
 		finally
 		{
@@ -45,9 +54,8 @@ public sealed class QueryExecutionService(
 		}
 	}
 
-	private async Task<QueryExecutionResult> ExecuteQueryCoreAsync(string userQuery, Models.Project project, CancellationToken cancellationToken)
+	private async Task<QueryExecutionResult> ExecuteQueryCoreAsync(Stopwatch stopwatch, string userQuery, Models.Project project, CancellationToken cancellationToken)
 	{
-		var stopwatch = Stopwatch.StartNew();
 		try
 		{
 			await CleanupExecutionResourcesAsync();

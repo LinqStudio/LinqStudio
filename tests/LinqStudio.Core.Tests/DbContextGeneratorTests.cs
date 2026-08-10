@@ -198,6 +198,43 @@ public class DbContextGeneratorTests
 		Assert.DoesNotContain("created_at", code);
 	}
 
+	[Theory]
+	[InlineData("ColName", "ColName")]
+	[InlineData("COLNAME", "COLNAME")]
+	[InlineData("colname", "Colname")]
+	[InlineData("col_name", "ColName")]
+	public async Task GenerateAsync_ColumnNameVariants_PreservePhysicalNameAndGenerateProperty(
+		string columnName,
+		string propertyName)
+	{
+		var table = new DatabaseTableName { Name = "Items" };
+		var detail = new DatabaseTableDetail
+		{
+			Name = "Items",
+			Columns =
+			[
+				new TableColumn
+				{
+					Name = columnName,
+					DataType = "text",
+					GenericType = DbColumnType.String,
+					IsNullable = true,
+					IsPrimaryKey = false,
+					IsIdentity = false
+				}
+			],
+			ForeignKeys = []
+		};
+
+		var fake = new FakeGenerator([table], new Dictionary<string, DatabaseTableDetail> { ["Items"] = detail });
+		var result = await _generator.GenerateAsync(fake);
+
+		Assert.Contains($"public string? {propertyName}", result.ModelFiles["Items.cs"]);
+		Assert.Contains(
+			$"modelBuilder.Entity<Items>().Property(e => e.{propertyName}).HasColumnName(\"{columnName}\");",
+			result.DbContextCode);
+	}
+
 	[Fact]
 	public async Task GenerateAsync_DateOnlyColumn_UsesDateOnlyType()
 	{
