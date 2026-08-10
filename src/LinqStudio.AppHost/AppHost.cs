@@ -10,23 +10,23 @@ var mysqlPassword = builder.AddParameter("mysql-password", value: "root_password
 // NOTE: Port numbers below are for Aspire service discovery only - actual Docker host ports may differ.
 // Use `docker port <container-name>` to find the actual host ports mapped to containers.
 // On Windows, use 127.0.0.1 (NOT localhost) - localhost resolves to IPv6 ::1 which Docker doesn't bind to.
-// SQL Server: Server=127.0.0.1,14330;Database=linqstudio-mssql-demo;User Id=sa;Password=Password123!;TrustServerCertificate=true
-// MySQL: Server=127.0.0.1;Port=13306;Database=linqstudio-mysql-demo;User=root;Password=root_password_123;
+// SQL Server: use one of the linqstudio-mssql-demo-1 or linqstudio-mssql-demo-2 databases.
+// MySQL: use one of the linqstudio-mysql-demo-1 or linqstudio-mysql-demo-2 databases.
 var mssql = builder.AddSqlServer("demo-mssql", password: sqlPassword, port: 14330)
 	.WithLifetime(ContainerLifetime.Persistent);
-var mssql2024Db = mssql.AddDatabase("linqstudio-mssql-2024");
-var mssql2025Db = mssql.AddDatabase("linqstudio-mssql-2025");
+var mssql1Db = mssql.AddDatabase("linqstudio-mssql-demo-1");
+var mssql2Db = mssql.AddDatabase("linqstudio-mssql-demo-2");
 
 var mysql = builder.AddMySql("demo-mysql", password: mysqlPassword, port: 13306)
 	.WithLifetime(ContainerLifetime.Persistent);
-var mysql2024Db = mysql.AddDatabase("linqstudio-mysql-2024");
-var mysql2025Db = mysql.AddDatabase("linqstudio-mysql-2025");
+var mysql1Db = mysql.AddDatabase("linqstudio-mysql-demo-1");
+var mysql2Db = mysql.AddDatabase("linqstudio-mysql-demo-2");
 
 var seeder = builder.AddProject<Projects.LinqStudio_DatabaseSeeder>("demo-seeder")
-	.WithReference(mssql2024Db, "DemoMssql2024")
-	.WithReference(mssql2025Db, "DemoMssql2025")
-	.WithReference(mysql2024Db, "DemoMysql2024")
-	.WithReference(mysql2025Db, "DemoMysql2025")
+	.WithReference(mssql1Db, "DemoMssql1")
+	.WithReference(mssql2Db, "DemoMssql2")
+	.WithReference(mysql1Db, "DemoMysql1")
+	.WithReference(mysql2Db, "DemoMysql2")
 	.WaitFor(mssql)
 	.WaitFor(mysql);
 
@@ -38,10 +38,10 @@ var startMaui = bool.TryParse(builder.Configuration["LinqStudio:Apps:Maui"], out
 if (startWebServer)
 {
 	builder.AddProject<Projects.LinqStudio_App_WebServer>("linqstudio-webserver")
-		.WithReference(mssql2024Db, "DemoMssql2024")
-		.WithReference(mssql2025Db, "DemoMssql2025")
-		.WithReference(mysql2024Db, "DemoMysql2024")
-		.WithReference(mysql2025Db, "DemoMysql2025");
+		.WithReference(mssql1Db, "DemoMssql1")
+		.WithReference(mssql2Db, "DemoMssql2")
+		.WithReference(mysql1Db, "DemoMysql1")
+		.WithReference(mysql2Db, "DemoMysql2");
 }
 
 if (startMaui)
@@ -49,10 +49,10 @@ if (startMaui)
 	// MAUI Blazor Hybrid: launches the desktop window (Windows only).
 	// No HTTP health endpoint — Aspire tracks it as a process resource.
 	builder.AddProject<Projects.LinqStudio_App_Maui>("linqstudio-maui")
-		.WithReference(mssql2024Db, "DemoMssql2024")
-		.WithReference(mssql2025Db, "DemoMssql2025")
-		.WithReference(mysql2024Db, "DemoMysql2024")
-		.WithReference(mysql2025Db, "DemoMysql2025");
+		.WithReference(mssql1Db, "DemoMssql1")
+		.WithReference(mssql2Db, "DemoMssql2")
+		.WithReference(mysql1Db, "DemoMysql1")
+		.WithReference(mysql2Db, "DemoMysql2");
 }
 
 builder.Build().Run();

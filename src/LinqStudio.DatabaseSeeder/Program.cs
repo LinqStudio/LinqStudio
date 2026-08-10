@@ -6,10 +6,10 @@ try
 	// Read connection strings from environment (injected by Aspire)
 	var targets = new[]
 	{
-		new SeedTarget("DemoMssql2024", DatabaseProvider.SqlServer, "MSSQL 2024", new DateTime(2024, 1, 1)),
-		new SeedTarget("DemoMssql2025", DatabaseProvider.SqlServer, "MSSQL 2025", new DateTime(2025, 1, 1)),
-		new SeedTarget("DemoMysql2024", DatabaseProvider.MySql, "MySQL 2024", new DateTime(2024, 1, 1)),
-		new SeedTarget("DemoMysql2025", DatabaseProvider.MySql, "MySQL 2025", new DateTime(2025, 1, 1))
+		new SeedTarget("DemoMssql1", DatabaseProvider.SqlServer, "MSSQL Demo 1", new DateTime(2024, 1, 1)),
+		new SeedTarget("DemoMssql2", DatabaseProvider.SqlServer, "MSSQL Demo 2", new DateTime(2025, 1, 1)),
+		new SeedTarget("DemoMysql1", DatabaseProvider.MySql, "MySQL Demo 1", new DateTime(2024, 1, 1)),
+		new SeedTarget("DemoMysql2", DatabaseProvider.MySql, "MySQL Demo 2", new DateTime(2025, 1, 1))
 	};
 
 	var tasks = targets.Select(SeedTargetAsync).ToList();

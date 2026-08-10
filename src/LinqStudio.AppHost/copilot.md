@@ -47,11 +47,11 @@ Server=127.0.0.1,{PORT};Database=linqstudio-mssql-demo;User Id=sa;Password=Passw
 Server=127.0.0.1;Port={PORT};Database=linqstudio-mysql-demo;User=root;Password=root_password_123;
 ```
 
-The demo seeder creates `linqstudio-mssql-2024`, `linqstudio-mssql-2025`, `linqstudio-mysql-2024`, and `linqstudio-mysql-2025`; use the matching database name in the connection string.
+The demo seeder creates two databases per server: `linqstudio-mssql-demo-1`, `linqstudio-mssql-demo-2`, `linqstudio-mysql-demo-1`, and `linqstudio-mysql-demo-2`; use the matching database name in the connection string.
 
 ## ⚠️ CRITICAL: Always specify `Database=` in connection strings
 
-If you omit `Database=` from the SQL Server connection string, you connect to the `master` database and see system tables (`spt_fallback_db`, `MSreplication_options`, etc.) instead of your tables. Always include one of the seeded database names (`linqstudio-mssql-2024` or `linqstudio-mssql-2025`).
+If you omit `Database=` from the SQL Server connection string, you connect to the `master` database and see system tables (`spt_fallback_db`, `MSreplication_options`, etc.) instead of your tables. Always include one of the seeded database names (`linqstudio-mssql-demo-1` or `linqstudio-mssql-demo-2`).
 
 ## Live Testing Workflow for Agents
 
@@ -61,7 +61,7 @@ When running live tests against these Aspire databases:
 2. Get actual ports: `docker port demo-mssql-78b93e94` and `docker port demo-mysql-78b93e94`
 3. Start Aspire: `cd src\LinqStudio.AppHost && dotnet run`
 4. Wait for WebServer on http://localhost:5077 (use `netstat -ano | Select-String ":5077"`)
-5. In the app: Project → New, then Project → Properties → enter connection string with actual port and one of the seeded database names, such as `Database=linqstudio-mssql-2025`
+5. In the app: Project → New, then Project → Properties → enter connection string with actual port and one of the seeded database names, such as `Database=linqstudio-mssql-demo-1`
 6. The 6 seeded tables appear: `dbo.Customers`, `dbo.OrderItems`, `dbo.Orders`, `dbo.Products`, `dbo.SupportTickets`, `dbo.UserProfiles`
 
 ## Container Configuration
