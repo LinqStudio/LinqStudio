@@ -48,25 +48,6 @@
     overflow: hidden;
 }
 
-.resize-splitter {
-    height: var(--ls-space-1);
-    background: var(--ls-color-border);
-    cursor: row-resize;
-    flex-shrink: 0;
-    user-select: none;
-    transition: background-color 120ms ease;
-}
-
-.resize-splitter:hover,
-.resize-splitter.dragging {
-    background: var(--ls-color-accent);
-}
-
-.resize-splitter:focus-visible {
-    outline: 2px solid var(--ls-color-focus);
-    outline-offset: 1px;
-}
-
 .results-bottom {
     flex-shrink: 0;
     display: flex;

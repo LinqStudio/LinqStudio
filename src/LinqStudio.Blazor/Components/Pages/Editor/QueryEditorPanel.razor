@@ -128,7 +128,12 @@
 		}
 	</div>
 
-	<div class="resize-splitter" id="@SplitterId" data-testid="editor-results-splitter"></div>
+	<ResizableSplitter SplitterId="@SplitterId"
+					   Orientation="ResizeSplitterOrientation.Horizontal"
+					   FirstPanelId="@EditorPanelId"
+					   SecondPanelId="@ResultsPanelId"
+					   AccessibleLabel="@SharedResource.QueryEditor_Results_Title"
+					   TestId="editor-results-splitter" />
 
 	<div class="results-bottom" id="@ResultsPanelId" style="height:calc(60% - 5px)" data-testid="query-result-container">
 		<div class="results-header" data-testid="query-results-header">
