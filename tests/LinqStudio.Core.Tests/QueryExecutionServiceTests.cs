@@ -143,7 +143,7 @@ public class QueryExecutionServiceTests
 		// Arrange
 		var mockGenerator = new MockDbContextGenerator();
 		var settings = CreateSettings();
-		var service = new QueryExecutionService(mockGenerator, new RoslynWorkspaceService(), settings);
+		var service = CreateService(mockGenerator, settings);
 		var query = "context.Users.ToList()";
 		var project = new Project { ConnectionString = null };
 
@@ -165,7 +165,7 @@ public class QueryExecutionServiceTests
 		// Arrange
 		var mockGenerator = new MockDbContextGenerator();
 		var settings = CreateSettings();
-		var service = new QueryExecutionService(mockGenerator, new RoslynWorkspaceService(), settings);
+		var service = CreateService(mockGenerator, settings);
 		var query = "context.Users.ToList()";
 		var project = new Project { ConnectionString = "" };
 
@@ -185,7 +185,7 @@ public class QueryExecutionServiceTests
 		// Arrange
 		var mockGenerator = new MockDbContextGenerator();
 		var settings = CreateSettings();
-		var service = new QueryExecutionService(mockGenerator, new RoslynWorkspaceService(), settings);
+		var service = CreateService(mockGenerator, settings);
 		var project = new Project { ConnectionString = "Server=test" };
 		using var cts = new CancellationTokenSource();
 		cts.Cancel();
@@ -197,6 +197,59 @@ public class QueryExecutionServiceTests
 		Assert.NotNull(result);
 		Assert.False(result.Success);
 		Assert.NotNull(result.ErrorMessage);
+	}
+
+	[Fact]
+	public void Dispose_DiConstructor_DoesNotDisposeSharedCompilationService()
+	{
+		var compilationService = new ProjectCompilationService(
+			new MockDbContextGenerator(),
+			new RoslynWorkspaceService());
+		var service = new QueryExecutionService(
+			new RoslynWorkspaceService(),
+			compilationService,
+			CreateSettings());
+
+		service.Dispose();
+		service.Dispose();
+
+		Assert.False(IsDisposed(compilationService));
+		compilationService.Dispose();
+	}
+
+	[Fact]
+	public async Task DisposeAsync_DiConstructor_DoesNotDisposeSharedCompilationService()
+	{
+		var compilationService = new ProjectCompilationService(
+			new MockDbContextGenerator(),
+			new RoslynWorkspaceService());
+		var service = new QueryExecutionService(
+			new RoslynWorkspaceService(),
+			compilationService,
+			CreateSettings());
+
+		await service.DisposeAsync();
+
+		Assert.False(IsDisposed(compilationService));
+		compilationService.Dispose();
+	}
+
+	[Fact]
+	public void Dispose_DiConstructor_IsIdempotent()
+	{
+		var compilationService = new ProjectCompilationService(
+			new MockDbContextGenerator(),
+			new RoslynWorkspaceService());
+		var service = new QueryExecutionService(
+			new RoslynWorkspaceService(),
+			compilationService,
+			CreateSettings());
+
+		service.Dispose();
+		service.Dispose();
+
+		Assert.False(IsDisposed(compilationService));
+		compilationService.Dispose();
 	}
 
 	[Fact]
@@ -219,8 +272,8 @@ public class QueryExecutionServiceTests
 			}
 
 			await using (var service = new QueryExecutionService(
-				new DbContextGenerator(),
 				new RoslynWorkspaceService(),
+				new ProjectCompilationService(new DbContextGenerator(), new RoslynWorkspaceService()),
 				CreateSettings()))
 			{
 				_ = typeof(RequiredAttribute).Assembly;
@@ -270,6 +323,22 @@ public class QueryExecutionServiceTests
 		var settings = new QueryExecutionSettings { TimeoutSeconds = timeoutSeconds };
 		return new OptionsMonitorWrapper(settings);
 	}
+
+	private static QueryExecutionService CreateService(
+		IDbContextGenerator generator,
+		IOptionsMonitor<QueryExecutionSettings> settings)
+	{
+		var roslynWorkspaceService = new RoslynWorkspaceService();
+		return new QueryExecutionService(
+			roslynWorkspaceService,
+			new ProjectCompilationService(generator, roslynWorkspaceService),
+			settings);
+	}
+
+	private static bool IsDisposed(ProjectCompilationService compilationService)
+		=> (bool)typeof(ProjectCompilationService)
+			.GetField("_disposed", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+			.GetValue(compilationService)!;
 
 	#endregion
 

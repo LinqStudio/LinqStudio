@@ -19,7 +19,9 @@ public class RoslynWorkspaceService(ILogger<RoslynWorkspaceService>? logger = nu
 	/// </summary>
 	/// <param name="projectName">The name of the project to create in the workspace.</param>
 	/// <returns>A tuple containing the workspace, project ID, and initial solution.</returns>
-	public (AdhocWorkspace Workspace, ProjectId ProjectId, Solution Solution) CreateWorkspace(string projectName)
+	public (AdhocWorkspace Workspace, ProjectId ProjectId, Solution Solution) CreateWorkspace(
+		string projectName,
+		IReadOnlyList<MetadataReference>? additionalReferences = null)
 	{
 		var workspace = new AdhocWorkspace();
 		var solutionInfo = SolutionInfo.Create(SolutionId.CreateNewId(), VersionStamp.Create());
@@ -37,6 +39,8 @@ public class RoslynWorkspaceService(ILogger<RoslynWorkspaceService>? logger = nu
 
 		// Add all metadata references
 		var references = GetMetadataReferences();
+		if (additionalReferences is not null)
+			references = [.. references, .. additionalReferences];
 		solution = solution.WithProjectMetadataReferences(projectId, references);
 
 		return (workspace, projectId, solution);

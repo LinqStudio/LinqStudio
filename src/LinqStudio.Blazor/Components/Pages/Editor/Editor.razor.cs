@@ -15,6 +15,7 @@ public partial class Editor : ComponentBase, IDisposable
 	[Inject] private ICompilerServiceFactory CompilerServiceFactory { get; set; } = null!;
 	[Inject] private ProjectWorkspace Workspace { get; set; } = null!;
 	[Inject] private NavigationManager NavigationManager { get; set; } = null!;
+	[Inject] private ProjectCompilationService ProjectCompilationService { get; set; } = null!;
 
 	[Parameter] public Guid? QueryIdParam { get; set; }
 
@@ -144,6 +145,7 @@ public partial class Editor : ComponentBase, IDisposable
 		try
 		{
 			var oldCompiler = _compiler;
+			ProjectCompilationService.Invalidate();
 			_compiler = await CompilerServiceFactory.CreateFromProjectAsync(Workspace.CurrentProject!);
 			oldCompiler?.Dispose();
 			Snackbar.Add("Schema refreshed. IntelliSense updated.", Severity.Success);

@@ -23,6 +23,8 @@ public static class ServiceCollectionExtensions
 		// Register the shared Roslyn workspace service (before services that depend on it)
 		services.AddSingleton<RoslynWorkspaceService>();
 
+		services.AddScoped<ProjectCompilationService>();
+
 		// register the CompilerServiceFactory so Blazor components can create CompilerService instances
 		services.AddScoped<ICompilerServiceFactory, CompilerServiceFactory>();
 

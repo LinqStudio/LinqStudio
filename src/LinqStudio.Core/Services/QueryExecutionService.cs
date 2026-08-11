@@ -1,9 +1,9 @@
 using LinqStudio.Abstractions;
 using LinqStudio.Abstractions.Models;
-using LinqStudio.Core.Interfaces;
-using LinqStudio.Core.Settings;
 using LinqStudio.Core.CodeGeneration;
+using LinqStudio.Core.Interfaces;
 using LinqStudio.Core.Models;
+using LinqStudio.Core.Settings;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.EntityFrameworkCore;
@@ -18,13 +18,14 @@ using System.Runtime.Loader;
 namespace LinqStudio.Core.Services;
 
 public sealed class QueryExecutionService(
-	IDbContextGenerator generator,
 	RoslynWorkspaceService roslynWorkspaceService,
+	ProjectCompilationService projectCompilationService,
 	IOptionsMonitor<QueryExecutionSettings> settings,
 	ILogger<QueryExecutionService>? logger = null) : IQueryExecutionService
 {
-	private readonly IDbContextGenerator _generator = generator;
+	// Shared across query editors in the scope so model generation is not repeated per query.
 	private readonly RoslynWorkspaceService _roslynWorkspaceService = roslynWorkspaceService;
+	private readonly ProjectCompilationService _projectCompilationService = projectCompilationService;
 	private readonly IOptionsMonitor<QueryExecutionSettings> _settings = settings;
 	private readonly ILogger<QueryExecutionService>? _logger = logger;
 	private readonly SemaphoreSlim _executionLock = new(1, 1);
@@ -73,52 +74,24 @@ public sealed class QueryExecutionService(
 				return QueryExecutionResult.FromError("No database connection configured", isCompileError: false, stopwatch.Elapsed);
 			}
 
-			var databaseGenerator = project.CreateQueryGenerator();
-			var databases = await databaseGenerator.GetDatabasesAsync(cancellationToken);
-			if (databases.Count == 0)
-				return QueryExecutionResult.FromError("No databases are available for this connection", isCompileError: false, stopwatch.Elapsed);
-
-			var contextTypeNames = CodeGenerationNaming.GetDbContextTypeNames(databases.Select(database => database.Name));
-			var generatedContexts = new List<(DatabaseInfo Database, DbContextGeneratorResult Result)>(databases.Count);
-			foreach (var database in databases)
-			{
-				// Keep each database's models and custom relationships isolated during generation.
-				var result = await _generator.GenerateAsync(
-					databaseGenerator,
-					database.Name,
-					project.CustomRelationships
-						.Where(relationship => relationship.DatabaseName.Equals(database.Name, StringComparison.OrdinalIgnoreCase))
-						.ToList(),
-					contextTypeNames[database.Name],
-					cancellationToken);
-				generatedContexts.Add((database, result));
-			}
-
-			var generatedFiles = generatedContexts
-				.SelectMany(context => context.Result.ModelFiles.Select(file =>
-					new KeyValuePair<string, string>(
-						// Every database can contain the same table name; scope document names by context.
-						$"{context.Result.ContextTypeName}.{file.Key}",
-						file.Value)))
-				.ToDictionary(file => file.Key, file => file.Value, StringComparer.OrdinalIgnoreCase);
-			foreach (var context in generatedContexts)
-				generatedFiles.Add($"{context.Result.ContextTypeName}.cs", context.Result.DbContextCode);
+			using var snapshotLease = await _projectCompilationService.GetOrBuildAsync(project, cancellationToken);
+			var snapshot = snapshotLease.Snapshot;
 
 			// Step 1-2: Wrap user query in QueryContainer
 			var wrappedQuery = _roslynWorkspaceService.WrapQuery(
 				userQuery,
-				generatedContexts
+				snapshot.Contexts
 					.Select(context => new QueryDbContextParameter(
-						context.Result.ContextTypeName,
-						context.Result.Namespace,
-						CodeGenerationNaming.GetDbContextParameterNameFromTypeName(context.Result.ContextTypeName)))
+						context.ContextTypeName,
+						context.Namespace,
+						CodeGenerationNaming.GetDbContextParameterNameFromTypeName(context.ContextTypeName)))
 					.ToList(),
 				"GeneratedModels");
 
 			// Step 3: Compile to IL
 			var (success, assembly, alc, diagnostics) = await CompileToAssemblyAsync(
 				wrappedQuery,
-				generatedFiles,
+				snapshot,
 				cancellationToken);
 
 			if (!success || assembly == null)
@@ -134,18 +107,18 @@ public sealed class QueryExecutionService(
 			try
 			{
 				// Step 5: Instantiate every DbContext so the query can choose its target database.
-				foreach (var context in generatedContexts)
+				foreach (var context in snapshot.Contexts)
 				{
 					var dbContextOptions = CreateDbContextOptions(
 						project.DatabaseType,
 						project.ConnectionString,
-						context.Database.Name);
-					var dbContextType = assembly.GetType(
-						$"{context.Result.Namespace}.{context.Result.ContextTypeName}");
+						context.DatabaseName);
+					var dbContextType = snapshot.Assembly.GetType(
+						$"{context.Namespace}.{context.ContextTypeName}");
 					if (dbContextType is null)
 					{
 						return QueryExecutionResult.FromError(
-							$"Could not find DbContext type {context.Result.ContextTypeName}",
+							$"Could not find DbContext type {context.ContextTypeName}",
 							isCompileError: false,
 							stopwatch.Elapsed);
 					}
@@ -251,8 +224,14 @@ public sealed class QueryExecutionService(
 
 	public void Dispose()
 	{
-		DisposeExecutionResources();
-		GC.SuppressFinalize(this);
+		try
+		{
+			DisposeExecutionResources();
+		}
+		finally
+		{
+			GC.SuppressFinalize(this);
+		}
 	}
 
 	public bool IsEntityResult(QueryExecutionResult result)
@@ -387,22 +366,25 @@ public sealed class QueryExecutionService(
 		return builder.Options;
 	}
 
+	/// <summary>
+	/// Compiles the query wrapper against the already-emitted project model assembly.
+	/// </summary>
 	private async Task<(bool Success, Assembly? Assembly, AssemblyLoadContext? Alc, string Diagnostics)> CompileToAssemblyAsync(
 		string wrappedQuery,
-		IReadOnlyDictionary<string, string> generatedFiles,
+		CompiledProjectSnapshot snapshot,
 		CancellationToken cancellationToken)
 	{
-		// Create workspace using shared service — disposed at end of method via using
-		var workspaceResult = _roslynWorkspaceService.CreateWorkspace("QueryExecution");
+		var workspaceResult = _roslynWorkspaceService.CreateWorkspace(
+			"QueryExecution",
+			[snapshot.MetadataReference]);
 		using var workspace = workspaceResult.Workspace;
 		var projectId = workspaceResult.ProjectId;
 		var solution = workspaceResult.Solution;
 
-		// Add all documents at once
 		solution = _roslynWorkspaceService.AddSourceDocuments(
 			solution,
 			projectId,
-			generatedFiles,
+			new Dictionary<string, string>(),
 			wrappedQuery);
 
 		// Get compilation
@@ -438,7 +420,11 @@ public sealed class QueryExecutionService(
 
 		// Load assembly into a collectible AssemblyLoadContext — caller must call alc.Unload() after use
 		ms.Position = 0;
-		var alc = new AssemblyLoadContext("query-exec", isCollectible: true);
+		var alc = new AssemblyLoadContext($"query-exec-{Guid.NewGuid():N}", isCollectible: true);
+		alc.Resolving += (_, assemblyName) =>
+			string.Equals(assemblyName.Name, snapshot.Assembly.GetName().Name, StringComparison.Ordinal)
+				? snapshot.Assembly
+				: null;
 		var assembly = alc.LoadFromStream(ms);
 		return (true, assembly, alc, string.Empty);
 	}
