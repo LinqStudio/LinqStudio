@@ -1,7 +1,8 @@
-using System.Reflection;
+using LinqStudio.Core.Models;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
 using Microsoft.Extensions.Logging;
+using System.Reflection;
 
 namespace LinqStudio.Core.Services;
 
@@ -104,18 +105,18 @@ public class RoslynWorkspaceService(ILogger<RoslynWorkspaceService>? logger = nu
 		return references;
 	}
 
-	/// <summary>
-	/// Wraps a user LINQ query in a QueryContainer class for Roslyn analysis or compilation.
-	/// </summary>
-	/// <param name="userQuery">The user's LINQ query code.</param>
-	/// <param name="contextTypeName">The DbContext type name (e.g., "MyDbContext").</param>
-	/// <param name="projectNamespace">The namespace for the generated QueryContainer class.</param>
-	/// <param name="beforeReturn">Text to prepend before the user query (default: "return").</param>
-	/// <returns>Complete C# source code with the wrapped query.</returns>
-	public string WrapQuery(string userQuery, string contextTypeName, string projectNamespace, string beforeReturn = "return")
+	public string WrapQuery(
+		string userQuery,
+		IReadOnlyList<QueryDbContextParameter> contexts,
+		string projectNamespace,
+		string beforeReturn = "return")
 	{
 		if (!userQuery.TrimEnd().EndsWith(';'))
 			userQuery += ";";
+
+		var parameters = string.Join(
+			", ",
+			contexts.Select(context => $"{context.Namespace}.{context.ContextTypeName} {context.ParameterName}"));
 
 		return $$"""
 using System;
@@ -127,7 +128,7 @@ namespace {{projectNamespace}};
 
 public class QueryContainer
 {
-    public async Task<IQueryable<object>> Query({{contextTypeName}} context)
+    public async Task<IQueryable<object>> Query({{parameters}})
     {
         {{beforeReturn}} {{userQuery}}
     }
@@ -136,7 +137,7 @@ public class QueryContainer
 	}
 
 	/// <summary>
-	/// Adds model files, a DbContext file, and a query wrapper file to an existing Roslyn project.
+	/// Adds generated source files and a query wrapper file to an existing Roslyn project.
 	/// Returns the updated solution.
 	/// </summary>
 	public Solution AddDocuments(
@@ -147,14 +148,34 @@ public class QueryContainer
 		string wrappedQuery,
 		string queryFileName = "QueryContainer.cs")
 	{
-		foreach (var (fileName, code) in modelFiles)
+		var sourceFiles = new Dictionary<string, string>(modelFiles, StringComparer.OrdinalIgnoreCase)
+		{
+			["DbContext.cs"] = dbContextCode
+		};
+		return AddSourceDocuments(
+			solution,
+			projectId,
+			sourceFiles,
+			wrappedQuery,
+			queryFileName: queryFileName);
+	}
+
+	/// <summary>
+	/// Adds generated source files and a query wrapper file to an existing Roslyn project.
+	/// Returns the updated solution.
+	/// </summary>
+	public Solution AddSourceDocuments(
+		Solution solution,
+		ProjectId projectId,
+		IReadOnlyDictionary<string, string> sourceFiles,
+		string wrappedQuery,
+		string queryFileName = "QueryContainer.cs")
+	{
+		foreach (var (fileName, code) in sourceFiles)
 		{
 			var docId = DocumentId.CreateNewId(projectId);
 			solution = solution.AddDocument(docId, fileName, SourceText.From(code));
 		}
-
-		var dbContextDocId = DocumentId.CreateNewId(projectId);
-		solution = solution.AddDocument(dbContextDocId, "DbContext.cs", SourceText.From(dbContextCode));
 
 		var queryDocId = DocumentId.CreateNewId(projectId);
 		solution = solution.AddDocument(queryDocId, queryFileName, SourceText.From(wrappedQuery));

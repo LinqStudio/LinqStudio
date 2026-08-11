@@ -25,7 +25,7 @@ public class PostgreSqlGenerator : AdoNetDatabaseGeneratorBase
 
 	public static PostgreSqlGenerator Create(string connectionString) => new(new Npgsql.NpgsqlConnection(connectionString));
 
-	public async Task<IReadOnlyList<DatabaseInfo>> GetDatabasesAsync(CancellationToken cancellationToken = default)
+	public override async Task<IReadOnlyList<DatabaseInfo>> GetDatabasesAsync(CancellationToken cancellationToken = default)
 	{
 		if (_explicitDatabaseName is not null)
 			return [new DatabaseInfo { Name = _explicitDatabaseName, IsExplicitlySelected = true }];
@@ -62,7 +62,7 @@ public class PostgreSqlGenerator : AdoNetDatabaseGeneratorBase
 		}
 	}
 
-	public async Task<IReadOnlyList<DatabaseTableName>> GetTablesAsync(
+	public override async Task<IReadOnlyList<DatabaseTableName>> GetTablesAsync(
 			string databaseName,
 			CancellationToken cancellationToken = default)
 		{
@@ -200,7 +200,7 @@ public class PostgreSqlGenerator : AdoNetDatabaseGeneratorBase
 		}
 	}
 
-	public async Task<DatabaseTableDetail> GetTableAsync(
+	public override async Task<DatabaseTableDetail> GetTableAsync(
 		DatabaseTableName table,
 		CancellationToken cancellationToken = default)
 	{

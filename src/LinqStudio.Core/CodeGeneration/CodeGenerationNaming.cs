@@ -23,6 +23,24 @@ public static class CodeGenerationNaming
 		return builder.Length > 0 ? builder.ToString() : name;
 	}
 
+	public static string GetDbContextTypeName(string databaseName)
+	{
+		var identifier = new string(databaseName
+			.Select(character => char.IsLetterOrDigit(character) || character == '_' ? character : '_')
+			.ToArray());
+		identifier = ToPascalCase(identifier);
+		if (identifier.Length == 0 || !char.IsLetter(identifier[0]) && identifier[0] != '_')
+			identifier = $"Database{identifier}";
+
+		return $"{identifier}DbContext";
+	}
+
+	public static string GetDbContextParameterName(string databaseName)
+	{
+		var contextTypeName = GetDbContextTypeName(databaseName);
+		return char.ToLowerInvariant(contextTypeName[0]) + contextTypeName[1..];
+	}
+
 	public static string ExtractTableName(string fullTableName)
 	{
 		var dotIndex = fullTableName.LastIndexOf('.');

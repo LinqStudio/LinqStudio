@@ -42,7 +42,7 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 		return new(new SqlConnection(connectionString));
 	}
 
-	public async Task<IReadOnlyList<DatabaseInfo>> GetDatabasesAsync(CancellationToken cancellationToken = default)
+	public override async Task<IReadOnlyList<DatabaseInfo>> GetDatabasesAsync(CancellationToken cancellationToken = default)
 	{
 		if (_explicitDatabaseName is not null)
 			return [new DatabaseInfo { Name = _explicitDatabaseName, IsExplicitlySelected = true }];
@@ -177,13 +177,12 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 
 	}
 
-	public async Task<IReadOnlyList<DatabaseTableName>> GetTablesAsync(
+	public override async Task<IReadOnlyList<DatabaseTableName>> GetTablesAsync(
 		string databaseName,
 		CancellationToken cancellationToken = default)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(databaseName, nameof(databaseName));
-		if (string.Equals(Connection.Database, databaseName, StringComparison.OrdinalIgnoreCase)
-			&& Connection.State == ConnectionState.Open)
+		if (string.Equals(Connection.Database, databaseName, StringComparison.OrdinalIgnoreCase))
 			return await GetTablesAsync(cancellationToken);
 
 		await using var connection = CreateDatabaseConnection(databaseName);
@@ -244,7 +243,7 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 		}
 	}
 
-	public async Task<DatabaseTableDetail> GetTableAsync(
+	public override async Task<DatabaseTableDetail> GetTableAsync(
 			DatabaseTableName table,
 			CancellationToken cancellationToken = default)
 		{

@@ -19,7 +19,7 @@ public class SqliteGenerator : AdoNetDatabaseGeneratorBase
 
 	public static SqliteGenerator Create(string connectionString) => new(new Microsoft.Data.Sqlite.SqliteConnection(connectionString));
 
-	public async Task<IReadOnlyList<DatabaseInfo>> GetDatabasesAsync(CancellationToken cancellationToken = default)
+	public override async Task<IReadOnlyList<DatabaseInfo>> GetDatabasesAsync(CancellationToken cancellationToken = default)
 	{
 		var wasOpen = Connection.State == ConnectionState.Open;
 		if (!wasOpen)
@@ -184,7 +184,7 @@ public class SqliteGenerator : AdoNetDatabaseGeneratorBase
 		return tables;
 	}
 
-	public async Task<IReadOnlyList<DatabaseTableName>> GetTablesAsync(
+	public override async Task<IReadOnlyList<DatabaseTableName>> GetTablesAsync(
 		string databaseName,
 		CancellationToken cancellationToken = default)
 	{
@@ -246,7 +246,7 @@ public class SqliteGenerator : AdoNetDatabaseGeneratorBase
 		}
 	}
 
-	public async Task<DatabaseTableDetail> GetTableAsync(
+	public override async Task<DatabaseTableDetail> GetTableAsync(
 		DatabaseTableName table,
 		CancellationToken cancellationToken = default)
 	{

@@ -39,8 +39,8 @@ public static class E2ETestHelpers
 	/// </summary>
 	/// <param name="page">The Playwright page.</param>
 	/// <param name="app">The app server fixture for URL construction.</param>
-	/// <param name="queryText">Optional text to type into the editor. Defaults to "context."</param>
-	public static async Task CreateQueryAsync(IPage page, AppServerFixture app, string queryText = "context.", int index = 0)
+	/// <param name="queryText">Optional text to type into the editor. Defaults to "mainDbContext."</param>
+	public static async Task CreateQueryAsync(IPage page, AppServerFixture app, string queryText = "mainDbContext.", int index = 0)
 	{
 		// Right-click the connection node body to open the context menu.
 		// We dispatch a synthetic contextmenu MouseEvent (isTrusted=false) directly on the element
@@ -124,7 +124,7 @@ public static class E2ETestHelpers
 
 		// Create a minimal SQLite database file in the OS temp directory.
 		// The People table matches the demo model used by the editor tests, allowing
-		// context.People IntelliSense (hover, completions) tests to continue working.
+		// mainDbContext.People IntelliSense (hover, completions) tests to continue working.
 		var dbPath = Path.Combine(Path.GetTempPath(), $"linqstudio_e2e_{Guid.NewGuid():N}.db");
 		using (var connection = new SqliteConnection($"Data Source={dbPath}"))
 		{

@@ -46,14 +46,17 @@
 				@SharedResource.DatabaseTreeView_ContextMenu_Refresh
 			</div>
 		}
-		else if (_contextMenuNode.NodeType == SchemaTreeNodeType.Connection)
+		else if (_contextMenuNode.NodeType == SchemaTreeNodeType.Database)
 		{
 			<div class="db-tree-context-item"
-				 @onclick="OpenCustomRelationshipsAsync"
-				 data-testid="db-tree-connection-custom-relationships">
+				 @onclick="@(async () => await OpenCustomRelationshipsAsync(_contextMenuNode))"
+				 data-testid="@($"db-tree-database-custom-relationships-{_contextMenuNode.DatabaseInfo?.Name}")">
 				<MudIcon Icon="@Icons.Material.Filled.AccountTree" Size="Size.Small" Class="mr-2" />
 				@SharedResource.CustomRelationships_ContextMenu
 			</div>
+		}
+		else if (_contextMenuNode.NodeType == SchemaTreeNodeType.Connection)
+		{
 			<div class="db-tree-context-item"
 				 @onclick="HandleConnectionNewQuery"
 				 data-testid="db-tree-connection-new-query">
@@ -158,9 +161,13 @@
 															 ExpandedChanged="@(value => OnNodeExpandedChanged(databaseNode, value))"
 															 data-testid="@($"db-tree-database-{databaseNode.DatabaseInfo?.Name}")">
 												<BodyContent Context="_">
-													<div @onclick="() => SelectNode(databaseNode)"
+													<div @oncontextmenu="@(e => OpenContextMenu(databaseNode, e))"
+														 @oncontextmenu:preventDefault="true"
+														 @oncontextmenu:stopPropagation="true"
+														 @onclick="() => SelectNode(databaseNode)"
 														 class="@GetNodeClass(databaseNode)"
-														 title="@databaseNode.Label">
+														 title="@databaseNode.Label"
+														 data-testid="@($"db-tree-database-body-{databaseNode.DatabaseInfo?.Name}")">
 														<MudText Typo="Typo.body1" Class="mud-treeview-item-label">@databaseNode.Label</MudText>
 													</div>
 												</BodyContent>

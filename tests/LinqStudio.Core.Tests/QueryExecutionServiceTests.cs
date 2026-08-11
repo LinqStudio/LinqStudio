@@ -224,7 +224,7 @@ public class QueryExecutionServiceTests
 			{
 				_ = typeof(RequiredAttribute).Assembly;
 				var result = await service.ExecuteQueryAsync(
-					"context.SOMETHINGNAME.Select(row => (object)row.SOMECOLUMN)",
+					"mainDbContext.SOMETHINGNAME.Select(row => (object)row.SOMECOLUMN)",
 					new Project
 					{
 						DatabaseType = DatabaseType.Sqlite,
@@ -279,7 +279,10 @@ public class QueryExecutionServiceTests
 	/// </summary>
 	private class MockDbContextGenerator : IDbContextGenerator
 	{
-		public Task<DbContextGeneratorResult> GenerateAsync(IDatabaseQueryGenerator generator, CancellationToken cancellationToken = default)
+		public Task<DbContextGeneratorResult> GenerateAsync(
+			IDatabaseQueryGenerator generator,
+			string databaseName,
+			CancellationToken cancellationToken = default)
 		{
 			// Not used in these unit tests - only constructor validation
 			throw new NotImplementedException("Mock generator for constructor tests only");

@@ -6,10 +6,7 @@ namespace LinqStudio.Core.CodeGeneration;
 
 internal sealed class DbContextCodeGenerator
 {
-	private const string TargetNamespace = "GeneratedModels";
-	private const string ContextTypeName = "GeneratedDbContext";
-
-	public string Generate(GeneratedSchema schema)
+	public string Generate(GeneratedSchema schema, string targetNamespace, string contextTypeName)
 	{
 		var builder = new StringBuilder();
 		builder.AppendLine("using System;");
@@ -17,11 +14,11 @@ internal sealed class DbContextCodeGenerator
 		builder.AppendLine("using System.ComponentModel.DataAnnotations;");
 		builder.AppendLine("using System.ComponentModel.DataAnnotations.Schema;");
 		builder.AppendLine("using Microsoft.EntityFrameworkCore;");
-		builder.AppendLine($"using {TargetNamespace};");
+		builder.AppendLine($"using {targetNamespace};");
 		builder.AppendLine();
-		builder.AppendLine($"namespace {TargetNamespace};");
+		builder.AppendLine($"namespace {targetNamespace};");
 		builder.AppendLine();
-		builder.AppendLine($"public class {ContextTypeName} : DbContext");
+		builder.AppendLine($"public class {contextTypeName} : DbContext");
 		builder.AppendLine("{");
 
 		foreach (var table in schema.Tables)
@@ -32,10 +29,10 @@ internal sealed class DbContextCodeGenerator
 
 		builder.AppendLine();
 		builder.AppendLine("    // Parameterless constructor for IntelliSense compilation; also used as base class for runtime instantiation via the options constructor");
-		builder.AppendLine($"    public {ContextTypeName}() {{ }}");
+		builder.AppendLine($"    public {contextTypeName}() {{ }}");
 		builder.AppendLine();
 		builder.AppendLine("    // Standard EF Core constructor used for real query execution");
-		builder.AppendLine($"    public {ContextTypeName}(DbContextOptions options) : base(options) {{ }}");
+		builder.AppendLine($"    public {contextTypeName}(DbContextOptions options) : base(options) {{ }}");
 		builder.AppendLine();
 		builder.AppendLine("    protected override void OnModelCreating(ModelBuilder modelBuilder)");
 		builder.AppendLine("    {");

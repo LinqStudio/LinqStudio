@@ -22,6 +22,9 @@ public partial class CustomRelationshipsDialog : ComponentBase, IDisposable
 	[Parameter, EditorRequired]
 	public Project Project { get; set; } = null!;
 
+	[Parameter, EditorRequired]
+	public string DatabaseName { get; set; } = string.Empty;
+
 	[Inject]
 	private ErrorHandlingService ErrorHandlingService { get; set; } = null!;
 
@@ -86,7 +89,8 @@ public partial class CustomRelationshipsDialog : ComponentBase, IDisposable
 	protected override async Task OnInitializedAsync()
 	{
 		_onConfigureCode = Project.DbContextOnConfigureCode ?? Project.DbContextCode;
-		_relationships = Clone(Project.CustomRelationships);
+		_relationships = Clone(Project.CustomRelationships
+			.Where(relationship => relationship.DatabaseName.Equals(DatabaseName, StringComparison.OrdinalIgnoreCase)));
 
 		if (Project.QueryGenerator is null)
 		{
@@ -96,7 +100,7 @@ public partial class CustomRelationshipsDialog : ComponentBase, IDisposable
 
 		try
 		{
-			var tableNames = await Project.QueryGenerator.GetTablesAsync();
+			var tableNames = await Project.QueryGenerator.GetTablesAsync(DatabaseName);
 			foreach (var table in tableNames)
 				_tables.Add(await Project.QueryGenerator.GetTableAsync(table));
 
@@ -125,13 +129,14 @@ public partial class CustomRelationshipsDialog : ComponentBase, IDisposable
 		{
 			var result = await DbContextGenerator.GenerateAsync(
 				Project.QueryGenerator,
+				DatabaseName,
 				_relationships.Cast<ICustomRelationship>().ToList());
 			var files = new Dictionary<string, string>(result.ModelFiles, StringComparer.OrdinalIgnoreCase)
 			{
-				["GeneratedDbContext.cs"] = result.DbContextCode,
+				[$"{result.ContextTypeName}.cs"] = result.DbContextCode,
 			};
 			_generatedFiles = files
-				.OrderBy(file => file.Key.Equals("GeneratedDbContext.cs", StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+				.OrderBy(file => file.Key.Equals($"{result.ContextTypeName}.cs", StringComparison.OrdinalIgnoreCase) ? 0 : 1)
 				.ThenBy(file => file.Key, StringComparer.OrdinalIgnoreCase)
 				.ToDictionary(file => file.Key, file => file.Value, StringComparer.OrdinalIgnoreCase);
 			_selectedGeneratedFile ??= _generatedFiles.Keys.FirstOrDefault();
@@ -253,7 +258,10 @@ public partial class CustomRelationshipsDialog : ComponentBase, IDisposable
 		if (existing >= 0)
 			_relationships[existing] = _editRelationship;
 		else
+		{
+			_editRelationship.DatabaseName = DatabaseName;
 			_relationships.Add(_editRelationship);
+		}
 
 		StartNewRelationship();
 		await LoadGeneratedCodeAsync();
@@ -338,7 +346,12 @@ public partial class CustomRelationshipsDialog : ComponentBase, IDisposable
 	private void Save()
 	{
 		Project.DbContextOnConfigureCode = _onConfigureCode;
-		Project.CustomRelationships = _relationships;
+		Project.CustomRelationships =
+		[
+			.. Project.CustomRelationships.Where(relationship =>
+				!relationship.DatabaseName.Equals(DatabaseName, StringComparison.OrdinalIgnoreCase)),
+			.. _relationships
+		];
 		MudDialog.Close(DialogResult.Ok(Project));
 	}
 

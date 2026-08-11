@@ -2,6 +2,7 @@ using LinqStudio.Abstractions.Models;
 using LinqStudio.Blazor.Components.Dialogs;
 using LinqStudio.Blazor.Models;
 using LinqStudio.Blazor.Services;
+using LinqStudio.Core.CodeGeneration;
 using LinqStudio.Core.Resources;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
@@ -355,15 +356,16 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 
 	private void CloseContextMenu() => _contextMenuNode = null;
 
-	private async Task OpenCustomRelationshipsAsync()
+	private async Task OpenCustomRelationshipsAsync(SchemaTreeNode databaseNode)
 	{
 		CloseContextMenu();
-		if (Workspace.CurrentProject is null)
+		if (Workspace.CurrentProject is null || databaseNode.DatabaseInfo is null)
 			return;
 
 		var parameters = new DialogParameters<CustomRelationshipsDialog>
 		{
-			{ x => x.Project, Workspace.CurrentProject }
+			{ x => x.Project, Workspace.CurrentProject },
+			{ x => x.DatabaseName, databaseNode.DatabaseInfo.Name }
 		};
 		var options = new DialogOptions
 		{
@@ -465,7 +467,9 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 
 		CloseContextMenu();
 		var entitySetName = ToPascalCase(tableNode.TableName.Name);
-		var queryText = $"// Write your EF Core query here as a one-liner:\r\ncontext.{entitySetName}.Take(1000)";
+		var contextParameterName = CodeGenerationNaming.GetDbContextParameterName(
+			tableNode.TableName.DatabaseName ?? "Database");
+		var queryText = $"// Write your EF Core query here as a one-liner:\r\n{contextParameterName}.{entitySetName}.Take(1000)";
 		var queryId = Workspace.Queries.CreateNewQuery(
 			$"Select top 1000 - {tableNode.TableName.Name}",
 			queryText,

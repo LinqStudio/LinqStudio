@@ -45,14 +45,14 @@ public class EditorE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await E2ETestHelpers.SetupEditorAsync(page, _app);
 
 		// Clear the editor first and type some code
-		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "context.People.Where(");
+		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "mainDbContext.People.Where(");
 
 		// Wait for the editor content to be rendered
 		var viewLine = page.Get_QueryEditor_ViewLine();
 		await Expect(viewLine.First).ToBeVisibleAsync();
 
 		// Find a Monaco token element containing "Where" and hover over it
-		var whereToken = page.Locator(E2ESelectors.MonacoToken).Filter(new() { HasText = "Where", HasNotText = "context" });
+		var whereToken = page.Locator(E2ESelectors.MonacoToken).Filter(new() { HasText = "Where", HasNotText = "mainDbContext" });
 		await Expect(whereToken.First).ToBeVisibleAsync();
 
 		// Hover over the token
@@ -77,7 +77,7 @@ public class EditorE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await E2ETestHelpers.SetupEditorAsync(page, _app);
 
 		// Clear the editor first and type some code
-		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "context.People");
+		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "mainDbContext.People");
 
 		// Type a dot - this should trigger completion automatically
 		await page.Keyboard.TypeAsync(".");
@@ -107,7 +107,7 @@ public class EditorE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await E2ETestHelpers.SetupEditorAsync(page, _app);
 
 		// Clear and type code
-		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "context.People.Where");
+		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "mainDbContext.People.Where");
 
 		// Type an open paren - this should auto-trigger completion suggestions
 		await page.Keyboard.TypeAsync("(");
@@ -128,7 +128,7 @@ public class EditorE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await E2ETestHelpers.SetupEditorAsync(page, _app);
 
 		// Clear and type code ending with a space to trigger completion
-		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "context.People.Where( x => x => x.Age");
+		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "mainDbContext.People.Where( x => x => x.Age");
 		await page.Keyboard.TypeAsync(" ");
 
 		// Wait for completion widget to appear after typing space
@@ -155,7 +155,7 @@ public class EditorE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await Expect(unsavedIndicator).ToContainTextAsync("Unsaved");
 
 		// Type something in the editor to modify it further
-		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "context.People.Where(x => x.Id > 0)");
+		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "mainDbContext.People.Where(x => x.Id > 0)");
 
 		// Verify unsaved indicator is still visible
 		await Expect(unsavedIndicator).ToBeVisibleAsync();

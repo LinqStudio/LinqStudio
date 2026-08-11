@@ -87,7 +87,7 @@ public class QueryExecutionE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		// Setup: Create a new project and open a query tab
 		await E2ETestHelpers.SetupEditorAsync(page, _app);
 
-		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "context.People.Take(5)");
+		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "mainDbContext.People.Take(5)");
 
 		// Click Execute button
 		var executeBtn = page.Get_QueryExecution_ExecuteButton();
@@ -170,7 +170,7 @@ public class QueryExecutionE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await E2ETestHelpers.SetupEditorAsync(page, _app);
 
 		// Write a query (any query will do - even if it errors out, we're testing the stop button)
-		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "context.People.ToList()");
+		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "mainDbContext.People.ToList()");
 
 		// Click Execute button
 		var executeBtn = page.Get_QueryExecution_ExecuteButton();
@@ -245,7 +245,7 @@ public class QueryExecutionE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await E2ETestHelpers.SetupEditorAsync(page, _app);
 
 		// Write a query
-		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "context.People.ToList()");
+		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "mainDbContext.People.ToList()");
 
 		// Click Execute button
 		var executeBtn = page.Get_QueryExecution_ExecuteButton();
@@ -273,7 +273,7 @@ public class QueryExecutionE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await E2ETestHelpers.SetupEditorAsync(page, _app);
 
 		// Write a query
-		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "context.People.ToList()");
+		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "mainDbContext.People.ToList()");
 
 		// Verify timeout select wrapper is visible before execution
 		var timeoutSelect = page.Get_QueryExecution_TimeoutSelect();
@@ -380,7 +380,7 @@ public class QueryExecutionE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		Assert.NotEqual(tab1Url, tab2Url);
 
 		// Write a query and start execution on Tab 2
-		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "context.People.ToList()");
+		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "mainDbContext.People.ToList()");
 		// Scope to the active panel (Tab 2) to avoid strict mode violations with 2 tabs
 		var tab2Panel = E2ETestHelpers.GetActivePanel(page);
 		var executeBtn = tab2Panel.Get_QueryExecution_ExecuteButton();
@@ -443,7 +443,7 @@ public class QueryExecutionE2ETests(AppServerFixture app, PlaywrightFixture pw)
 		await E2ETestHelpers.SetupEditorAsync(page, _app);
 
 		// Write a query (the mock ignores the content and returns the configured result)
-		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "context.People.Where(x => x.Id == -99999)");
+		await E2ETestHelpers.ClearAndWriteQueryAsync(page, "mainDbContext.People.Where(x => x.Id == -99999)");
 
 		// Configure mock to return an empty result IMMEDIATELY before clicking Execute,
 		// minimizing the window for other in-flight executions to consume the configured result.

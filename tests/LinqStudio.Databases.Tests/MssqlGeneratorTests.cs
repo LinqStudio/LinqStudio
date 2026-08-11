@@ -26,6 +26,8 @@ public class MssqlGeneratorTests : BaseGeneratorTests, IClassFixture<MssqlDataba
 	private readonly MssqlDatabaseFixture _fixture;
 
 	protected override IDatabaseQueryGenerator Generator { get; }
+	protected override IDatabaseQueryGenerator GeneratorWithoutDatabase
+		=> new MssqlGenerator(new SqlConnection(_fixture.MasterConnectionString));
 
 	public MssqlGeneratorTests(MssqlDatabaseFixture fixture)
 	{
@@ -88,5 +90,28 @@ public class MssqlGeneratorTests : BaseGeneratorTests, IClassFixture<MssqlDataba
 			_fixture.OtherDatabaseName,
 			table.DatabaseName,
 			StringComparer.OrdinalIgnoreCase));
+	}
+
+	[Fact]
+	public async Task GetDatabasesAsync_ThenGetTablesAsync_ShouldLoadTablesForEveryDatabase()
+	{
+		IDatabaseQueryGenerator generator =
+			new MssqlGenerator(new SqlConnection(_fixture.MasterConnectionString));
+
+		var databases = await generator.GetDatabasesAsync();
+
+		Assert.Contains(databases, database => database.Name == "TestLinqStudio");
+		Assert.Contains(databases, database => database.Name == _fixture.OtherDatabaseName);
+
+		foreach (var database in databases)
+		{
+			var tables = await generator.GetTablesAsync(database.Name);
+
+			Assert.NotEmpty(tables);
+			Assert.All(tables, table => Assert.Equal(
+				database.Name,
+				table.DatabaseName,
+				StringComparer.OrdinalIgnoreCase));
+		}
 	}
 }

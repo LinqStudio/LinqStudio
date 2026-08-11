@@ -5,6 +5,7 @@ using Microsoft.CodeAnalysis.Text;
 using Microsoft.Extensions.Logging;
 using System.Reflection;
 using System.Threading.Tasks.Dataflow;
+using LinqStudio.Core.Models;
 
 namespace LinqStudio.Core.Services;
 
@@ -15,7 +16,7 @@ public class CompilerService : IDisposable
 	private readonly AdhocWorkspace _workspace;
 	private readonly ProjectId _projectId;
 	private Solution _solution;
-	private readonly string _contextTypeName;
+	private readonly IReadOnlyList<QueryDbContextParameter> _contextParameters;
 	private readonly string _projectNamespace;
 	private readonly RoslynWorkspaceService _roslynWorkspaceService;
 	private readonly ILogger<CompilerService>? _logger;
@@ -23,9 +24,22 @@ public class CompilerService : IDisposable
 	private const string _afterUserQuery = "";  // Hardcoded, can be changed as needed
 
 	public CompilerService(string contextTypeName, string projectNamespace, RoslynWorkspaceService roslynWorkspaceService, ILogger<CompilerService>? logger = null)
+		: this(
+			[new QueryDbContextParameter(contextTypeName, projectNamespace, "context")],
+			projectNamespace,
+			roslynWorkspaceService,
+			logger)
+	{
+	}
+
+	public CompilerService(
+		IReadOnlyList<QueryDbContextParameter> contextParameters,
+		string projectNamespace,
+		RoslynWorkspaceService roslynWorkspaceService,
+		ILogger<CompilerService>? logger = null)
 	{
 		_roslynWorkspaceService = roslynWorkspaceService;
-		_contextTypeName = contextTypeName;
+		_contextParameters = contextParameters;
 		_projectNamespace = projectNamespace;
 		_logger = logger;
 
@@ -47,16 +61,26 @@ public class CompilerService : IDisposable
 	#region Init / Add files
 
 	public async Task Initialize(Dictionary<string, string> tableModelFiles, string dbContextCode)
+		=> await Initialize(
+			tableModelFiles,
+			new Dictionary<string, string> { ["DbContext.cs"] = dbContextCode });
+
+	public async Task Initialize(
+		IReadOnlyDictionary<string, string> tableModelFiles,
+		IReadOnlyDictionary<string, string> dbContextFiles)
 	{
 		await _lock.WaitAsync();
 		try
 		{
 			foreach ((var tableName, var modelCode) in tableModelFiles)
 			{
-				var documentName = tableName + ".cs";
+				var documentName = tableName.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
+					? tableName
+					: tableName + ".cs";
 				AddOrUpdateFile(documentName, modelCode);
 			}
-			AddOrUpdateFile("DbContext.cs", dbContextCode);
+			foreach ((var fileName, var dbContextCode) in dbContextFiles)
+				AddOrUpdateFile(fileName, dbContextCode);
 		}
 		finally
 		{
@@ -99,7 +123,7 @@ public class CompilerService : IDisposable
 
 	private string WrapUserQuery(string userQuery)
 	{
-		return _roslynWorkspaceService.WrapQuery(userQuery, _contextTypeName, _projectNamespace, _beforeUserQuery);
+		return _roslynWorkspaceService.WrapQuery(userQuery, _contextParameters, _projectNamespace, _beforeUserQuery);
 	}
 
 	public async Task<IReadOnlyList<(CompletionItem Item, string? Description)>> GetCompletionsAsync(string userQueryContent, int cursorPosition)

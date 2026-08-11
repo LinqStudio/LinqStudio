@@ -63,9 +63,8 @@ public class DatabaseTreeViewComponentTests : BunitContext
 	/// <summary>
 	/// Creates a <see cref="Mock{IDatabaseQueryGenerator}"/> where <c>GetTablesAsync</c>
 	/// returns the supplied table list (by reference — mutate the list to change future returns).
-	/// <c>CallBase = true</c> ensures that the default interface implementation of
-	/// <c>GetTableAsync(DatabaseTableName, …)</c> delegates to the mocked
-	/// <c>GetTableAsync(string, …)</c> overload rather than returning null.
+	/// The database-specific overloads are configured explicitly because they are
+	/// required members of the database generator contract.
 	/// </summary>
 	private static Mock<IDatabaseQueryGenerator> CreateMockGenerator(
 		List<DatabaseTableName> tables)
@@ -73,6 +72,23 @@ public class DatabaseTreeViewComponentTests : BunitContext
 		var mock = new Mock<IDatabaseQueryGenerator> { CallBase = true };
 		mock.Setup(g => g.GetTablesAsync(It.IsAny<CancellationToken>()))
 			.ReturnsAsync(() => (IReadOnlyList<DatabaseTableName>)tables);
+		mock.Setup(g => g.GetDatabasesAsync(It.IsAny<CancellationToken>()))
+			.ReturnsAsync(Array.Empty<DatabaseInfo>());
+		mock.Setup(g => g.GetTablesAsync(
+				It.IsAny<string>(),
+				It.IsAny<CancellationToken>()))
+			.ReturnsAsync((string databaseName, CancellationToken _) =>
+				(IReadOnlyList<DatabaseTableName>)tables
+					.Where(table => string.Equals(
+						table.DatabaseName,
+						databaseName,
+						StringComparison.OrdinalIgnoreCase))
+					.ToList());
+		mock.Setup(g => g.GetTableAsync(
+				It.IsAny<DatabaseTableName>(),
+				It.IsAny<CancellationToken>()))
+			.Returns((DatabaseTableName table, CancellationToken cancellationToken) =>
+				mock.Object.GetTableAsync(table.FullName, cancellationToken));
 		return mock;
 	}
 
@@ -551,15 +567,14 @@ public class DatabaseTreeViewComponentTests : BunitContext
 			Assert.NotNull(cut.Find("[data-testid='db-tree-connection']"));
 		}, TimeSpan.FromSeconds(3));
 
-		// Act — right-click the connection node BodyContent div to open the context menu
-		var connNodeDiv = cut.Find("[data-testid='db-tree-connection-body']");
-		connNodeDiv.TriggerEvent("oncontextmenu", new MouseEventArgs { ClientX = 100, ClientY = 100 });
+		// Act — right-click the database node body to open the context menu.
+		var databaseNodeDiv = cut.Find("[data-testid='db-tree-database-body-Database']");
+		databaseNodeDiv.TriggerEvent("oncontextmenu", new MouseEventArgs { ClientX = 100, ClientY = 100 });
 
-		// Assert — "New Query" item is rendered in the context menu
+		// Assert — the database-scoped custom relationships item is rendered.
 		cut.WaitForAssertion(() =>
 		{
-			Assert.NotNull(cut.Find("[data-testid='db-tree-connection-new-query']"));
-			Assert.NotNull(cut.Find("[data-testid='db-tree-connection-custom-relationships']"));
+			Assert.NotNull(cut.Find("[data-testid='db-tree-database-custom-relationships-Database']"));
 		}, TimeSpan.FromSeconds(3));
 	}
 
@@ -621,7 +636,7 @@ public class DatabaseTreeViewComponentTests : BunitContext
 		// Assert
 		var query = workspace.Queries.GetCurrentQuery();
 		Assert.NotNull(query);
-		Assert.EndsWith("context.SalesOrders.Take(1000)", query.QueryText);
+		Assert.EndsWith("databaseDbContext.SalesOrders.Take(1000)", query.QueryText);
 		Assert.True(workspace.Queries.CurrentQueryState!.ExecuteOnOpen);
 	}
 }

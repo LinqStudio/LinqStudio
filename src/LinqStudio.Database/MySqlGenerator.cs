@@ -28,7 +28,7 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 	/// <returns>A new MySQL generator instance.</returns>
 	public static MySqlGenerator Create(string connectionString) => new(new MySql.Data.MySqlClient.MySqlConnection(connectionString));
 
-	public async Task<IReadOnlyList<DatabaseInfo>> GetDatabasesAsync(CancellationToken cancellationToken = default)
+	public override async Task<IReadOnlyList<DatabaseInfo>> GetDatabasesAsync(CancellationToken cancellationToken = default)
 	{
 		if (_explicitDatabaseName is not null)
 			return [new DatabaseInfo { Name = _explicitDatabaseName, IsExplicitlySelected = true }];
@@ -59,7 +59,7 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 		}
 	}
 
-	public async Task<IReadOnlyList<DatabaseTableName>> GetTablesAsync(
+	public override async Task<IReadOnlyList<DatabaseTableName>> GetTablesAsync(
 		string databaseName,
 		CancellationToken cancellationToken = default)
 	{
@@ -95,7 +95,7 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 		}
 	}
 
-	public async Task<DatabaseTableDetail> GetTableAsync(
+	public override async Task<DatabaseTableDetail> GetTableAsync(
 			DatabaseTableName table,
 			CancellationToken cancellationToken = default)
 		{

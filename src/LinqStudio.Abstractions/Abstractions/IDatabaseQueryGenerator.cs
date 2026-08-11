@@ -10,16 +10,7 @@ public interface IDatabaseQueryGenerator
 	/// <summary>
 	/// Gets databases/catalogs visible to the connection.
 	/// </summary>
-	async Task<IReadOnlyList<DatabaseInfo>> GetDatabasesAsync(CancellationToken cancellationToken = default)
-	{
-		var tables = await GetTablesAsync(cancellationToken);
-		return tables
-			.Select(table => table.DatabaseName)
-			.Where(name => !string.IsNullOrWhiteSpace(name))
-			.Distinct(StringComparer.OrdinalIgnoreCase)
-			.Select(name => new DatabaseInfo { Name = name! })
-			.ToList();
-	}
+	Task<IReadOnlyList<DatabaseInfo>> GetDatabasesAsync(CancellationToken cancellationToken = default);
 
 	/// <summary>
 	/// Gets the tables in the connected database with their database, schema, and name.
@@ -31,16 +22,7 @@ public interface IDatabaseQueryGenerator
 	/// <summary>
 	/// Gets tables from a specific database/catalog.
 	/// </summary>
-	async Task<IReadOnlyList<DatabaseTableName>> GetTablesAsync(
-		string databaseName,
-		CancellationToken cancellationToken = default)
-	{
-		ArgumentException.ThrowIfNullOrWhiteSpace(databaseName, nameof(databaseName));
-		var tables = await GetTablesAsync(cancellationToken);
-		return tables
-			.Where(table => string.Equals(table.DatabaseName, databaseName, StringComparison.OrdinalIgnoreCase))
-			.ToList();
-	}
+	Task<IReadOnlyList<DatabaseTableName>> GetTablesAsync(string databaseName, CancellationToken cancellationToken = default);
 
 	/// <summary>
 	/// Gets detailed information about a specific table including columns and foreign keys.
@@ -56,11 +38,7 @@ public interface IDatabaseQueryGenerator
 	/// <param name="table">DatabaseTableName instance</param>
 	/// <param name="cancellationToken">Cancellation token.</param>
 	/// <returns>Detailed table information including columns and foreign keys.</returns>
-	public Task<DatabaseTableDetail> GetTableAsync(DatabaseTableName table, CancellationToken cancellationToken = default)
-	{
-		ArgumentNullException.ThrowIfNull(table);
-		return GetTableAsync(table.FullName, cancellationToken);
-	}
+	Task<DatabaseTableDetail> GetTableAsync(DatabaseTableName table, CancellationToken cancellationToken = default);
 
 	/// <summary>
 	/// Tests the database connection.

@@ -2,6 +2,8 @@ using LinqStudio.Abstractions;
 using LinqStudio.Abstractions.Models;
 using LinqStudio.Core.Interfaces;
 using LinqStudio.Core.Settings;
+using LinqStudio.Core.CodeGeneration;
+using LinqStudio.Core.Models;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.EntityFrameworkCore;
@@ -28,7 +30,8 @@ public sealed class QueryExecutionService(
 	private readonly SemaphoreSlim _executionLock = new(1, 1);
 
 	private AssemblyLoadContext? _lastAssemblyLoadContext;
-	private DbContext? _lastDbContext;
+	private readonly List<DbContext> _lastDbContexts = [];
+	private DbContext? _entityDbContext;
 	private Type? _entityType;
 	private readonly List<object> _entityItems = [];
 
@@ -68,20 +71,48 @@ public sealed class QueryExecutionService(
 				return QueryExecutionResult.FromError("No database connection configured", isCompileError: false, stopwatch.Elapsed);
 			}
 
-			// Generate models and DbContext from project's database
-			var generatorResult = await _generator.GenerateAsync(
-				project.CreateQueryGenerator(),
-				project.CustomRelationships,
-				cancellationToken);
+			var databaseGenerator = project.CreateQueryGenerator();
+			var databases = await databaseGenerator.GetDatabasesAsync(cancellationToken);
+			if (databases.Count == 0)
+				return QueryExecutionResult.FromError("No databases are available for this connection", isCompileError: false, stopwatch.Elapsed);
+
+			var generatedContexts = new List<(DatabaseInfo Database, DbContextGeneratorResult Result)>(databases.Count);
+			foreach (var database in databases)
+			{
+				var result = await _generator.GenerateAsync(
+					databaseGenerator,
+					database.Name,
+					project.CustomRelationships
+						.Where(relationship => relationship.DatabaseName.Equals(database.Name, StringComparison.OrdinalIgnoreCase))
+						.ToList(),
+					cancellationToken);
+				generatedContexts.Add((database, result));
+			}
+
+			var generatedFiles = generatedContexts
+				.SelectMany(context => context.Result.ModelFiles.Select(file =>
+					new KeyValuePair<string, string>(
+						$"{context.Result.ContextTypeName}.{file.Key}",
+						file.Value)))
+				.ToDictionary(file => file.Key, file => file.Value, StringComparer.OrdinalIgnoreCase);
+			foreach (var context in generatedContexts)
+				generatedFiles.Add($"{context.Result.ContextTypeName}.cs", context.Result.DbContextCode);
 
 			// Step 1-2: Wrap user query in QueryContainer
-			var wrappedQuery = _roslynWorkspaceService.WrapQuery(userQuery, generatorResult.ContextTypeName, generatorResult.Namespace);
+			var wrappedQuery = _roslynWorkspaceService.WrapQuery(
+				userQuery,
+				generatedContexts
+					.Select(context => new QueryDbContextParameter(
+						context.Result.ContextTypeName,
+						context.Result.Namespace,
+						CodeGenerationNaming.GetDbContextParameterName(context.Database.Name)))
+					.ToList(),
+				"GeneratedModels");
 
 			// Step 3: Compile to IL
 			var (success, assembly, alc, diagnostics) = await CompileToAssemblyAsync(
 				wrappedQuery,
-				generatorResult.ModelFiles,
-				generatorResult.DbContextCode,
+				generatedFiles,
 				cancellationToken);
 
 			if (!success || assembly == null)
@@ -96,24 +127,32 @@ public sealed class QueryExecutionService(
 			var retainExecutionResources = false;
 			try
 			{
-				// Step 5: Instantiate DbContext with real connection
-				var dbContextOptions = CreateDbContextOptions(project.DatabaseType, project.ConnectionString);
-				var dbContextType = assembly.GetType($"{generatorResult.Namespace}.{generatorResult.ContextTypeName}");
-				if (dbContextType == null)
+				// Step 5: Instantiate every DbContext so the query can choose its target database.
+				foreach (var context in generatedContexts)
 				{
-					return QueryExecutionResult.FromError($"Could not find DbContext type {generatorResult.ContextTypeName}", isCompileError: false, stopwatch.Elapsed);
+					var dbContextOptions = CreateDbContextOptions(
+						project.DatabaseType,
+						project.ConnectionString,
+						context.Database.Name);
+					var dbContextType = assembly.GetType(
+						$"{context.Result.Namespace}.{context.Result.ContextTypeName}");
+					if (dbContextType is null)
+					{
+						return QueryExecutionResult.FromError(
+							$"Could not find DbContext type {context.Result.ContextTypeName}",
+							isCompileError: false,
+							stopwatch.Elapsed);
+					}
+
+					var dbContext = Activator.CreateInstance(dbContextType, dbContextOptions) as DbContext;
+					if (dbContext is null)
+						return QueryExecutionResult.FromError("Failed to instantiate DbContext", isCompileError: false, stopwatch.Elapsed);
+
+					_lastDbContexts.Add(dbContext);
 				}
 
-				var dbContext = Activator.CreateInstance(dbContextType, dbContextOptions) as DbContext;
-				if (dbContext == null)
-				{
-					return QueryExecutionResult.FromError("Failed to instantiate DbContext", isCompileError: false, stopwatch.Elapsed);
-				}
-
-				_lastDbContext = dbContext;
-
-				// Step 6: Invoke QueryContainer.Query(dbContext)
-				var queryContainerType = assembly.GetType($"{generatorResult.Namespace}.QueryContainer");
+				// Step 6: Invoke QueryContainer.Query with every generated DbContext.
+				var queryContainerType = assembly.GetType("GeneratedModels.QueryContainer");
 				if (queryContainerType == null)
 				{
 					return QueryExecutionResult.FromError("Could not find QueryContainer type", isCompileError: false, stopwatch.Elapsed);
@@ -132,7 +171,7 @@ public sealed class QueryExecutionService(
 				}
 
 				// Invoke the user query method, which should return Task<IQueryable<object>>
-				var queryTask = queryMethod.Invoke(queryContainer, [dbContext]) as Task<IQueryable<object>>;
+				var queryTask = queryMethod.Invoke(queryContainer, _lastDbContexts.Cast<object>().ToArray()) as Task<IQueryable<object>>;
 				if (queryTask == null)
 				{
 					return QueryExecutionResult.FromError("Query method did not return expected Task", isCompileError: false, stopwatch.Elapsed);
@@ -249,8 +288,8 @@ public sealed class QueryExecutionService(
 		await _executionLock.WaitAsync(cancellationToken);
 		try
 		{
-			if (_lastDbContext is not null)
-				await _lastDbContext.SaveChangesAsync(cancellationToken);
+			if (_entityDbContext is not null)
+				await _entityDbContext.SaveChangesAsync(cancellationToken);
 		}
 		finally
 		{
@@ -275,35 +314,39 @@ public sealed class QueryExecutionService(
 
 	private async ValueTask CleanupExecutionResourcesAsync()
 	{
-		var dbContext = _lastDbContext;
+		var dbContexts = _lastDbContexts.ToArray();
 		var assemblyLoadContext = _lastAssemblyLoadContext;
-		_lastDbContext = null;
+		_lastDbContexts.Clear();
 		_lastAssemblyLoadContext = null;
 
-		if (dbContext is not null)
-		{
+		foreach (var dbContext in dbContexts)
 			await dbContext.DisposeAsync();
-		}
 
 		assemblyLoadContext?.Unload();
 		_entityType = null;
+		_entityDbContext = null;
 		_entityItems.Clear();
 	}
 
 	private void DisposeExecutionResources()
 	{
-		var dbContext = _lastDbContext;
+		var dbContexts = _lastDbContexts.ToArray();
 		var assemblyLoadContext = _lastAssemblyLoadContext;
-		_lastDbContext = null;
+		_lastDbContexts.Clear();
 		_lastAssemblyLoadContext = null;
 
-		dbContext?.Dispose();
+		foreach (var dbContext in dbContexts)
+			dbContext.Dispose();
 		assemblyLoadContext?.Unload();
 		_entityType = null;
+		_entityDbContext = null;
 		_entityItems.Clear();
 	}
 
-	private DbContextOptions CreateDbContextOptions(DatabaseType databaseType, string connectionString)
+	private DbContextOptions CreateDbContextOptions(
+		DatabaseType databaseType,
+		string connectionString,
+		string databaseName)
 	{
 		var builder = new DbContextOptionsBuilder();
 
@@ -311,13 +354,22 @@ public sealed class QueryExecutionService(
 		switch (databaseType)
 		{
 			case DatabaseType.Mssql:
-				builder.UseSqlServer(connectionString);
+				builder.UseSqlServer(new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(connectionString)
+				{
+					InitialCatalog = databaseName
+				}.ConnectionString);
 				break;
 			case DatabaseType.MySql:
-				builder.UseMySQL(connectionString);
+				builder.UseMySQL(new MySql.Data.MySqlClient.MySqlConnectionStringBuilder(connectionString)
+				{
+					Database = databaseName
+				}.ConnectionString);
 				break;
 			case DatabaseType.PostgreSql:
-				builder.UseNpgsql(connectionString);
+				builder.UseNpgsql(new Npgsql.NpgsqlConnectionStringBuilder(connectionString)
+				{
+					Database = databaseName
+				}.ConnectionString);
 				break;
 			case DatabaseType.Sqlite:
 				builder.UseSqlite(connectionString);
@@ -331,8 +383,7 @@ public sealed class QueryExecutionService(
 
 	private async Task<(bool Success, Assembly? Assembly, AssemblyLoadContext? Alc, string Diagnostics)> CompileToAssemblyAsync(
 		string wrappedQuery,
-		Dictionary<string, string> modelFiles,
-		string dbContextCode,
+		IReadOnlyDictionary<string, string> generatedFiles,
 		CancellationToken cancellationToken)
 	{
 		// Create workspace using shared service — disposed at end of method via using
@@ -342,11 +393,10 @@ public sealed class QueryExecutionService(
 		var solution = workspaceResult.Solution;
 
 		// Add all documents at once
-		solution = _roslynWorkspaceService.AddDocuments(
+		solution = _roslynWorkspaceService.AddSourceDocuments(
 			solution,
 			projectId,
-			modelFiles,
-			dbContextCode,
+			generatedFiles,
 			wrappedQuery);
 
 		// Get compilation
@@ -394,7 +444,9 @@ public sealed class QueryExecutionService(
 
 		var firstItem = items[0];
 		var type = firstItem.GetType();
-		_entityType = _lastDbContext?.Model.FindEntityType(type) is not null ? type : null;
+		_entityDbContext = _lastDbContexts.FirstOrDefault(
+			dbContext => dbContext.Model.FindEntityType(type) is not null);
+		_entityType = _entityDbContext is null ? null : type;
 		if (_entityType is not null)
 			_entityItems.AddRange(items);
 
