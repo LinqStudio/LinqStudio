@@ -1,0 +1,32 @@
+.resize-splitter {
+	flex-shrink: 0;
+	user-select: none;
+	transition: background-color 120ms ease;
+}
+
+.resize-splitter-horizontal {
+	height: var(--ls-space-1);
+	background: var(--ls-color-border);
+	cursor: row-resize;
+}
+
+.resize-splitter-vertical {
+	position: absolute;
+	top: 0;
+	right: 0;
+	z-index: 2;
+	width: 6px;
+	height: 100%;
+	cursor: col-resize;
+	background: transparent;
+}
+
+.resize-splitter:hover,
+.resize-splitter.dragging {
+	background: var(--ls-color-accent);
+}
+
+.resize-splitter:focus-visible {
+	outline: 2px solid var(--ls-color-focus);
+	outline-offset: 1px;
+}

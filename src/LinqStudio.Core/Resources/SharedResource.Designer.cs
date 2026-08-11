@@ -1321,6 +1321,15 @@ namespace LinqStudio.Core.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Resize object explorer.
+        /// </summary>
+        public static string Shell_Explorer_Resize {
+            get {
+                return ResourceManager.GetString("Shell.Explorer.Resize", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Database objects.
         /// </summary>
         public static string Shell_Explorer_Subtitle {

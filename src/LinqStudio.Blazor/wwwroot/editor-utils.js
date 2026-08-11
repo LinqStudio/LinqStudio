@@ -1,70 +1,144 @@
-// Draggable vertical splitter for editor/results panels
-window.initSplitter = function(splitterId, topId, bottomId) {
+// Reusable draggable splitter for panel layouts and resizable drawer targets.
+window.initResizableSplitter = function(splitterId, orientation, firstId, secondId, targetId) {
     const splitter = document.getElementById(splitterId);
-    const top = document.getElementById(topId);
-    const bottom = document.getElementById(bottomId);
+    const first = firstId ? document.getElementById(firstId) : null;
+    const second = secondId ? document.getElementById(secondId) : null;
+    const target = targetId ? document.getElementById(targetId) : null;
     
-    if (!splitter || !top || !bottom) {
+    if (!splitter || (orientation === 'horizontal' && (!first || !second))
+        || (orientation === 'vertical' && !target)) {
         return false;
     }
 
+    const container = target?.closest('.mud-drawer-container') || target?.parentElement;
     let isDragging = false;
+    const minSize = 80;
+    const minWidth = 180;
+    const maxWidth = Math.min(520, window.innerWidth * 0.5);
     
-    splitter.addEventListener('mousedown', function(e) {
+    const onMouseDown = function(e) {
         isDragging = true;
         e.preventDefault();
-        document.body.style.cursor = 'row-resize';
+        document.body.style.cursor = orientation === 'horizontal' ? 'row-resize' : 'col-resize';
         document.body.style.userSelect = 'none';
-    });
+        splitter.classList.add('dragging');
+    };
     
     const onMouseMove = function(e) {
         if (!isDragging) return;
-        const container = splitter.parentElement;
-        if (!container) return;
-        const containerRect = container.getBoundingClientRect();
-        const newTopHeight = e.clientY - containerRect.top;
-        const totalHeight = containerRect.height;
-        const splitterHeight = splitter.offsetHeight;
-        const minHeight = 80;
-        if (newTopHeight < minHeight || newTopHeight > totalHeight - minHeight - splitterHeight) return;
-        top.style.height = newTopHeight + 'px';
-        bottom.style.height = (totalHeight - newTopHeight - splitterHeight) + 'px';
+        if (orientation === 'horizontal') {
+            const containerRect = splitter.parentElement?.getBoundingClientRect();
+            if (!containerRect || !first || !second) return;
+            const newFirstSize = e.clientY - containerRect.top;
+            const totalSize = containerRect.height;
+            const splitterSize = splitter.offsetHeight;
+            if (newFirstSize < minSize || newFirstSize > totalSize - minSize - splitterSize) return;
+            first.style.height = newFirstSize + 'px';
+            second.style.height = (totalSize - newFirstSize - splitterSize) + 'px';
+        } else if (target && container) {
+            const targetRect = target.getBoundingClientRect();
+            const width = Math.max(minWidth, Math.min(maxWidth, e.clientX - targetRect.left));
+            const widthValue = width + 'px';
+            container.style.setProperty('--mud-drawer-width-left', widthValue);
+            target.style.setProperty('--mud-drawer-width', widthValue);
+        }
     };
     
     const onMouseUp = function() {
-        if (isDragging) {
-            isDragging = false;
-            document.body.style.cursor = '';
-            document.body.style.userSelect = '';
-            splitter.classList.remove('dragging');
-        }
+        if (!isDragging) return;
+        isDragging = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        splitter.classList.remove('dragging');
     };
     
+    splitter.addEventListener('mousedown', onMouseDown);
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
-
-    splitter.addEventListener('mousedown', function() {
-        splitter.classList.add('dragging');
-    });
     
-    window._splitterCleanups = window._splitterCleanups || {};
-    window._splitterCleanups[splitterId] = function() {
+    window._resizableSplitterCleanups = window._resizableSplitterCleanups || {};
+    window._resizableSplitterCleanups[splitterId] = function() {
+        splitter.removeEventListener('mousedown', onMouseDown);
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
-        if (isDragging) {
-            isDragging = false;
-            document.body.style.cursor = '';
-            document.body.style.userSelect = '';
-        }
+        onMouseUp();
     };
 
     return true;
 };
 
-window.disposeSplitter = function(splitterId) {
-    if (window._splitterCleanups && window._splitterCleanups[splitterId]) {
-        window._splitterCleanups[splitterId]();
-        delete window._splitterCleanups[splitterId];
+window.disposeResizableSplitter = function(splitterId) {
+    if (window._resizableSplitterCleanups && window._resizableSplitterCleanups[splitterId]) {
+        window._resizableSplitterCleanups[splitterId]();
+        delete window._resizableSplitterCleanups[splitterId];
+    }
+};
+
+// Draggable vertical splitter for the database explorer drawer.
+window.initDrawerSplitter = function(splitterId, drawerId) {
+    const splitter = document.getElementById(splitterId);
+    const drawer = document.getElementById(drawerId);
+
+    if (!splitter || !drawer) {
+        return false;
+    }
+
+    const container = drawer.closest('.mud-drawer-container') || drawer.parentElement;
+    if (!container) {
+        return false;
+    }
+
+    let isDragging = false;
+    const minWidth = 180;
+    const maxWidth = Math.min(520, window.innerWidth * 0.5);
+
+    const setWidth = function(width) {
+        const clampedWidth = Math.max(minWidth, Math.min(maxWidth, width));
+        const widthValue = clampedWidth + 'px';
+        container.style.setProperty('--mud-drawer-width-left', widthValue);
+        drawer.style.setProperty('--mud-drawer-width', widthValue);
+    };
+
+    const onMouseDown = function(e) {
+        isDragging = true;
+        e.preventDefault();
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        splitter.classList.add('dragging');
+    };
+
+    const onMouseMove = function(e) {
+        if (!isDragging) return;
+        const drawerRect = drawer.getBoundingClientRect();
+        setWidth(e.clientX - drawerRect.left);
+    };
+
+    const onMouseUp = function() {
+        if (!isDragging) return;
+        isDragging = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        splitter.classList.remove('dragging');
+    };
+
+    splitter.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+
+    window._drawerSplitterCleanups = window._drawerSplitterCleanups || {};
+    window._drawerSplitterCleanups[splitterId] = function() {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        onMouseUp();
+    };
+
+    return true;
+};
+
+window.disposeDrawerSplitter = function(splitterId) {
+    if (window._drawerSplitterCleanups && window._drawerSplitterCleanups[splitterId]) {
+        window._drawerSplitterCleanups[splitterId]();
+        delete window._drawerSplitterCleanups[splitterId];
     }
 };
 
