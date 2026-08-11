@@ -1,20 +1,16 @@
 using LinqStudio.Abstractions.Models;
-using LinqStudio.Databases.Tests.Fixtures;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.SqlClient;
 
 namespace LinqStudio.Databases.Tests;
 
 /// <summary>
 /// Tests for MSSQL type mapping to ensure all SQL Server types map correctly to generic DbColumnType.
 /// </summary>
-public class MssqlTypeMapperTests : IClassFixture<MssqlDatabaseFixture>
+public class MssqlTypeMapperTests
 {
 	private readonly MssqlGenerator _generator;
 
-	public MssqlTypeMapperTests(MssqlDatabaseFixture fixture)
-	{
-		_generator = new MssqlGenerator(fixture.DbContext.Database.GetDbConnection());
-	}
+	public MssqlTypeMapperTests() => _generator = new MssqlGenerator(new SqlConnection());
 
 	[Theory]
 	[InlineData("bit", DbColumnType.Boolean)]
