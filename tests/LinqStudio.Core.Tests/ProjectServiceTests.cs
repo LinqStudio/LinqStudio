@@ -276,6 +276,38 @@ public class ProjectServiceTests : IDisposable
 	}
 
 	[Fact]
+	public async Task LoadProjectAsync_LegacyRelationshipWithoutDatabase_AssignsConnectionDatabase()
+	{
+		var service = new ProjectService();
+		var filePath = Path.Combine(_testDirectory, "legacy_relationship.linq");
+		var legacyProject = new Project
+		{
+			SchemaVersion = 1,
+			Name = "Legacy Project",
+			ConnectionString = "Server=localhost;Initial Catalog=Sales;",
+			CustomRelationships =
+			[
+				new CustomRelationship
+				{
+					PrincipalTable = "dbo.Customers",
+					DependentTable = "dbo.Orders"
+				}
+			]
+		};
+
+		await using (var file = File.Create(filePath))
+		{
+			await JsonSerializer.SerializeAsync(file, legacyProject);
+		}
+
+		var project = await service.LoadProjectAsync(filePath);
+
+		Assert.NotNull(project);
+		Assert.Equal(ProjectConstants.CurrentSchemaVersion, project.SchemaVersion);
+		Assert.Equal("Sales", Assert.Single(project.CustomRelationships).DatabaseName);
+	}
+
+	[Fact]
 	public async Task LoadProjectAsync_PreservesAllProperties()
 	{
 		// Arrange

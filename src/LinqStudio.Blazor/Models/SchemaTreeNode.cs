@@ -10,6 +10,7 @@ public enum SchemaTreeNodeType
 {
 	/// <summary>Root node — one per database connection.</summary>
 	Connection,
+	Database,
 
 	/// <summary>"Tables" grouping folder under a connection.</summary>
 	TablesFolder,
@@ -39,8 +40,9 @@ public class SchemaTreeNode
 	public string Key => NodeType switch
 	{
 		SchemaTreeNodeType.Connection => $"connection:{ConnectionInfo?.DisplayName ?? Label}",
-		SchemaTreeNodeType.TablesFolder => "folder:tables",
-		SchemaTreeNodeType.Table => $"table:{TableName?.FullName ?? Label}",
+		SchemaTreeNodeType.Database => $"database:{DatabaseInfo?.Name ?? Label}",
+		SchemaTreeNodeType.TablesFolder => $"folder:tables:{DatabaseInfo?.Name ?? Label}",
+		SchemaTreeNodeType.Table => $"table:{TableName?.DatabaseName}:{TableName?.FullName ?? Label}",
 		SchemaTreeNodeType.Column => $"column:{ParentKey}:{ColumnDetail?.Name ?? Label}",
 		_ => Label,
 	};
@@ -62,6 +64,8 @@ public class SchemaTreeNode
 
 	/// <summary>Set for <see cref="SchemaTreeNodeType.Connection"/> nodes.</summary>
 	public ConnectionInfo? ConnectionInfo { get; init; }
+
+	public DatabaseInfo? DatabaseInfo { get; init; }
 
 	/// <summary>Set for <see cref="SchemaTreeNodeType.Table"/> nodes. Used to call GetTableAsync().</summary>
 	public DatabaseTableName? TableName { get; init; }

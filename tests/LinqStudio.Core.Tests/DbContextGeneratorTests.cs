@@ -1,5 +1,6 @@
 using LinqStudio.Abstractions;
 using LinqStudio.Abstractions.Models;
+using LinqStudio.Core.CodeGeneration;
 using LinqStudio.Core.Models;
 using LinqStudio.Core.Services;
 
@@ -7,7 +8,30 @@ namespace LinqStudio.Core.Tests;
 
 public class DbContextGeneratorTests
 {
-	private readonly DbContextGenerator _generator = new();
+	private readonly DatabaseScopedGenerator _generator = new(new DbContextGenerator());
+
+	[Fact]
+	public void GetDbContextTypeNames_NormalizedNamesCollide_SuffixesOnlyCollidingNames()
+	{
+		var contextTypeNames = CodeGenerationNaming.GetDbContextTypeNames(
+			["sales-db", "sales_db", "Sales", "sales", "CustomerDB"]);
+
+		Assert.NotEqual(contextTypeNames["sales-db"], contextTypeNames["sales_db"]);
+		Assert.NotEqual(contextTypeNames["Sales"], contextTypeNames["sales"]);
+		Assert.StartsWith("SalesDb_", contextTypeNames["sales-db"], StringComparison.Ordinal);
+		Assert.Equal("CustomerDBDbContext", contextTypeNames["CustomerDB"]);
+	}
+
+	private sealed class DatabaseScopedGenerator(DbContextGenerator generator)
+	{
+		public Task<DbContextGeneratorResult> GenerateAsync(FakeGenerator databaseGenerator)
+			=> generator.GenerateAsync(databaseGenerator, "TestDatabase");
+
+		public Task<DbContextGeneratorResult> GenerateAsync(
+			FakeGenerator databaseGenerator,
+			IReadOnlyList<ICustomRelationship> customRelationships)
+			=> generator.GenerateAsync(databaseGenerator, "TestDatabase", customRelationships);
+	}
 
 	private sealed class FakeGenerator : IDatabaseQueryGenerator
 	{
@@ -23,8 +47,26 @@ public class DbContextGeneratorTests
 		public Task<IReadOnlyList<DatabaseTableName>> GetTablesAsync(CancellationToken ct = default)
 			=> Task.FromResult<IReadOnlyList<DatabaseTableName>>(_tables);
 
+		public Task<IReadOnlyList<DatabaseInfo>> GetDatabasesAsync(CancellationToken ct = default)
+			=> Task.FromResult<IReadOnlyList<DatabaseInfo>>([]);
+
+		public Task<IReadOnlyList<DatabaseTableName>> GetTablesAsync(
+			string databaseName,
+			CancellationToken ct = default)
+			=> Task.FromResult<IReadOnlyList<DatabaseTableName>>(
+				_tables.Where(table => string.Equals(
+					table.DatabaseName,
+					databaseName,
+					StringComparison.OrdinalIgnoreCase)
+					|| string.IsNullOrWhiteSpace(table.DatabaseName)).ToList());
+
 		public Task<DatabaseTableDetail> GetTableAsync(string tableName, CancellationToken ct = default)
 			=> Task.FromResult(_details[tableName]);
+
+		public Task<DatabaseTableDetail> GetTableAsync(
+			DatabaseTableName table,
+			CancellationToken ct = default)
+			=> GetTableAsync(table.FullName, ct);
 
 		public Task TestConnectionAsync(CancellationToken ct = default) => Task.CompletedTask;
 
@@ -56,8 +98,33 @@ public class DbContextGeneratorTests
 		Assert.Contains("[Required]", code);
 		Assert.Contains("[MaxLength(200)]", code);
 		Assert.Contains("modelBuilder.Entity<Orders>().HasKey(e => e.Id);", result.DbContextCode);
-		Assert.Equal("GeneratedDbContext", result.ContextTypeName);
-		Assert.Equal("GeneratedModels", result.Namespace);
+		Assert.Equal(CodeGenerationNaming.GetDbContextTypeNames(["TestDatabase"])["TestDatabase"], result.ContextTypeName);
+		Assert.Equal($"GeneratedModels.{result.ContextTypeName}", result.Namespace);
+	}
+
+	[Fact]
+	public async Task GenerateAsync_UsesOnlySpecifiedDatabaseAndNamesContextAfterIt()
+	{
+		var salesTable = new DatabaseTableName { DatabaseName = "Sales", Name = "Orders" };
+		var warehouseTable = new DatabaseTableName { DatabaseName = "Warehouse", Name = "Orders" };
+		var details = new Dictionary<string, DatabaseTableDetail>
+		{
+			["Orders"] = new()
+			{
+				DatabaseName = "Sales",
+				Name = "Orders",
+				Columns = [],
+				ForeignKeys = []
+			}
+		};
+		var fake = new FakeGenerator([salesTable, warehouseTable], details);
+
+		var result = await new DbContextGenerator().GenerateAsync(fake, "Sales");
+
+		Assert.Equal(CodeGenerationNaming.GetDbContextTypeNames(["Sales"])["Sales"], result.ContextTypeName);
+		Assert.Equal($"GeneratedModels.{result.ContextTypeName}", result.Namespace);
+		Assert.True(result.ModelFiles.ContainsKey("Orders.cs"));
+		Assert.DoesNotContain("Warehouse", result.DbContextCode);
 	}
 
 	[Fact]
@@ -80,6 +147,34 @@ public class DbContextGeneratorTests
 		var code = result.ModelFiles["Products.cs"];
 		Assert.DoesNotContain("[Required]", code);
 		Assert.Contains("string?", code);
+	}
+
+	[Fact]
+	public async Task GenerateAsync_TableWithoutPrimaryKey_ConfiguresKeylessEntity()
+	{
+		var table = new DatabaseTableName { Name = "BIP00" };
+		var detail = new DatabaseTableDetail
+		{
+			Name = "BIP00",
+			Columns =
+			[
+				new TableColumn
+				{
+					Name = "Description",
+					DataType = "nvarchar",
+					GenericType = DbColumnType.String,
+					IsNullable = true,
+					IsPrimaryKey = false,
+					IsIdentity = false
+				}
+			],
+			ForeignKeys = []
+		};
+
+		var fake = new FakeGenerator([table], new Dictionary<string, DatabaseTableDetail> { ["BIP00"] = detail });
+		var result = await _generator.GenerateAsync(fake);
+
+		Assert.Contains("modelBuilder.Entity<BIP00>().HasNoKey();", result.DbContextCode);
 	}
 
 	[Fact]
@@ -168,6 +263,43 @@ public class DbContextGeneratorTests
 		var code = result.ModelFiles["Events.cs"];
 		Assert.Contains("public DateTime? CreatedAt", code);
 		Assert.DoesNotContain("created_at", code);
+	}
+
+	[Theory]
+	[InlineData("ColName", "ColName")]
+	[InlineData("COLNAME", "COLNAME")]
+	[InlineData("colname", "Colname")]
+	[InlineData("col_name", "ColName")]
+	public async Task GenerateAsync_ColumnNameVariants_PreservePhysicalNameAndGenerateProperty(
+		string columnName,
+		string propertyName)
+	{
+		var table = new DatabaseTableName { Name = "Items" };
+		var detail = new DatabaseTableDetail
+		{
+			Name = "Items",
+			Columns =
+			[
+				new TableColumn
+				{
+					Name = columnName,
+					DataType = "text",
+					GenericType = DbColumnType.String,
+					IsNullable = true,
+					IsPrimaryKey = false,
+					IsIdentity = false
+				}
+			],
+			ForeignKeys = []
+		};
+
+		var fake = new FakeGenerator([table], new Dictionary<string, DatabaseTableDetail> { ["Items"] = detail });
+		var result = await _generator.GenerateAsync(fake);
+
+		Assert.Contains($"public string? {propertyName}", result.ModelFiles["Items.cs"]);
+		Assert.Contains(
+			$"modelBuilder.Entity<Items>().Property(e => e.{propertyName}).HasColumnName(\"{columnName}\");",
+			result.DbContextCode);
 	}
 
 	[Fact]
@@ -405,7 +537,7 @@ public class DbContextGeneratorTests
 
 		Assert.Contains("DbSet<Orders>", result.DbContextCode);
 		Assert.Contains("DbSet<Customers>", result.DbContextCode);
-		Assert.Contains("GeneratedDbContext", result.DbContextCode);
+		Assert.Contains(CodeGenerationNaming.GetDbContextTypeNames(["TestDatabase"])["TestDatabase"], result.DbContextCode);
 		Assert.Contains("DbContextOptions options", result.DbContextCode);
 		Assert.DoesNotContain("UseInMemoryDatabase", result.DbContextCode);
 		Assert.Contains("namespace GeneratedModels", result.DbContextCode);
@@ -418,7 +550,7 @@ public class DbContextGeneratorTests
 		var result = await _generator.GenerateAsync(fake);
 
 		Assert.Empty(result.ModelFiles);
-		Assert.Contains("GeneratedDbContext", result.DbContextCode);
+		Assert.Contains(CodeGenerationNaming.GetDbContextTypeNames(["TestDatabase"])["TestDatabase"], result.DbContextCode);
 	}
 
 	[Fact]

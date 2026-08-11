@@ -6,11 +6,10 @@ namespace LinqStudio.Core.CodeGeneration;
 
 internal sealed class EntityModelCodeGenerator
 {
-	private const string TargetNamespace = "GeneratedModels";
-
 	public string Generate(
 		DatabaseTableDetail table,
-		GeneratedSchema schema)
+		GeneratedSchema schema,
+		string targetNamespace)
 	{
 		var className = schema.ClassNameByTableName[table.FullName];
 		var builder = new StringBuilder();
@@ -19,7 +18,7 @@ internal sealed class EntityModelCodeGenerator
 		builder.AppendLine("using System.ComponentModel.DataAnnotations;");
 		builder.AppendLine("using System.ComponentModel.DataAnnotations.Schema;");
 		builder.AppendLine();
-		builder.AppendLine($"namespace {TargetNamespace};");
+		builder.AppendLine($"namespace {targetNamespace};");
 		builder.AppendLine();
 		builder.AppendLine($"public class {className}");
 		builder.AppendLine("{");

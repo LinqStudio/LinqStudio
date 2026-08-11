@@ -10,33 +10,53 @@ namespace LinqStudio.Core.Services;
 /// </summary>
 public sealed class DbContextGenerator : IDbContextGenerator
 {
-	private const string TargetNamespace = "GeneratedModels";
-	private const string ContextTypeName = "GeneratedDbContext";
-
 	private readonly GeneratedSchemaBuilder _schemaBuilder = new();
 	private readonly EntityModelCodeGenerator _modelGenerator = new();
 	private readonly DbContextCodeGenerator _contextGenerator = new();
 
 	public async Task<DbContextGeneratorResult> GenerateAsync(
 		IDatabaseQueryGenerator generator,
+		string databaseName,
 		CancellationToken cancellationToken = default)
-		=> await GenerateAsync(generator, [], cancellationToken);
+		=> await GenerateAsync(generator, databaseName, [], cancellationToken);
 
 	public async Task<DbContextGeneratorResult> GenerateAsync(
 		IDatabaseQueryGenerator generator,
+		string databaseName,
 		IReadOnlyList<ICustomRelationship> customRelationships,
 		CancellationToken cancellationToken = default)
+		=> await GenerateAsync(
+			generator,
+			databaseName,
+			customRelationships,
+			CodeGenerationNaming.GetDbContextTypeNames([databaseName])[databaseName],
+			cancellationToken);
+
+	public async Task<DbContextGeneratorResult> GenerateAsync(
+		IDatabaseQueryGenerator generator,
+		string databaseName,
+		IReadOnlyList<ICustomRelationship> customRelationships,
+		string contextTypeName,
+		CancellationToken cancellationToken = default)
 	{
-		var schema = await _schemaBuilder.BuildAsync(generator, customRelationships, cancellationToken);
+		ArgumentException.ThrowIfNullOrWhiteSpace(databaseName);
+		ArgumentException.ThrowIfNullOrWhiteSpace(contextTypeName);
+
+		var targetNamespace = $"GeneratedModels.{contextTypeName}";
+		var schema = await _schemaBuilder.BuildAsync(
+			generator,
+			databaseName,
+			customRelationships,
+			cancellationToken);
 		var modelFiles = schema.Tables.ToDictionary(
 			table => $"{schema.ClassNameByTableName[table.FullName]}.cs",
-			table => _modelGenerator.Generate(table, schema));
-		var dbContextCode = _contextGenerator.Generate(schema);
+			table => _modelGenerator.Generate(table, schema, targetNamespace));
+		var dbContextCode = _contextGenerator.Generate(schema, targetNamespace, contextTypeName);
 
 		return new DbContextGeneratorResult(
 			modelFiles,
 			dbContextCode,
-			ContextTypeName,
-			TargetNamespace);
+			contextTypeName,
+			targetNamespace);
 	}
 }

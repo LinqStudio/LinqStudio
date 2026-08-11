@@ -8,10 +8,13 @@ namespace LinqStudio.Abstractions;
 public interface IDbContextGenerator
 {
 	/// <summary>
-	/// Introspects the database via <paramref name="generator"/> and produces C# source files
-	/// for the DbContext and all entity models.
+	/// Introspects <paramref name="databaseName"/> via <paramref name="generator"/> and produces
+	/// C# source files for its DbContext and entity models.
 	/// </summary>
-	Task<DbContextGeneratorResult> GenerateAsync(IDatabaseQueryGenerator generator, CancellationToken cancellationToken = default);
+	Task<DbContextGeneratorResult> GenerateAsync(
+		IDatabaseQueryGenerator generator,
+		string databaseName,
+		CancellationToken cancellationToken = default);
 
 	/// <summary>
 	/// Generates source code using project-defined relationships in addition to physical
@@ -20,7 +23,19 @@ public interface IDbContextGenerator
 	/// </summary>
 	Task<DbContextGeneratorResult> GenerateAsync(
 		IDatabaseQueryGenerator generator,
+		string databaseName,
 		IReadOnlyList<ICustomRelationship> customRelationships,
 		CancellationToken cancellationToken = default)
-		=> GenerateAsync(generator, cancellationToken);
+		=> GenerateAsync(generator, databaseName, cancellationToken);
+
+	/// <summary>
+	/// Generates source code with an explicitly assigned, collision-safe DbContext type name.
+	/// </summary>
+	Task<DbContextGeneratorResult> GenerateAsync(
+		IDatabaseQueryGenerator generator,
+		string databaseName,
+		IReadOnlyList<ICustomRelationship> customRelationships,
+		string contextTypeName,
+		CancellationToken cancellationToken = default)
+		=> GenerateAsync(generator, databaseName, customRelationships, cancellationToken);
 }

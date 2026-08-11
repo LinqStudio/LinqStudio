@@ -6,38 +6,28 @@ using Microsoft.Data.SqlClient;
 
 namespace LinqStudio.Databases.Tests;
 
-/// <summary>
-/// Unit tests for MssqlGenerator.Create() validation — no live database required.
-/// </summary>
 public class MssqlGeneratorCreateTests
 {
 	[Fact]
 	public void Create_ThrowsArgumentException_WhenConnectionStringIsEmpty()
-	{
-		Assert.Throws<ArgumentException>(() => MssqlGenerator.Create(string.Empty));
-	}
+		=> Assert.Throws<ArgumentException>(() => MssqlGenerator.Create(string.Empty));
 
 	[Fact]
 	public void Create_ThrowsArgumentException_WhenConnectionStringIsWhitespace()
-	{
-		Assert.Throws<ArgumentException>(() => MssqlGenerator.Create("   "));
-	}
+		=> Assert.Throws<ArgumentException>(() => MssqlGenerator.Create("   "));
 
 	[Fact]
-	public void Create_ThrowsArgumentException_WhenNoDatabaseSpecified()
-	{
-		Assert.Throws<ArgumentException>(() => MssqlGenerator.Create("Server=myServer;User Id=sa;Password=pwd;"));
-	}
+	public void Create_AllowsConnectionString_WhenNoDatabaseSpecified()
+		=> Assert.NotNull(MssqlGenerator.Create("Server=myServer;User Id=sa;Password=secret;"));
 }
 
-/// <summary>
-/// Tests for MSSQL database generator using Testcontainers.
-/// </summary>
 public class MssqlGeneratorTests : BaseGeneratorTests, IClassFixture<MssqlDatabaseFixture>
 {
 	private readonly MssqlDatabaseFixture _fixture;
 
 	protected override IDatabaseQueryGenerator Generator { get; }
+	protected override IDatabaseQueryGenerator GeneratorWithoutDatabase
+		=> new MssqlGenerator(new SqlConnection(_fixture.MasterConnectionString));
 
 	public MssqlGeneratorTests(MssqlDatabaseFixture fixture)
 	{
@@ -57,28 +47,71 @@ public class MssqlGeneratorTests : BaseGeneratorTests, IClassFixture<MssqlDataba
 	[Fact]
 	public async Task GetTablesAsync_ShouldReturnTables_WhenConnectedToNamedDatabase()
 	{
-		// This test explicitly verifies behavior against a named database (not master)
-		// to catch bugs where OBJECTPROPERTY returns NULL in non-master database context.
-		// Regression test for: MssqlGenerator returning 0 tables for Aspire-seeded DB.
 		using var connection = new SqlConnection(_fixture.ConnectionString);
 		var generator = new MssqlGenerator(connection);
-
 		var tables = await generator.GetTablesAsync();
-
 		AssertExpectedTablesExist(tables);
+		Assert.All(tables, table => Assert.Equal("TestLinqStudio", table.DatabaseName));
+		Assert.DoesNotContain(tables, table => table.Name == "OtherOnlyTable");
 	}
 
 	[Fact]
-	public async Task GetTablesAsync_ShouldReturnAllUserDatabaseTables_WhenConnectedToMaster()
+	public async Task GetTablesAsync_ShouldNotReturnTablesFromOtherDatabases_WhenConnectedToMaster()
 	{
-		// GetTablesAsync uses a server-level cross-database query (FROM sys.databases with dynamic SQL),
-		// so it returns tables from all user databases regardless of the current connection database.
-		// This test bypasses Create() intentionally to validate the underlying SQL behavior directly.
+		using var connection = new SqlConnection(_fixture.MasterConnectionString);
+		var generator = new MssqlGenerator(connection);
+		var tables = await generator.GetTablesAsync();
+		Assert.DoesNotContain(tables, t => t.Name is "Customers" or "Orders" or "Products" or "OrderItems");
+		Assert.DoesNotContain(tables, t => t.DatabaseName == "TestLinqStudio");
+	}
+
+	[Fact]
+	public async Task GetDatabasesAsync_ShouldEnumerateDatabases_WhenNoDatabaseIsSpecified()
+	{
 		using var connection = new SqlConnection(_fixture.MasterConnectionString);
 		var generator = new MssqlGenerator(connection);
 
-		var tables = await generator.GetTablesAsync();
+		var databases = await generator.GetDatabasesAsync();
 
-		AssertExpectedTablesExist(tables);
+		Assert.Contains(databases, database => database.Name == "TestLinqStudio");
+		Assert.Contains(databases, database => database.Name == _fixture.OtherDatabaseName);
+	}
+
+	[Fact]
+	public async Task GetTablesAsync_WithDatabaseName_ShouldLoadSelectedDatabase_WhenConnectionHasNoDatabase()
+	{
+		using var connection = new SqlConnection(_fixture.MasterConnectionString);
+		var generator = new MssqlGenerator(connection);
+
+		var tables = await generator.GetTablesAsync(_fixture.OtherDatabaseName);
+
+		Assert.Contains(tables, table => table.Name == "OtherOnlyTable");
+		Assert.All(tables, table => Assert.Equal(
+			_fixture.OtherDatabaseName,
+			table.DatabaseName,
+			StringComparer.OrdinalIgnoreCase));
+	}
+
+	[Fact]
+	public async Task GetDatabasesAsync_ThenGetTablesAsync_ShouldLoadTablesForEveryDatabase()
+	{
+		IDatabaseQueryGenerator generator =
+			new MssqlGenerator(new SqlConnection(_fixture.MasterConnectionString));
+
+		var databases = await generator.GetDatabasesAsync();
+
+		Assert.Contains(databases, database => database.Name == "TestLinqStudio");
+		Assert.Contains(databases, database => database.Name == _fixture.OtherDatabaseName);
+
+		foreach (var database in databases)
+		{
+			var tables = await generator.GetTablesAsync(database.Name);
+
+			Assert.NotEmpty(tables);
+			Assert.All(tables, table => Assert.Equal(
+				database.Name,
+				table.DatabaseName,
+				StringComparer.OrdinalIgnoreCase));
+		}
 	}
 }

@@ -5,7 +5,7 @@
 
 <MudDialog Class="custom-relationships-dialog" data-testid="custom-relationships-dialog">
 	<TitleContent>
-		<MudText Typo="Typo.h6">@SharedResource.CustomRelationships_Title</MudText>
+		<MudText Typo="Typo.h6">@($"{SharedResource.CustomRelationships_Title} - {DatabaseName}")</MudText>
 	</TitleContent>
 	<DialogContent>
 		<div class="custom-relationships-dialog-content"

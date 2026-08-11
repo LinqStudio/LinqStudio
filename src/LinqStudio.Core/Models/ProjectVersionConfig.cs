@@ -11,7 +11,7 @@ public sealed class ProjectVersionConfig(int currentVersion, int minVersion)
 
 	// Default production values
 	public ProjectVersionConfig()
-		: this(currentVersion: 1, minVersion: 1)
+		: this(currentVersion: ProjectConstants.CurrentSchemaVersion, minVersion: ProjectConstants.MinSupportedSchemaVersion)
 	{
 	}
 }

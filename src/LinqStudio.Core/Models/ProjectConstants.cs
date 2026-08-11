@@ -9,8 +9,9 @@ public static class ProjectConstants
 	/// Current schema version supported by this version of LinqStudio.
 	/// Version history:
 	/// - 1: Initial version (Id, Name, ConnectionString, dates, optional Models/Queries/DbContextCode)
+	/// - 2: Custom relationships include their selected database
 	/// </summary>
-	public const int CurrentSchemaVersion = 1;
+	public const int CurrentSchemaVersion = 2;
 
 	/// <summary>
 	/// Minimum supported schema version for backward compatibility.

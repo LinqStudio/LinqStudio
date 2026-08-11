@@ -10,8 +10,9 @@ public static class BogusDataGenerator
 	/// <summary>
 	/// Generates fake customers.
 	/// </summary>
-	public static List<Customer> GenerateCustomers(int count = 10)
+	public static List<Customer> GenerateCustomers(int count = 500, DateTime? referenceDate = null)
 	{
+		var asOf = referenceDate ?? DateTime.UtcNow;
 		var faker = new Faker<Customer>()
 			.RuleFor(c => c.FirstName, f => f.Name.FirstName())
 			.RuleFor(c => c.LastName, f => f.Name.LastName())
@@ -23,7 +24,7 @@ public static class BogusDataGenerator
 			.RuleFor(c => c.IsActive, f => f.Random.Bool(0.85f))
 			.RuleFor(c => c.LoyaltyTier, f => f.Random.Short(1, 4))
 			.RuleFor(c => c.LifetimePoints, f => f.Random.Long(0, 250_000))
-			.RuleFor(c => c.CreatedDate, f => f.Date.Past(2));
+			.RuleFor(c => c.CreatedDate, f => f.Date.Between(asOf.AddYears(-2), asOf));
 
 		return faker.Generate(count);
 	}
@@ -31,7 +32,7 @@ public static class BogusDataGenerator
 	/// <summary>
 	/// Generates fake products.
 	/// </summary>
-	public static List<Product> GenerateProducts(int count = 20)
+	public static List<Product> GenerateProducts(int count = 200)
 	{
 		var faker = new Faker<Product>()
 			.RuleFor(p => p.Name, f => f.Commerce.ProductName())
@@ -47,8 +48,9 @@ public static class BogusDataGenerator
 	/// <summary>
 	/// Generates fake orders for given customers.
 	/// </summary>
-	public static List<Order> GenerateOrders(List<Customer> customers, int ordersPerCustomer = 3)
+	public static List<Order> GenerateOrders(List<Customer> customers, int ordersPerCustomer = 3, DateTime? referenceDate = null)
 	{
+		var asOf = referenceDate ?? DateTime.UtcNow;
 		var orders = new List<Order>();
 
 		foreach (var customer in customers)
@@ -56,13 +58,34 @@ public static class BogusDataGenerator
 			var faker = new Faker<Order>()
 				.RuleFor(o => o.CustomerId, _ => customer.Id)
 				.RuleFor(o => o.OrderNumber, f => f.Random.AlphaNumeric(10).ToUpper())
-				.RuleFor(o => o.OrderDate, f => f.Date.Between(customer.CreatedDate, DateTime.Now))
+				.RuleFor(o => o.OrderDate, f => f.Date.Between(customer.CreatedDate, asOf))
 				.RuleFor(o => o.TotalAmount, f => f.Random.Decimal(50, 5000));
 
 			orders.AddRange(faker.Generate(ordersPerCustomer));
 		}
 
 		return orders;
+	}
+
+	public static List<UserProfile> GenerateUserProfiles(int count = 100)
+	{
+		var faker = new Faker<UserProfile>()
+			.RuleFor(p => p.DisplayName, f => f.Name.FullName())
+			.RuleFor(p => p.Email, (f, p) => f.Internet.Email(p.DisplayName.Replace(" ", ".")));
+
+		return faker.Generate(count);
+	}
+
+	public static List<SupportTicket> GenerateSupportTickets(IReadOnlyList<UserProfile> userProfiles, DateTime referenceDate, int count = 250)
+	{
+		var profiles = userProfiles.ToArray();
+		var faker = new Faker<SupportTicket>()
+			.RuleFor(t => t.UserId, f => f.PickRandom(profiles).Id)
+			.RuleFor(t => t.Subject, f => f.Lorem.Sentence(6))
+			.RuleFor(t => t.OpenedAt, f => f.Date.Between(referenceDate.AddYears(-1), referenceDate))
+			.RuleFor(t => t.IsResolved, f => f.Random.Bool(0.7f));
+
+		return faker.Generate(count);
 	}
 
 	/// <summary>

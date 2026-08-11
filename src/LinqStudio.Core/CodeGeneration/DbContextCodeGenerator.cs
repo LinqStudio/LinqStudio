@@ -1,15 +1,12 @@
-using System.Text;
 using LinqStudio.Abstractions.Models;
 using LinqStudio.Core.Models;
+using System.Text;
 
 namespace LinqStudio.Core.CodeGeneration;
 
 internal sealed class DbContextCodeGenerator
 {
-	private const string TargetNamespace = "GeneratedModels";
-	private const string ContextTypeName = "GeneratedDbContext";
-
-	public string Generate(GeneratedSchema schema)
+	public string Generate(GeneratedSchema schema, string targetNamespace, string contextTypeName)
 	{
 		var builder = new StringBuilder();
 		builder.AppendLine("using System;");
@@ -17,11 +14,11 @@ internal sealed class DbContextCodeGenerator
 		builder.AppendLine("using System.ComponentModel.DataAnnotations;");
 		builder.AppendLine("using System.ComponentModel.DataAnnotations.Schema;");
 		builder.AppendLine("using Microsoft.EntityFrameworkCore;");
-		builder.AppendLine($"using {TargetNamespace};");
+		builder.AppendLine($"using {targetNamespace};");
 		builder.AppendLine();
-		builder.AppendLine($"namespace {TargetNamespace};");
+		builder.AppendLine($"namespace {targetNamespace};");
 		builder.AppendLine();
-		builder.AppendLine($"public class {ContextTypeName} : DbContext");
+		builder.AppendLine($"public class {contextTypeName} : DbContext");
 		builder.AppendLine("{");
 
 		foreach (var table in schema.Tables)
@@ -32,15 +29,17 @@ internal sealed class DbContextCodeGenerator
 
 		builder.AppendLine();
 		builder.AppendLine("    // Parameterless constructor for IntelliSense compilation; also used as base class for runtime instantiation via the options constructor");
-		builder.AppendLine($"    public {ContextTypeName}() {{ }}");
+		builder.AppendLine($"    public {contextTypeName}() {{ }}");
 		builder.AppendLine();
 		builder.AppendLine("    // Standard EF Core constructor used for real query execution");
-		builder.AppendLine($"    public {ContextTypeName}(DbContextOptions options) : base(options) {{ }}");
+		builder.AppendLine($"    public {contextTypeName}(DbContextOptions options) : base(options) {{ }}");
 		builder.AppendLine();
 		builder.AppendLine("    protected override void OnModelCreating(ModelBuilder modelBuilder)");
 		builder.AppendLine("    {");
 
 		AppendKeys(builder, schema);
+		AppendTableMappings(builder, schema);
+		AppendColumnMappings(builder, schema);
 		AppendCustomRelationships(builder, schema);
 		AppendDateOnlyConversions(builder, schema);
 		builder.AppendLine("    }");
@@ -134,9 +133,10 @@ internal sealed class DbContextCodeGenerator
 			var className = schema.ClassNameByTableName[table.FullName];
 			var primaryKeyColumns = table.Columns.Where(column => column.IsPrimaryKey).ToList();
 			if (primaryKeyColumns.Count == 0)
-				continue;
-
-			if (primaryKeyColumns.Count == 1)
+			{
+				builder.AppendLine($"        modelBuilder.Entity<{className}>().HasNoKey();");
+			}
+			else if (primaryKeyColumns.Count == 1)
 			{
 				builder.AppendLine(
 					$"        modelBuilder.Entity<{className}>().HasKey(e => e.{CodeGenerationNaming.ToPascalCase(primaryKeyColumns[0].Name)});");
@@ -147,6 +147,39 @@ internal sealed class DbContextCodeGenerator
 					$"e.{CodeGenerationNaming.ToPascalCase(column.Name)}"));
 				builder.AppendLine(
 					$"        modelBuilder.Entity<{className}>().HasKey(e => new {{ {properties} }});");
+			}
+		}
+	}
+
+	private static void AppendTableMappings(StringBuilder builder, GeneratedSchema schema)
+	{
+		// Generated property names are normalized C# identifiers, so retain the physical table names.
+		foreach (var table in schema.Tables)
+		{
+			var className = schema.ClassNameByTableName[table.FullName];
+			var tableName = EscapeString(table.Name);
+			var mapping = string.IsNullOrWhiteSpace(table.Schema)
+				? $"        modelBuilder.Entity<{className}>().ToTable(\"{tableName}\");"
+				: $"        modelBuilder.Entity<{className}>().ToTable(\"{tableName}\", \"{EscapeString(table.Schema)}\");";
+			builder.AppendLine(mapping);
+		}
+	}
+
+	private static string EscapeString(string value) =>
+		value.Replace("\\", "\\\\", StringComparison.Ordinal)
+			.Replace("\"", "\\\"", StringComparison.Ordinal);
+
+	private static void AppendColumnMappings(StringBuilder builder, GeneratedSchema schema)
+	{
+		// Explicit column mappings preserve names that differ from the generated property names.
+		foreach (var table in schema.Tables)
+		{
+			var className = schema.ClassNameByTableName[table.FullName];
+			foreach (var column in table.Columns)
+			{
+				var propertyName = CodeGenerationNaming.ToPascalCase(column.Name);
+				builder.AppendLine(
+					$"        modelBuilder.Entity<{className}>().Property(e => e.{propertyName}).HasColumnName(\"{EscapeString(column.Name)}\");");
 			}
 		}
 	}

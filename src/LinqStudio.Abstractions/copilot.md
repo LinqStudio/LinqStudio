@@ -14,3 +14,4 @@
 
 - `DbContextGeneratorResult` — return type of `IDbContextGenerator.GenerateAsync()`: model files dict, DbContext code, context type name, namespace
 - `QueryExecutionResult` — result of query execution with data rows, column names, elapsed time, and error info
+- `DatabaseTableName.DatabaseName` identifies the catalog/database containing a table so consumers can group tables without confusing database scope with schema.

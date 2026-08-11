@@ -6,6 +6,11 @@ namespace LinqStudio.Abstractions.Models;
 public record DatabaseTableName
 {
 	/// <summary>
+	/// Database/catalog containing the table. May be null when the provider does not expose it.
+	/// </summary>
+	public string? DatabaseName { get; init; }
+
+	/// <summary>
 	/// Schema name (e.g., "dbo", "public"). May be null for databases without schema support.
 	/// </summary>
 	public string? Schema { get; init; }

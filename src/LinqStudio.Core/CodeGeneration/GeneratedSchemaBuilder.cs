@@ -8,15 +8,11 @@ internal sealed class GeneratedSchemaBuilder
 {
 	public async Task<GeneratedSchema> BuildAsync(
 		IDatabaseQueryGenerator generator,
-		CancellationToken cancellationToken = default)
-		=> await BuildAsync(generator, [], cancellationToken);
-
-	public async Task<GeneratedSchema> BuildAsync(
-		IDatabaseQueryGenerator generator,
+		string databaseName,
 		IReadOnlyList<ICustomRelationship> customRelationships,
 		CancellationToken cancellationToken = default)
 	{
-		var tables = await generator.GetTablesAsync(cancellationToken);
+		var tables = await generator.GetTablesAsync(databaseName, cancellationToken);
 		var tableDetails = new List<DatabaseTableDetail>(tables.Count);
 
 		foreach (var table in tables)

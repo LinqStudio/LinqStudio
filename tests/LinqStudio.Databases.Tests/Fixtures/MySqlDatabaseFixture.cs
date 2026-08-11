@@ -12,6 +12,7 @@ public class MySqlDatabaseFixture : IAsyncLifetime
 {
 	private MySqlContainer? _container;
 	public string ConnectionString { get; private set; } = null!;
+	public string ServerConnectionString { get; private set; } = null!;
 	public TestDbContext DbContext { get; private set; } = null!;
 
 	public async Task InitializeAsync()
@@ -22,6 +23,11 @@ public class MySqlDatabaseFixture : IAsyncLifetime
 
 		await _container.StartAsync();
 		ConnectionString = _container.GetConnectionString();
+		var serverConnection = new MySql.Data.MySqlClient.MySqlConnectionStringBuilder(ConnectionString)
+		{
+			Database = string.Empty
+		};
+		ServerConnectionString = serverConnection.ConnectionString;
 
 		// Create DbContext and seed data
 		var options = new DbContextOptionsBuilder<TestDbContext>()

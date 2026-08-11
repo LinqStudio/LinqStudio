@@ -5,6 +5,56 @@ namespace LinqStudio.Databases.Tests;
 public abstract class BaseGeneratorTests
 {
 	protected abstract IDatabaseQueryGenerator Generator { get; }
+	protected virtual IDatabaseQueryGenerator? GeneratorWithoutDatabase => null;
+
+	[Fact]
+	public async Task GetDatabasesAsync_ShouldReturnAccessibleDatabases()
+	{
+		var databases = await Generator.GetDatabasesAsync();
+
+		Assert.NotNull(databases);
+		Assert.NotEmpty(databases);
+		Assert.All(databases, database => Assert.False(string.IsNullOrWhiteSpace(database.Name)));
+	}
+
+	[Fact]
+	public async Task GetTablesAsync_WithDatabaseName_ShouldReturnScopedTables()
+	{
+		var databases = await Generator.GetDatabasesAsync();
+		var database = databases.First();
+
+		var tables = await Generator.GetTablesAsync(database.Name);
+
+		Assert.NotEmpty(tables);
+		Assert.All(tables, table => Assert.Equal(database.Name, table.DatabaseName, StringComparer.OrdinalIgnoreCase));
+	}
+
+	[Fact]
+	public async Task GetTableAsync_WithDatabaseAwareIdentity_ShouldReturnMatchingDetail()
+	{
+		var tables = await Generator.GetTablesAsync();
+		var tableName = tables.First(t => t.Name == "Customers");
+
+		var table = await Generator.GetTableAsync(tableName);
+
+		Assert.Equal(tableName.DatabaseName, table.DatabaseName, StringComparer.OrdinalIgnoreCase);
+		Assert.Equal(tableName.Name, table.Name);
+		Assert.NotEmpty(table.Columns);
+	}
+
+	[Fact]
+	public async Task UnspecifiedConnectionString_ShouldEnumerateAndScopeDatabases()
+	{
+		if (GeneratorWithoutDatabase is null)
+			return;
+
+		var databases = await GeneratorWithoutDatabase.GetDatabasesAsync();
+		var database = databases.First();
+		var tables = await GeneratorWithoutDatabase.GetTablesAsync(database.Name);
+
+		Assert.NotEmpty(tables);
+		Assert.All(tables, table => Assert.Equal(database.Name, table.DatabaseName, StringComparer.OrdinalIgnoreCase));
+	}
 
 	[Fact]
 	public async Task GetTablesAsync_ShouldReturnAllTables()

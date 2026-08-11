@@ -1,4 +1,5 @@
 using LinqStudio.Core.Services;
+using LinqStudio.Core.Models;
 using Microsoft.CodeAnalysis;
 using Microsoft.EntityFrameworkCore;
 
@@ -47,6 +48,31 @@ public class RoslynWorkspaceServiceTests
 	}
 
 	[Fact]
+	public void WrapQuery_ProvidesEveryDatabaseContextAsNamedParameter()
+	{
+		var wrapped = CreateService().WrapQuery(
+			"salesDbContext.Orders",
+			[
+				new QueryDbContextParameter(
+					"SalesDbContext",
+					"GeneratedModels.SalesDbContext",
+					"salesDbContext"),
+				new QueryDbContextParameter(
+					"WarehouseDbContext",
+					"GeneratedModels.WarehouseDbContext",
+					"warehouseDbContext")
+			],
+			"GeneratedModels");
+
+		Assert.Contains(
+			"GeneratedModels.SalesDbContext.SalesDbContext salesDbContext",
+			wrapped);
+		Assert.Contains(
+			"GeneratedModels.WarehouseDbContext.WarehouseDbContext warehouseDbContext",
+			wrapped);
+	}
+
+	[Fact]
 	public void AddDocuments_AddsDbContextFile_ToSolution()
 	{
 		// Arrange
@@ -64,6 +90,28 @@ public class RoslynWorkspaceServiceTests
 		Assert.NotNull(project);
 		var docNames = project.Documents.Select(d => d.Name).ToList();
 		Assert.Contains("DbContext.cs", docNames);
+	}
+
+	[Fact]
+	public void AddDocuments_KeepsDatabaseContextsInSeparateDocuments()
+	{
+		var service = CreateService();
+		var (solution, projectId) = CreateTestProject();
+		var sourceFiles = new Dictionary<string, string>
+		{
+			["SalesDbContext.cs"] = "namespace GeneratedModels.SalesDbContext; public class SalesDbContext { }",
+			["WarehouseDbContext.cs"] = "namespace GeneratedModels.WarehouseDbContext; public class WarehouseDbContext { }"
+		};
+
+		var updatedSolution = service.AddSourceDocuments(
+			solution,
+			projectId,
+			sourceFiles,
+			"public class QueryContainer { }");
+
+		var documentNames = updatedSolution.GetProject(projectId)!.Documents.Select(document => document.Name);
+		Assert.Contains("SalesDbContext.cs", documentNames);
+		Assert.Contains("WarehouseDbContext.cs", documentNames);
 	}
 
 	[Fact]

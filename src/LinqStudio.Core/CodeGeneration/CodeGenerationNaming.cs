@@ -1,4 +1,5 @@
 using System.Text;
+using System.Security.Cryptography;
 
 namespace LinqStudio.Core.CodeGeneration;
 
@@ -21,6 +22,63 @@ public static class CodeGenerationNaming
 		}
 
 		return builder.Length > 0 ? builder.ToString() : name;
+	}
+
+	private static string GetDbContextTypeName(string databaseName)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(databaseName);
+
+		var identifier = new string(databaseName
+			.Select(character => char.IsLetterOrDigit(character) || character == '_' ? character : '_')
+			.ToArray());
+		identifier = ToPascalCase(identifier);
+		if (identifier.Length == 0 || !char.IsLetter(identifier[0]) && identifier[0] != '_')
+			identifier = $"Database{identifier}";
+
+		return $"{identifier}DbContext";
+	}
+
+	/// <summary>
+	/// Gets the parameter name corresponding to a database's generated context type.
+	/// </summary>
+	public static string GetDbContextParameterName(
+		IReadOnlyDictionary<string, string> contextTypeNames,
+		string databaseName)
+		=> GetDbContextParameterNameFromTypeName(contextTypeNames[databaseName]);
+
+	/// <summary>
+	/// Maps database names to context type names, adding a stable hash only for
+	/// normalization collisions so generated source remains reproducible.
+	/// </summary>
+	public static IReadOnlyDictionary<string, string> GetDbContextTypeNames(IEnumerable<string> databaseNames)
+	{
+		var names = databaseNames
+			.Distinct(StringComparer.Ordinal)
+			.ToList();
+		var baseNames = names.ToDictionary(name => name, GetDbContextTypeName, StringComparer.Ordinal);
+		var collisions = baseNames
+			.GroupBy(pair => pair.Value, StringComparer.Ordinal)
+			.Where(group => group.Count() > 1)
+			.SelectMany(group => group)
+			.ToDictionary(
+				pair => pair.Key,
+				pair => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(pair.Key)).AsSpan(..6)),
+				StringComparer.Ordinal);
+
+		return names.ToDictionary(
+			name => name,
+			name => collisions.TryGetValue(name, out var hash)
+				? $"{baseNames[name][..^"DbContext".Length]}_{hash}DbContext"
+				: baseNames[name],
+			StringComparer.Ordinal);
+	}
+
+	/// <summary>
+	/// Converts a generated context type name to the parameter name used by queries.
+	/// </summary>
+	public static string GetDbContextParameterNameFromTypeName(string contextTypeName)
+	{
+		return char.ToLowerInvariant(contextTypeName[0]) + contextTypeName[1..];
 	}
 
 	public static string ExtractTableName(string fullTableName)

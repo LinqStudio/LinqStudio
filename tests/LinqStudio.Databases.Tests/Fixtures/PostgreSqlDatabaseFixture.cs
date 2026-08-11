@@ -12,6 +12,9 @@ public class PostgreSqlDatabaseFixture : IAsyncLifetime
 {
 	private PostgreSqlContainer? _container;
 	public string ConnectionString { get; private set; } = null!;
+	public string ServerConnectionString { get; private set; } = null!;
+	public string DiscoveryConnectionString { get; private set; } = null!;
+	public string OtherDatabaseName { get; } = "other_linqstudio_database";
 	public TestDbContext DbContext { get; private set; } = null!;
 
 	public async Task InitializeAsync()
@@ -25,6 +28,45 @@ public class PostgreSqlDatabaseFixture : IAsyncLifetime
 
 		await _container.StartAsync();
 		ConnectionString = _container.GetConnectionString();
+		var serverConnection = new Npgsql.NpgsqlConnectionStringBuilder(ConnectionString);
+		serverConnection.Remove("Database");
+		ServerConnectionString = serverConnection.ConnectionString;
+
+		var adminConnectionString = new Npgsql.NpgsqlConnectionStringBuilder(ConnectionString)
+		{
+			Database = "postgres"
+		}.ConnectionString;
+		await using (var adminConnection = new Npgsql.NpgsqlConnection(adminConnectionString))
+		{
+			await adminConnection.OpenAsync();
+			await using var command = adminConnection.CreateCommand();
+			command.CommandText = $"CREATE DATABASE \"{OtherDatabaseName}\"";
+			await command.ExecuteNonQueryAsync();
+
+			await using var roleCommand = adminConnection.CreateCommand();
+			roleCommand.CommandText = "CREATE ROLE discovery_user LOGIN PASSWORD 'StrongPassword123!'";
+			await roleCommand.ExecuteNonQueryAsync();
+		}
+
+		DiscoveryConnectionString = new Npgsql.NpgsqlConnectionStringBuilder(ConnectionString)
+		{
+			Username = "discovery_user"
+		}.ConnectionString;
+		var discoveryConnection = new Npgsql.NpgsqlConnectionStringBuilder(DiscoveryConnectionString);
+		discoveryConnection.Remove("Database");
+		DiscoveryConnectionString = discoveryConnection.ConnectionString;
+
+		var otherConnectionString = new Npgsql.NpgsqlConnectionStringBuilder(ConnectionString)
+		{
+			Database = OtherDatabaseName
+		}.ConnectionString;
+		await using (var otherConnection = new Npgsql.NpgsqlConnection(otherConnectionString))
+		{
+			await otherConnection.OpenAsync();
+			await using var command = otherConnection.CreateCommand();
+			command.CommandText = "CREATE TABLE IF NOT EXISTS \"OtherOnlyTable\" (\"Id\" integer NOT NULL PRIMARY KEY)";
+			await command.ExecuteNonQueryAsync();
+		}
 
 		// Create DbContext and seed data
 		var options = new DbContextOptionsBuilder<TestDbContext>()

@@ -8,11 +8,21 @@ namespace LinqStudio.Abstractions;
 public interface IDatabaseQueryGenerator
 {
 	/// <summary>
-	/// Gets a flat list of all tables in the database with their schema and name.
+	/// Gets databases/catalogs visible to the connection.
+	/// </summary>
+	Task<IReadOnlyList<DatabaseInfo>> GetDatabasesAsync(CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Gets the tables in the connected database with their database, schema, and name.
 	/// </summary>
 	/// <param name="cancellationToken">Cancellation token.</param>
-	/// <returns>List of database tables with basic information (schema and name only).</returns>
+	/// <returns>List of database tables with basic information.</returns>
 	Task<IReadOnlyList<DatabaseTableName>> GetTablesAsync(CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Gets tables from a specific database/catalog.
+	/// </summary>
+	Task<IReadOnlyList<DatabaseTableName>> GetTablesAsync(string databaseName, CancellationToken cancellationToken = default);
 
 	/// <summary>
 	/// Gets detailed information about a specific table including columns and foreign keys.
@@ -28,10 +38,7 @@ public interface IDatabaseQueryGenerator
 	/// <param name="table">DatabaseTableName instance</param>
 	/// <param name="cancellationToken">Cancellation token.</param>
 	/// <returns>Detailed table information including columns and foreign keys.</returns>
-	public Task<DatabaseTableDetail> GetTableAsync(DatabaseTableName table, CancellationToken cancellationToken = default)
-	{
-		return GetTableAsync(table.FullName, cancellationToken);
-	}
+	Task<DatabaseTableDetail> GetTableAsync(DatabaseTableName table, CancellationToken cancellationToken = default);
 
 	/// <summary>
 	/// Tests the database connection.

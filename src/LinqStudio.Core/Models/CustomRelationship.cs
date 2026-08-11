@@ -27,6 +27,7 @@ public sealed class RelationshipKeyPair : ICustomRelationshipKeyPair
 public sealed class CustomRelationship : ICustomRelationship
 {
 	public Guid Id { get; set; } = Guid.NewGuid();
+	public string DatabaseName { get; set; } = string.Empty;
 	public string PrincipalTable { get; set; } = string.Empty;
 	public string DependentTable { get; set; } = string.Empty;
 	public RelationshipCardinality Cardinality { get; set; } = RelationshipCardinality.OneToMany;

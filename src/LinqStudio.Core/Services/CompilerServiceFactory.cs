@@ -1,6 +1,8 @@
 using LinqStudio.Abstractions;
 using LinqStudio.Core.Models;
 using LinqStudio.Core.Interfaces;
+using LinqStudio.Abstractions.Models;
+using LinqStudio.Core.CodeGeneration;
 using Microsoft.Extensions.Logging;
 
 namespace LinqStudio.Core.Services;
@@ -98,12 +100,48 @@ public class TestDbContext : DbContext
 			return await CreateAsync();
 		}
 
-		var result = await generator.GenerateAsync(
-			project.QueryGenerator,
-			project.CustomRelationships,
-			cancellationToken);
-		var svc = new CompilerService(result.ContextTypeName, result.Namespace, _roslynWorkspaceService, logger);
-		await svc.Initialize(result.ModelFiles, result.DbContextCode);
+		var databases = await project.QueryGenerator.GetDatabasesAsync(cancellationToken);
+		if (databases.Count == 0)
+			return await CreateAsync();
+
+		var contextTypeNames = CodeGenerationNaming.GetDbContextTypeNames(databases.Select(database => database.Name));
+		var generatedContexts = new List<(DatabaseInfo Database, DbContextGeneratorResult Result)>(databases.Count);
+		foreach (var database in databases)
+		{
+			// Generate each database independently so identical table names stay in separate namespaces.
+			var result = await generator.GenerateAsync(
+				project.QueryGenerator,
+				database.Name,
+				project.CustomRelationships
+					.Where(relationship => relationship.DatabaseName.Equals(database.Name, StringComparison.OrdinalIgnoreCase))
+					.ToList(),
+				contextTypeNames[database.Name],
+				cancellationToken);
+			generatedContexts.Add((database, result));
+		}
+
+		var modelFiles = generatedContexts
+			.SelectMany(context => context.Result.ModelFiles.Select(file =>
+				new KeyValuePair<string, string>(
+					// Prefix model files with their context name to avoid Roslyn document collisions.
+					$"{context.Result.ContextTypeName}.{file.Key}",
+					file.Value)))
+			.ToDictionary(file => file.Key, file => file.Value, StringComparer.OrdinalIgnoreCase);
+		var dbContextFiles = generatedContexts.ToDictionary(
+			context => $"{context.Result.ContextTypeName}.cs",
+			context => context.Result.DbContextCode,
+			StringComparer.OrdinalIgnoreCase);
+		var svc = new CompilerService(
+			generatedContexts
+				.Select(context => new QueryDbContextParameter(
+					context.Result.ContextTypeName,
+					context.Result.Namespace,
+					CodeGenerationNaming.GetDbContextParameterNameFromTypeName(context.Result.ContextTypeName)))
+				.ToList(),
+			"GeneratedModels",
+			_roslynWorkspaceService,
+			logger);
+		await svc.Initialize(modelFiles, dbContextFiles);
 		return svc;
 	}
 }

@@ -1,10 +1,13 @@
 using LinqStudio.Abstractions;
 using LinqStudio.Abstractions.Models;
+using LinqStudio.Core.CodeGeneration;
 using LinqStudio.Core.Models;
 using LinqStudio.Core.Services;
 using LinqStudio.Core.Settings;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using System.ComponentModel.DataAnnotations;
 
 namespace LinqStudio.Core.Tests;
 
@@ -196,6 +199,50 @@ public class QueryExecutionServiceTests
 		Assert.NotNull(result.ErrorMessage);
 	}
 
+	[Fact]
+	public async Task ExecuteQueryAsync_WithUnderscoredTableName_MapsGeneratedEntityToPhysicalTable()
+	{
+		var databasePath = Path.Combine(Path.GetTempPath(), $"linqstudio-{Guid.NewGuid():N}.db");
+		var connectionString = $"Data Source={databasePath};Pooling=False";
+
+		try
+		{
+			await using (var connection = new SqliteConnection(connectionString))
+			{
+				await connection.OpenAsync();
+				await using var command = connection.CreateCommand();
+				command.CommandText = """
+					CREATE TABLE SOMETHING_NAME (Id INTEGER PRIMARY KEY, SOME_COLUMN TEXT NOT NULL);
+					INSERT INTO SOMETHING_NAME (SOME_COLUMN) VALUES ('expected');
+					""";
+				await command.ExecuteNonQueryAsync();
+			}
+
+			await using (var service = new QueryExecutionService(
+				new DbContextGenerator(),
+				new RoslynWorkspaceService(),
+				CreateSettings()))
+			{
+				_ = typeof(RequiredAttribute).Assembly;
+				var result = await service.ExecuteQueryAsync(
+					$"{CodeGenerationNaming.GetDbContextParameterName(CodeGenerationNaming.GetDbContextTypeNames(["main"]), "main")}.SOMETHINGNAME.Select(row => (object)row.SOMECOLUMN)",
+					new Project
+					{
+						DatabaseType = DatabaseType.Sqlite,
+						ConnectionString = connectionString
+					});
+
+				Assert.True(result.Success, result.ErrorMessage);
+				Assert.Single(result.Items);
+				Assert.Equal("expected", result.Items[0]);
+			}
+		}
+		finally
+		{
+			File.Delete(databasePath);
+		}
+	}
+
 	#endregion
 
 	#region Integration Notes
@@ -233,7 +280,10 @@ public class QueryExecutionServiceTests
 	/// </summary>
 	private class MockDbContextGenerator : IDbContextGenerator
 	{
-		public Task<DbContextGeneratorResult> GenerateAsync(IDatabaseQueryGenerator generator, CancellationToken cancellationToken = default)
+		public Task<DbContextGeneratorResult> GenerateAsync(
+			IDatabaseQueryGenerator generator,
+			string databaseName,
+			CancellationToken cancellationToken = default)
 		{
 			// Not used in these unit tests - only constructor validation
 			throw new NotImplementedException("Mock generator for constructor tests only");

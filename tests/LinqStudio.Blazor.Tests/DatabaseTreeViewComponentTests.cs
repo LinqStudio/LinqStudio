@@ -4,6 +4,7 @@ using LinqStudio.Abstractions.Models;
 using LinqStudio.Blazor.Components.Layout;
 using LinqStudio.Blazor.Extensions;
 using LinqStudio.Blazor.Services;
+using LinqStudio.Core.CodeGeneration;
 using LinqStudio.Core.Extensions;
 using LinqStudio.Core.Models;
 using Microsoft.AspNetCore.Components.Web;
@@ -63,9 +64,8 @@ public class DatabaseTreeViewComponentTests : BunitContext
 	/// <summary>
 	/// Creates a <see cref="Mock{IDatabaseQueryGenerator}"/> where <c>GetTablesAsync</c>
 	/// returns the supplied table list (by reference — mutate the list to change future returns).
-	/// <c>CallBase = true</c> ensures that the default interface implementation of
-	/// <c>GetTableAsync(DatabaseTableName, …)</c> delegates to the mocked
-	/// <c>GetTableAsync(string, …)</c> overload rather than returning null.
+	/// The database-specific overloads are configured explicitly because they are
+	/// required members of the database generator contract.
 	/// </summary>
 	private static Mock<IDatabaseQueryGenerator> CreateMockGenerator(
 		List<DatabaseTableName> tables)
@@ -73,6 +73,23 @@ public class DatabaseTreeViewComponentTests : BunitContext
 		var mock = new Mock<IDatabaseQueryGenerator> { CallBase = true };
 		mock.Setup(g => g.GetTablesAsync(It.IsAny<CancellationToken>()))
 			.ReturnsAsync(() => (IReadOnlyList<DatabaseTableName>)tables);
+		mock.Setup(g => g.GetDatabasesAsync(It.IsAny<CancellationToken>()))
+			.ReturnsAsync(Array.Empty<DatabaseInfo>());
+		mock.Setup(g => g.GetTablesAsync(
+				It.IsAny<string>(),
+				It.IsAny<CancellationToken>()))
+			.ReturnsAsync((string databaseName, CancellationToken _) =>
+				(IReadOnlyList<DatabaseTableName>)tables
+					.Where(table => string.Equals(
+						table.DatabaseName,
+						databaseName,
+						StringComparison.OrdinalIgnoreCase))
+					.ToList());
+		mock.Setup(g => g.GetTableAsync(
+				It.IsAny<DatabaseTableName>(),
+				It.IsAny<CancellationToken>()))
+			.Returns((DatabaseTableName table, CancellationToken cancellationToken) =>
+				mock.Object.GetTableAsync(table.FullName, cancellationToken));
 		return mock;
 	}
 
@@ -215,6 +232,62 @@ public class DatabaseTreeViewComponentTests : BunitContext
 		{
 			Assert.NotNull(cut.Find("[data-testid='table-dbo.Users']"));
 			Assert.NotNull(cut.Find("[data-testid='table-dbo.Orders']"));
+		}, TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task DatabaseTreeView_ShowsDatabasesBeforeTables_WhenMultipleDatabasesAreAvailable()
+	{
+		SetupServices();
+		var workspace = Services.GetRequiredService<ProjectWorkspace>();
+		await workspace.CreateNewAsync("MyApp");
+
+		var tables = new List<DatabaseTableName>
+		{
+			new() { DatabaseName = "Sales", Schema = "dbo", Name = "Orders" },
+			new() { DatabaseName = "Warehouse", Schema = "dbo", Name = "Products" },
+		};
+		var mockGen = CreateMockGenerator(tables);
+		SetQueryGenerator(workspace.CurrentProject!, mockGen.Object);
+
+		var cut = Render<DatabaseTreeView>();
+
+		cut.WaitForAssertion(() =>
+		{
+			Assert.NotNull(cut.Find("[data-testid='db-tree-database-Sales']"));
+			Assert.NotNull(cut.Find("[data-testid='db-tree-database-Warehouse']"));
+			Assert.NotNull(cut.Find("[data-testid='table-dbo.Orders']"));
+			Assert.NotNull(cut.Find("[data-testid='table-dbo.Products']"));
+
+			var salesDatabase = cut.Find("[data-testid='db-tree-database-Sales']");
+			var tablesFolder = salesDatabase.QuerySelector("[data-testid='db-tree-tables-folder']");
+			Assert.NotNull(tablesFolder);
+			Assert.Contains("Tables", tablesFolder!.TextContent, StringComparison.OrdinalIgnoreCase);
+		}, TimeSpan.FromSeconds(3));
+	}
+
+	[Fact]
+	public async Task DatabaseTreeView_ShowsSelectedDatabaseBeforeTables_WhenConnectionSelectsDatabase()
+	{
+		SetupServices();
+		var workspace = Services.GetRequiredService<ProjectWorkspace>();
+		await workspace.CreateNewAsync("MyApp");
+
+		var tables = new List<DatabaseTableName>
+		{
+			new() { DatabaseName = "LinqStudio", Schema = "dbo", Name = "Customers" },
+		};
+		var mockGen = CreateMockGenerator(tables);
+		SetQueryGenerator(workspace.CurrentProject!, mockGen.Object);
+
+		var cut = Render<DatabaseTreeView>();
+
+		cut.WaitForAssertion(() =>
+		{
+			var database = cut.Find("[data-testid='db-tree-database-LinqStudio']");
+			Assert.Contains("LinqStudio", database.TextContent, StringComparison.OrdinalIgnoreCase);
+			Assert.NotNull(database.QuerySelector("[data-testid='db-tree-tables-folder']"));
+			Assert.NotNull(cut.Find("[data-testid='table-dbo.Customers']"));
 		}, TimeSpan.FromSeconds(3));
 	}
 
@@ -495,15 +568,14 @@ public class DatabaseTreeViewComponentTests : BunitContext
 			Assert.NotNull(cut.Find("[data-testid='db-tree-connection']"));
 		}, TimeSpan.FromSeconds(3));
 
-		// Act — right-click the connection node BodyContent div to open the context menu
-		var connNodeDiv = cut.Find("[data-testid='db-tree-connection-body']");
-		connNodeDiv.TriggerEvent("oncontextmenu", new MouseEventArgs { ClientX = 100, ClientY = 100 });
+		// Act — right-click the database node body to open the context menu.
+		var databaseNodeDiv = cut.Find("[data-testid='db-tree-database-body-Database']");
+		databaseNodeDiv.TriggerEvent("oncontextmenu", new MouseEventArgs { ClientX = 100, ClientY = 100 });
 
-		// Assert — "New Query" item is rendered in the context menu
+		// Assert — the database-scoped custom relationships item is rendered.
 		cut.WaitForAssertion(() =>
 		{
-			Assert.NotNull(cut.Find("[data-testid='db-tree-connection-new-query']"));
-			Assert.NotNull(cut.Find("[data-testid='db-tree-connection-custom-relationships']"));
+			Assert.NotNull(cut.Find("[data-testid='db-tree-database-custom-relationships-Database']"));
 		}, TimeSpan.FromSeconds(3));
 	}
 
@@ -565,7 +637,9 @@ public class DatabaseTreeViewComponentTests : BunitContext
 		// Assert
 		var query = workspace.Queries.GetCurrentQuery();
 		Assert.NotNull(query);
-		Assert.EndsWith("context.SalesOrders.Take(1000)", query.QueryText);
+		Assert.EndsWith(
+			$"{CodeGenerationNaming.GetDbContextParameterName(CodeGenerationNaming.GetDbContextTypeNames(["Database"]), "Database")}.SalesOrders.Take(1000)",
+			query.QueryText);
 		Assert.True(workspace.Queries.CurrentQueryState!.ExecuteOnOpen);
 	}
 }

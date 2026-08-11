@@ -10,17 +10,27 @@ namespace LinqStudio.Databases;
 /// </summary>
 public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 {
+	private readonly string _connectionString;
+	private readonly string? _explicitDatabaseName;
+
 	/// <summary>
 	/// Creates a new instance of the MSSQL generator.
 	/// </summary>
 	/// <param name="connection">Database connection.</param>
 	public MssqlGenerator(DbConnection connection) : base(connection)
 	{
+		_connectionString = connection.ConnectionString;
+		var builder = new SqlConnectionStringBuilder(_connectionString);
+		_explicitDatabaseName = string.IsNullOrWhiteSpace(builder.InitialCatalog)
+			|| builder.InitialCatalog.Equals("master", StringComparison.OrdinalIgnoreCase)
+			? null
+			: builder.InitialCatalog;
 	}
 
 	/// <summary>
 	/// Creates a new MSSQL generator from a connection string.
-	/// The connection string must explicitly specify a target database.
+	/// The database is optional; when omitted, databases can be enumerated with
+	/// <see cref="GetDatabasesAsync"/>.
 	/// </summary>
 	/// <param name="connectionString">SQL Server connection string.</param>
 	/// <returns>A new MSSQL generator instance.</returns>
@@ -29,14 +39,41 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 		if (string.IsNullOrWhiteSpace(connectionString))
 			throw new ArgumentException("Connection string cannot be empty.", nameof(connectionString));
 
-		var builder = new SqlConnectionStringBuilder(connectionString);
-		if (string.IsNullOrWhiteSpace(builder.InitialCatalog))
-			throw new ArgumentException(
-				"Connection string must specify a target database (e.g., 'Database=MyDb;' or 'Initial Catalog=MyDb;'). " +
-				"Omitting the database causes unpredictable behavior when the server hosts multiple databases.",
-				nameof(connectionString));
-
 		return new(new SqlConnection(connectionString));
+	}
+
+	public override async Task<IReadOnlyList<DatabaseInfo>> GetDatabasesAsync(CancellationToken cancellationToken = default)
+	{
+		if (_explicitDatabaseName is not null)
+			return [new DatabaseInfo { Name = _explicitDatabaseName, IsExplicitlySelected = true }];
+
+		var wasOpen = Connection.State == ConnectionState.Open;
+		if (!wasOpen)
+			await Connection.OpenAsync(cancellationToken);
+
+		try
+		{
+			const string query = """
+				SELECT name
+				FROM sys.databases
+				WHERE state = 0
+					AND name NOT IN ('master', 'model', 'msdb', 'tempdb')
+					AND HAS_DBACCESS(name) = 1
+				ORDER BY name
+				""";
+			await using var command = Connection.CreateCommand();
+			command.CommandText = query;
+			await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+			var databases = new List<DatabaseInfo>();
+			while (await reader.ReadAsync(cancellationToken))
+				databases.Add(new DatabaseInfo { Name = reader.GetString(0) });
+			return databases;
+		}
+		finally
+		{
+			if (!wasOpen)
+				await Connection.CloseAsync();
+		}
 	}
 
 
@@ -104,36 +141,13 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 
 		try
 		{
-			// This dynamic SQL iterates through all online databases the user has access to,
-			// excluding system databases (master, tempdb, model, msdb).
-			// It builds a single massive UNION ALL query to fetch all tables.
 			const string query = """
-            DECLARE @sql NVARCHAR(MAX) = N'';
-
-            SELECT @sql += N'SELECT ' +
-                           N'''' + REPLACE(name, '''', '''''') + N''' AS DatabaseName, ' +
-                           N's.name COLLATE DATABASE_DEFAULT AS SchemaName, ' +
-                           N't.name COLLATE DATABASE_DEFAULT AS TableName ' +
-                           N'FROM ' + QUOTENAME(name) + N'.sys.tables t ' +
-                           N'INNER JOIN ' + QUOTENAME(name) + N'.sys.schemas s ON t.schema_id = s.schema_id ' +
-                           N'WHERE t.is_ms_shipped = 0 ' +
-                           N'UNION ALL '
-            FROM sys.databases
-            WHERE state = 0 AND HAS_DBACCESS(name) = 1
-              AND name NOT IN ('master', 'tempdb', 'model', 'msdb');
-
-            IF LEN(@sql) > 0
-            BEGIN
-                -- Strip off the trailing 'UNION ALL ' (10 characters) and execute
-                SET @sql = LEFT(@sql, LEN(@sql) - 10);
-                EXEC sp_executesql @sql;
-            END
-            ELSE
-            BEGIN
-                -- Return an empty result set if no databases matched to prevent reader errors
-                SELECT '' AS DatabaseName, '' AS SchemaName, '' AS TableName WHERE 1 = 0;
-            END
-            """;
+			SELECT DB_NAME() AS DatabaseName, s.name AS SchemaName, t.name AS TableName
+			FROM sys.tables t
+			INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
+			WHERE t.is_ms_shipped = 0
+			ORDER BY s.name, t.name
+			""";
 
 			var tables = new List<DatabaseTableName>();
 
@@ -144,11 +158,9 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 			await using var reader = await command.ExecuteReaderAsync(cancellationToken);
 			while (await reader.ReadAsync(cancellationToken))
 			{
-				// Column 0 is DatabaseName, Column 1 is SchemaName, Column 2 is TableName
 				tables.Add(new DatabaseTableName
 				{
-					// If your DatabaseTableName class has a property for Database, you can map it here:
-					// Database = reader.GetString(0),
+					DatabaseName = reader.GetString(0),
 					Schema = reader.GetString(1),
 					Name = reader.GetString(2)
 				});
@@ -156,11 +168,26 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 
 			return tables;
 		}
+
 		finally
 		{
 			if (!wasOpen)
 				await Connection.CloseAsync();
 		}
+
+	}
+
+	public override async Task<IReadOnlyList<DatabaseTableName>> GetTablesAsync(
+		string databaseName,
+		CancellationToken cancellationToken = default)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(databaseName, nameof(databaseName));
+		if (string.Equals(Connection.Database, databaseName, StringComparison.OrdinalIgnoreCase))
+			return await GetTablesAsync(cancellationToken);
+
+		await using var connection = CreateDatabaseConnection(databaseName);
+		await connection.OpenAsync(cancellationToken);
+		return await GetTablesFromConnectionAsync(connection, cancellationToken);
 	}
 
 	/// <inheritdoc/>
@@ -176,6 +203,7 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 
 		return new DatabaseTableName
 		{
+			DatabaseName = Connection.Database,
 			Schema = schema,
 			Name = tableName
 		};
@@ -200,12 +228,14 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 
 			return new DatabaseTableDetail
 			{
+				DatabaseName = Connection.Database,
 				Schema = schema,
 				Name = name,
 				Columns = columns,
 				ForeignKeys = foreignKeys
 			};
 		}
+
 		finally
 		{
 			if (!wasOpen)
@@ -213,6 +243,61 @@ public class MssqlGenerator : AdoNetDatabaseGeneratorBase
 		}
 	}
 
+	public override async Task<DatabaseTableDetail> GetTableAsync(
+			DatabaseTableName table,
+			CancellationToken cancellationToken = default)
+		{
+			ArgumentNullException.ThrowIfNull(table);
+			if (string.IsNullOrWhiteSpace(table.DatabaseName)
+				|| string.Equals(Connection.Database, table.DatabaseName, StringComparison.OrdinalIgnoreCase))
+				return await GetTableAsync(table.FullName, cancellationToken);
+
+			await using var connection = CreateDatabaseConnection(table.DatabaseName);
+			await connection.OpenAsync(cancellationToken);
+			var schema = table.Schema ?? "dbo";
+			return new DatabaseTableDetail
+			{
+				DatabaseName = table.DatabaseName,
+				Schema = schema,
+				Name = table.Name,
+				Columns = await GetColumnsAsync(connection, schema, table.Name, cancellationToken),
+				ForeignKeys = await GetForeignKeysAsync(connection, schema, table.Name, cancellationToken)
+			};
+		}
+
+		private async Task<IReadOnlyList<DatabaseTableName>> GetTablesFromConnectionAsync(
+			DbConnection connection,
+			CancellationToken cancellationToken)
+		{
+			const string query = """
+				SELECT DB_NAME() AS DatabaseName, s.name AS SchemaName, t.name AS TableName
+				FROM sys.tables t
+				INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
+				WHERE t.is_ms_shipped = 0
+				ORDER BY s.name, t.name
+				""";
+			await using var command = connection.CreateCommand();
+			command.CommandText = query;
+			await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+			var tables = new List<DatabaseTableName>();
+			while (await reader.ReadAsync(cancellationToken))
+				tables.Add(new DatabaseTableName
+				{
+					DatabaseName = reader.GetString(0),
+					Schema = reader.GetString(1),
+					Name = reader.GetString(2)
+				});
+			return tables;
+		}
+
+		private SqlConnection CreateDatabaseConnection(string databaseName)
+		{
+			var builder = new SqlConnectionStringBuilder(_connectionString)
+			{
+				InitialCatalog = databaseName
+			};
+			return new SqlConnection(builder.ConnectionString);
+		}
 	private async Task<IReadOnlyList<TableColumn>> GetColumnsAsync(DbConnection connection, string schema, string tableName, CancellationToken cancellationToken)
 	{
 		var columns = new List<TableColumn>();

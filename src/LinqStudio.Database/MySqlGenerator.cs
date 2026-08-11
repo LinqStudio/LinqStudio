@@ -9,12 +9,16 @@ namespace LinqStudio.Databases;
 /// </summary>
 public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 {
+	private readonly string? _explicitDatabaseName;
+
 	/// <summary>
 	/// Creates a new instance of the MySQL generator.
 	/// </summary>
 	/// <param name="connection">Database connection.</param>
 	public MySqlGenerator(DbConnection connection) : base(connection)
 	{
+		var builder = new MySql.Data.MySqlClient.MySqlConnectionStringBuilder(connection.ConnectionString);
+		_explicitDatabaseName = string.IsNullOrWhiteSpace(builder.Database) ? null : builder.Database;
 	}
 
 	/// <summary>
@@ -23,6 +27,105 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 	/// <param name="connectionString">MySQL connection string.</param>
 	/// <returns>A new MySQL generator instance.</returns>
 	public static MySqlGenerator Create(string connectionString) => new(new MySql.Data.MySqlClient.MySqlConnection(connectionString));
+
+	public override async Task<IReadOnlyList<DatabaseInfo>> GetDatabasesAsync(CancellationToken cancellationToken = default)
+	{
+		if (_explicitDatabaseName is not null)
+			return [new DatabaseInfo { Name = _explicitDatabaseName, IsExplicitlySelected = true }];
+
+		var wasOpen = Connection.State == ConnectionState.Open;
+		if (!wasOpen)
+			await Connection.OpenAsync(cancellationToken);
+		try
+		{
+			const string query = """
+				SELECT SCHEMA_NAME
+				FROM INFORMATION_SCHEMA.SCHEMATA
+				WHERE SCHEMA_NAME NOT IN ('information_schema', 'mysql', 'performance_schema', 'sys')
+				ORDER BY SCHEMA_NAME
+				""";
+			await using var command = Connection.CreateCommand();
+			command.CommandText = query;
+			await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+			var result = new List<DatabaseInfo>();
+			while (await reader.ReadAsync(cancellationToken))
+				result.Add(new DatabaseInfo { Name = reader.GetString(0) });
+			return result;
+		}
+		finally
+		{
+			if (!wasOpen)
+				await Connection.CloseAsync();
+		}
+	}
+
+	public override async Task<IReadOnlyList<DatabaseTableName>> GetTablesAsync(
+		string databaseName,
+		CancellationToken cancellationToken = default)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(databaseName, nameof(databaseName));
+		var wasOpen = Connection.State == ConnectionState.Open;
+		if (!wasOpen)
+			await Connection.OpenAsync(cancellationToken);
+		try
+		{
+			const string query = """
+				SELECT TABLE_SCHEMA, TABLE_NAME
+				FROM INFORMATION_SCHEMA.TABLES
+				WHERE TABLE_SCHEMA = @DatabaseName AND TABLE_TYPE = 'BASE TABLE'
+				ORDER BY TABLE_NAME
+				""";
+			await using var command = Connection.CreateCommand();
+			command.CommandText = query;
+			var parameter = command.CreateParameter();
+			parameter.ParameterName = "@DatabaseName";
+			parameter.Value = databaseName;
+			command.Parameters.Add(parameter);
+			await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+			var result = new List<DatabaseTableName>();
+			while (await reader.ReadAsync(cancellationToken))
+				result.Add(new DatabaseTableName { DatabaseName = reader.GetString(0), Name = reader.GetString(1) });
+			return result;
+		}
+
+			finally
+		{
+			if (!wasOpen)
+				await Connection.CloseAsync();
+		}
+	}
+
+	public override async Task<DatabaseTableDetail> GetTableAsync(
+			DatabaseTableName table,
+			CancellationToken cancellationToken = default)
+		{
+			ArgumentNullException.ThrowIfNull(table);
+			if (string.IsNullOrWhiteSpace(table.DatabaseName)
+				|| string.Equals(table.DatabaseName, Connection.Database, StringComparison.OrdinalIgnoreCase))
+				return await GetTableAsync(table.FullName, cancellationToken);
+
+			var (schema, name) = ParseTableName(table.FullName);
+			schema ??= table.DatabaseName;
+			var wasOpen = Connection.State == ConnectionState.Open;
+			if (!wasOpen)
+				await Connection.OpenAsync(cancellationToken);
+			try
+			{
+				return new DatabaseTableDetail
+				{
+					DatabaseName = table.DatabaseName,
+					Schema = null,
+					Name = name,
+					Columns = await GetColumnsAsync(Connection, schema, name, cancellationToken),
+					ForeignKeys = await GetForeignKeysAsync(Connection, schema, name, cancellationToken)
+				};
+			}
+			finally
+			{
+				if (!wasOpen)
+					await Connection.CloseAsync();
+			}
+		}
 
 	/// <inheritdoc/>
 	public override DbColumnType MapToGenericType(string dataType)
@@ -89,7 +192,7 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 
 		return new DatabaseTableName
 		{
-			Schema = schema,
+			DatabaseName = schema,
 			Name = tableName
 		};
 	}
@@ -116,7 +219,8 @@ public class MySqlGenerator : AdoNetDatabaseGeneratorBase
 
 			return new DatabaseTableDetail
 			{
-				Schema = schema,
+				DatabaseName = schema,
+				Schema = null,
 				Name = name,
 				Columns = columns,
 				ForeignKeys = foreignKeys

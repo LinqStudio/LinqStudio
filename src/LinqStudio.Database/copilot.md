@@ -1,6 +1,7 @@
 # LinqStudio.Databases
 
 This project contains database-specific code for generating metadata queries (tables, columns, schemas, foreign keys) for different database types.
+Table metadata carries both `DatabaseName` and `Schema`; generators must keep catalog/database scope tied to the supplied connection.
 
 ## Architecture
 
@@ -12,10 +13,13 @@ All database generators inherit from `AdoNetDatabaseGeneratorBase` which uses ra
 
 ## Database Generators
 
-- **MssqlGenerator** - Microsoft SQL Server support
+- **MssqlGenerator** - Microsoft SQL Server support (metadata is scoped to `DB_NAME()`, never server-wide)
 - **MySqlGenerator** - MySQL/MariaDB support  
 - **PostgreSqlGenerator** - PostgreSQL support
 - **SqliteGenerator** - SQLite support (overrides GetTablesAsync with SQLite-specific query)
+
+When a connection does not specify a database, SQL Server and PostgreSQL enumeration only returns databases
+that the current login can connect to, so an inaccessible catalog cannot prevent the explorer from loading.
 
 ## Usage Pattern
 

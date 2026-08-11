@@ -14,6 +14,7 @@ public class MssqlDatabaseFixture : IAsyncLifetime
 	private MsSqlContainer? _container;
 	public string ConnectionString { get; private set; } = null!;
 	public string MasterConnectionString { get; private set; } = null!;
+	public string OtherDatabaseName { get; } = "OtherLinqStudioDatabase";
 	public TestDbContext DbContext { get; private set; } = null!;
 
 	public async Task InitializeAsync()
@@ -33,7 +34,19 @@ public class MssqlDatabaseFixture : IAsyncLifetime
 		{
 			await masterConnection.OpenAsync();
 			await using var command = masterConnection.CreateCommand();
-			command.CommandText = "IF DB_ID('TestLinqStudio') IS NULL CREATE DATABASE [TestLinqStudio]";
+			command.CommandText = $"""
+				IF DB_ID('TestLinqStudio') IS NULL CREATE DATABASE [TestLinqStudio];
+				IF DB_ID('{OtherDatabaseName}') IS NULL CREATE DATABASE [{OtherDatabaseName}];
+				""";
+			await command.ExecuteNonQueryAsync();
+		}
+
+		await using (var otherConnection = new SqlConnection(
+			new SqlConnectionStringBuilder(masterConnectionString) { InitialCatalog = OtherDatabaseName }.ConnectionString))
+		{
+			await otherConnection.OpenAsync();
+			await using var command = otherConnection.CreateCommand();
+			command.CommandText = "IF OBJECT_ID('dbo.OtherOnlyTable') IS NULL CREATE TABLE dbo.OtherOnlyTable (Id int NOT NULL PRIMARY KEY)";
 			await command.ExecuteNonQueryAsync();
 		}
 
