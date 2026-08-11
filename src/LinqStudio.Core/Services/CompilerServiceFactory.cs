@@ -18,14 +18,22 @@ namespace LinqStudio.Core.Services;
 /// factory on every keystroke.
 /// </remarks>
 /// <param name="roslynWorkspaceService">Service that manages Roslyn workspace and document creation.</param>
+/// <param name="projectCompilationService">
+/// Shared cache for the generated project model used by IntelliSense initialization.
+/// </param>
 /// <param name="generator">
 /// Optional EF Core code generator used by <see cref="CreateFromProjectAsync"/>.
 /// When <see langword="null"/> both factory methods fall back to the built-in demo model.
 /// </param>
 /// <param name="logger">Optional logger forwarded to each created <see cref="CompilerService"/>.</param>
-public class CompilerServiceFactory(RoslynWorkspaceService roslynWorkspaceService, IDbContextGenerator? generator = null, ILogger<CompilerService>? logger = null) : ICompilerServiceFactory
+public class CompilerServiceFactory(
+	RoslynWorkspaceService roslynWorkspaceService,
+	ProjectCompilationService? projectCompilationService = null,
+	IDbContextGenerator? generator = null,
+	ILogger<CompilerService>? logger = null) : ICompilerServiceFactory
 {
 	private readonly RoslynWorkspaceService _roslynWorkspaceService = roslynWorkspaceService;
+	private readonly ProjectCompilationService? _projectCompilationService = projectCompilationService;
 	private readonly string _defaultContextTypeName = "TestDbContext";
 	private readonly string _defaultProjectNamespace = "LinqStudio.TestModels";
 
@@ -95,53 +103,24 @@ public class TestDbContext : DbContext
 	/// </returns>
 	public async Task<CompilerService> CreateFromProjectAsync(Project project, CancellationToken cancellationToken = default)
 	{
-		if (generator is null || project.QueryGenerator is null)
+		if (generator is null || _projectCompilationService is null || project.QueryGenerator is null)
 		{
 			return await CreateAsync();
 		}
 
-		var databases = await project.QueryGenerator.GetDatabasesAsync(cancellationToken);
-		if (databases.Count == 0)
-			return await CreateAsync();
-
-		var contextTypeNames = CodeGenerationNaming.GetDbContextTypeNames(databases.Select(database => database.Name));
-		var generatedContexts = new List<(DatabaseInfo Database, DbContextGeneratorResult Result)>(databases.Count);
-		foreach (var database in databases)
-		{
-			// Generate each database independently so identical table names stay in separate namespaces.
-			var result = await generator.GenerateAsync(
-				project.QueryGenerator,
-				database.Name,
-				project.CustomRelationships
-					.Where(relationship => relationship.DatabaseName.Equals(database.Name, StringComparison.OrdinalIgnoreCase))
-					.ToList(),
-				contextTypeNames[database.Name],
-				cancellationToken);
-			generatedContexts.Add((database, result));
-		}
-
-		var modelFiles = generatedContexts
-			.SelectMany(context => context.Result.ModelFiles.Select(file =>
-				new KeyValuePair<string, string>(
-					// Prefix model files with their context name to avoid Roslyn document collisions.
-					$"{context.Result.ContextTypeName}.{file.Key}",
-					file.Value)))
-			.ToDictionary(file => file.Key, file => file.Value, StringComparer.OrdinalIgnoreCase);
-		var dbContextFiles = generatedContexts.ToDictionary(
-			context => $"{context.Result.ContextTypeName}.cs",
-			context => context.Result.DbContextCode,
-			StringComparer.OrdinalIgnoreCase);
+		using var snapshotLease = await _projectCompilationService.GetOrBuildAsync(project, cancellationToken);
+		var snapshot = snapshotLease.Snapshot;
 		var svc = new CompilerService(
-			generatedContexts
+			snapshot.Contexts
 				.Select(context => new QueryDbContextParameter(
-					context.Result.ContextTypeName,
-					context.Result.Namespace,
-					CodeGenerationNaming.GetDbContextParameterNameFromTypeName(context.Result.ContextTypeName)))
+					context.ContextTypeName,
+					context.Namespace,
+					CodeGenerationNaming.GetDbContextParameterNameFromTypeName(context.ContextTypeName)))
 				.ToList(),
 			"GeneratedModels",
 			_roslynWorkspaceService,
 			logger);
-		await svc.Initialize(modelFiles, dbContextFiles);
+		await svc.Initialize(snapshot.ModelFiles, snapshot.DbContextFiles);
 		return svc;
 	}
 }

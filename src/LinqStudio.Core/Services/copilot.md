@@ -165,3 +165,16 @@ finally
 - After `alc.Unload()`, the assembly and all its types are invalidated. All results (rows, column names) **must be fully materialized** (via `ExtractResults`) before the `finally` block runs.
 - `DbContext` is wrapped in `await using` to ensure EF Core releases its connection before the ALC is unloaded.
 - `AssemblyLoadContext` is in `System.Runtime.Loader` — add the using when referencing it.
+
+## ProjectCompilationService
+
+`ProjectCompilationService` is scoped to the user session and owns the compiled
+entity/DbContext model snapshot. It generates the database model sources and
+emits them once; subsequent query executions compile only `QueryContainer.cs`
+with a metadata reference created from the cached model assembly image.
+
+Call `Invalidate()` when schema or generated configuration changes. Snapshot
+leases keep an in-flight compiler or query attached to its model while
+obsolete snapshots are released as soon as their last lease is disposed.
+Query assemblies use collectible load contexts and resolve the exact model
+assembly associated with their snapshot, preserving CLR type identity.

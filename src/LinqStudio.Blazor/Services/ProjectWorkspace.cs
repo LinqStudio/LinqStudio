@@ -1,4 +1,5 @@
 using LinqStudio.Core.Repositories;
+using LinqStudio.Core.Services;
 using Microsoft.Extensions.Logging;
 
 namespace LinqStudio.Blazor.Services;
@@ -12,6 +13,7 @@ public class ProjectWorkspace : IDisposable
 	private readonly IProjectRepository _projectRepository;
 	private readonly QueriesWorkspace _queriesWorkspace;
 	private readonly ILogger<ProjectWorkspace> _logger;
+	private readonly ProjectCompilationService? _projectCompilationService;
 	private Project? _currentProject;
 	private bool _isDirty;
 	private string? _currentProjectId;
@@ -26,16 +28,24 @@ public class ProjectWorkspace : IDisposable
 	/// The companion workspace that manages the query lifecycle for this project.
 	/// </param>
 	/// <param name="logger">Logger for structured diagnostic output.</param>
+	/// <param name="projectCompilationService">
+	/// Scoped model cache invalidated when the active project changes.
+	/// </param>
 	/// <remarks>
 	/// The constructor subscribes to <see cref="QueriesWorkspace.QueriesChanged"/> using a
 	/// named private handler (<c>OnQueriesChangedHandler</c>) so the subscription can be
 	/// cleanly removed in <see cref="Dispose"/> without capturing a lambda reference.
 	/// </remarks>
-	public ProjectWorkspace(IProjectRepository projectRepository, QueriesWorkspace queriesWorkspace, ILogger<ProjectWorkspace> logger)
+	public ProjectWorkspace(
+		IProjectRepository projectRepository,
+		QueriesWorkspace queriesWorkspace,
+		ILogger<ProjectWorkspace> logger,
+		ProjectCompilationService? projectCompilationService = null)
 	{
 		_projectRepository = projectRepository;
 		_queriesWorkspace = queriesWorkspace;
 		_logger = logger;
+		_projectCompilationService = projectCompilationService;
 
 		// Subscribe to query changes to propagate workspace changes
 		_queriesWorkspace.QueriesChanged += OnQueriesChangedHandler;
@@ -92,6 +102,7 @@ public class ProjectWorkspace : IDisposable
 	public async Task CreateNewAsync(string name)
 	{
 		_currentProject = new Project { Name = name };
+		_projectCompilationService?.Invalidate();
 		_isDirty = true; // New project is unsaved by definition
 		_currentProjectId = null;
 
@@ -115,6 +126,7 @@ public class ProjectWorkspace : IDisposable
 		var project = await _projectRepository.LoadProjectAsync(projectId);
 
 		_currentProject = project;
+		_projectCompilationService?.Invalidate();
 		_isDirty = false;
 		_currentProjectId = projectId;
 
@@ -248,6 +260,7 @@ public class ProjectWorkspace : IDisposable
 
 		_currentProject = updatedProject;
 		_isDirty = true;
+		_projectCompilationService?.Invalidate();
 		OnWorkspaceChanged();
 	}
 
@@ -261,6 +274,7 @@ public class ProjectWorkspace : IDisposable
 	public void Close()
 	{
 		_currentProject = null;
+		_projectCompilationService?.Invalidate();
 		_isDirty = false;
 		_currentProjectId = null;
 		_queriesWorkspace.Clear();
