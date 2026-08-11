@@ -156,8 +156,11 @@ internal sealed class DbContextCodeGenerator
 		foreach (var table in schema.Tables)
 		{
 			var className = schema.ClassNameByTableName[table.FullName];
-			builder.AppendLine(
-				$"        modelBuilder.Entity<{className}>().ToTable(\"{EscapeString(table.Name)}\");");
+			var tableName = EscapeString(table.Name);
+			var mapping = string.IsNullOrWhiteSpace(table.Schema)
+				? $"        modelBuilder.Entity<{className}>().ToTable(\"{tableName}\");"
+				: $"        modelBuilder.Entity<{className}>().ToTable(\"{tableName}\", \"{EscapeString(table.Schema)}\");";
+			builder.AppendLine(mapping);
 		}
 	}
 

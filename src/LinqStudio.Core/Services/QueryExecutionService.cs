@@ -44,7 +44,7 @@ public sealed class QueryExecutionService(
 		}
 		catch (OperationCanceledException)
 		{
-			return QueryExecutionResult.FromError("No database connection configured", isCompileError: false, stopwatch.Elapsed);
+			return QueryExecutionResult.FromError("Query execution was cancelled", isCompileError: false, stopwatch.Elapsed);
 		}
 
 		try
