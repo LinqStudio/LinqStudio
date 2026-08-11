@@ -118,7 +118,6 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 	private IReadOnlySet<string> _editableColumns = new HashSet<string>(StringComparer.Ordinal);
 
 	private bool _delay = true;
-	private bool _splitterInitialized;
 
 	/// <summary>
 	/// Set to <see langword="true"/> as the very first step in both <see cref="Dispose"/>
@@ -324,20 +323,6 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 			return;
 		}
 
-		if (!_splitterInitialized)
-		{
-			_splitterInitialized = true; // prevent concurrent re-entry
-			try
-			{
-				var ok = await JSRuntime.InvokeAsync<bool>("initSplitter", SplitterId, EditorPanelId, ResultsPanelId);
-				if (!ok) _splitterInitialized = false; // DOM not ready yet, retry next render
-			}
-			catch (Exception ex)
-			{
-				_splitterInitialized = false;
-				Logger.LogWarning(ex, "Failed to initialize splitter for tab {QueryId}", QueryId);
-			}
-		}
 	}
 
 	/// <summary>
@@ -821,18 +806,6 @@ public partial class QueryEditorPanel : ComponentBase, IDisposable, IAsyncDispos
 
 		// Must be first — guards all in-flight awaited continuations (OnTabActivatedAsync, OnAfterRenderAsync).
 		_disposed = true;
-
-		if (_splitterInitialized)
-		{
-			try
-			{
-				await JSRuntime.InvokeVoidAsync("disposeSplitter", SplitterId);
-			}
-			catch
-			{
-				// Ignore JS errors during disposal
-			}
-		}
 
 		_providerDisposable?.Dispose();
 		_hoverProviderDisposable?.Dispose();

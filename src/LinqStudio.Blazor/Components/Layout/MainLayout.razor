@@ -1,4 +1,4 @@
-﻿@inherits LayoutComponentBase;
+@inherits LayoutComponentBase;
 @implements IDisposable
 @inject IOptionsMonitor<UISettings> UISettings;
 @inject ISettingsService SettingsService;
@@ -75,6 +75,11 @@
                 <DatabaseTreeView />
             </section>
         </div>
+        <ResizableSplitter SplitterId="drawer-resize-splitter"
+                           Orientation="ResizeSplitterOrientation.Vertical"
+                           AccessibleLabel="@SharedResource.Shell_Explorer_Resize"
+                           TargetId="nav-drawer"
+                           TestId="drawer-resize-splitter" />
     </MudDrawer>
 
     <MudMainContent Class="mainBody linqstudio-main-content pt-16 pa-4">
