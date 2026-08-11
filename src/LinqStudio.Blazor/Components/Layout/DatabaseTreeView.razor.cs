@@ -162,6 +162,7 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 			var tablesByDatabase = new Dictionary<string, IReadOnlyList<DatabaseTableName>>(StringComparer.OrdinalIgnoreCase);
 			if (databases.Count == 0)
 			{
+				// Providers that cannot enumerate catalogs still expose a flat table list.
 				var tables = await Workspace.CurrentProject.QueryGenerator.GetTablesAsync();
 				foreach (var group in tables.GroupBy(table => string.IsNullOrWhiteSpace(table.DatabaseName) ? "Database" : table.DatabaseName, StringComparer.OrdinalIgnoreCase))
 					tablesByDatabase[group.Key] = group.ToList();
@@ -397,6 +398,7 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 
 	private IEnumerable<SchemaTreeNode> GetVisibleDatabaseNodes()
 		=> _rootNodes.SelectMany(connection => connection.Children).Where(database =>
+			// Keep a database visible when a matching table is nested below it.
 			string.IsNullOrWhiteSpace(_filterText)
 			|| database.Label.Contains(_filterText, StringComparison.OrdinalIgnoreCase)
 			|| database.Children.SelectMany(folder => folder.Children)

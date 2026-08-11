@@ -37,6 +37,8 @@ public sealed class QueryExecutionService(
 
 	public async Task<QueryExecutionResult> ExecuteQueryAsync(string userQuery, Models.Project project, CancellationToken cancellationToken = default)
 	{
+		// Compilation and execution share disposable contexts and load contexts, so only
+		// one query (or save operation) may use them at a time.
 		var stopwatch = Stopwatch.StartNew();
 		try
 		{
@@ -80,6 +82,7 @@ public sealed class QueryExecutionService(
 			var generatedContexts = new List<(DatabaseInfo Database, DbContextGeneratorResult Result)>(databases.Count);
 			foreach (var database in databases)
 			{
+				// Keep each database's models and custom relationships isolated during generation.
 				var result = await _generator.GenerateAsync(
 					databaseGenerator,
 					database.Name,
@@ -94,6 +97,7 @@ public sealed class QueryExecutionService(
 			var generatedFiles = generatedContexts
 				.SelectMany(context => context.Result.ModelFiles.Select(file =>
 					new KeyValuePair<string, string>(
+						// Every database can contain the same table name; scope document names by context.
 						$"{context.Result.ContextTypeName}.{file.Key}",
 						file.Value)))
 				.ToDictionary(file => file.Key, file => file.Value, StringComparer.OrdinalIgnoreCase);

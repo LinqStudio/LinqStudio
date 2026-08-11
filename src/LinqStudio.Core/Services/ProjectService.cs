@@ -184,6 +184,8 @@ public class ProjectService
 			|| project.CustomRelationships.Count == 0)
 			return;
 
+		// Older projects had no database scope on relationships; preserve their meaning
+		// by assigning the database selected by the original connection string.
 		var databaseName = GetSelectedDatabaseName(project);
 		if (string.IsNullOrWhiteSpace(databaseName))
 			return;

@@ -111,6 +111,7 @@ public class RoslynWorkspaceService(ILogger<RoslynWorkspaceService>? logger = nu
 		string projectNamespace,
 		string beforeReturn = "return")
 	{
+		// Expose every generated context so a query can combine databases explicitly.
 		if (!userQuery.TrimEnd().EndsWith(';'))
 			userQuery += ";";
 

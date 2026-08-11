@@ -38,11 +38,18 @@ public static class CodeGenerationNaming
 		return $"{identifier}DbContext";
 	}
 
+	/// <summary>
+	/// Gets the parameter name corresponding to a database's generated context type.
+	/// </summary>
 	public static string GetDbContextParameterName(
 		IReadOnlyDictionary<string, string> contextTypeNames,
 		string databaseName)
 		=> GetDbContextParameterNameFromTypeName(contextTypeNames[databaseName]);
 
+	/// <summary>
+	/// Maps database names to context type names, adding a stable hash only for
+	/// normalization collisions so generated source remains reproducible.
+	/// </summary>
 	public static IReadOnlyDictionary<string, string> GetDbContextTypeNames(IEnumerable<string> databaseNames)
 	{
 		var names = databaseNames
@@ -66,6 +73,9 @@ public static class CodeGenerationNaming
 			StringComparer.Ordinal);
 	}
 
+	/// <summary>
+	/// Converts a generated context type name to the parameter name used by queries.
+	/// </summary>
 	public static string GetDbContextParameterNameFromTypeName(string contextTypeName)
 	{
 		return char.ToLowerInvariant(contextTypeName[0]) + contextTypeName[1..];

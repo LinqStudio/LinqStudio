@@ -108,6 +108,7 @@ public class TestDbContext : DbContext
 		var generatedContexts = new List<(DatabaseInfo Database, DbContextGeneratorResult Result)>(databases.Count);
 		foreach (var database in databases)
 		{
+			// Generate each database independently so identical table names stay in separate namespaces.
 			var result = await generator.GenerateAsync(
 				project.QueryGenerator,
 				database.Name,
@@ -122,6 +123,7 @@ public class TestDbContext : DbContext
 		var modelFiles = generatedContexts
 			.SelectMany(context => context.Result.ModelFiles.Select(file =>
 				new KeyValuePair<string, string>(
+					// Prefix model files with their context name to avoid Roslyn document collisions.
 					$"{context.Result.ContextTypeName}.{file.Key}",
 					file.Value)))
 			.ToDictionary(file => file.Key, file => file.Value, StringComparer.OrdinalIgnoreCase);

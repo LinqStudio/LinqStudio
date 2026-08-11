@@ -153,6 +153,7 @@ internal sealed class DbContextCodeGenerator
 
 	private static void AppendTableMappings(StringBuilder builder, GeneratedSchema schema)
 	{
+		// Generated property names are normalized C# identifiers, so retain the physical table names.
 		foreach (var table in schema.Tables)
 		{
 			var className = schema.ClassNameByTableName[table.FullName];
@@ -170,6 +171,7 @@ internal sealed class DbContextCodeGenerator
 
 	private static void AppendColumnMappings(StringBuilder builder, GeneratedSchema schema)
 	{
+		// Explicit column mappings preserve names that differ from the generated property names.
 		foreach (var table in schema.Tables)
 		{
 			var className = schema.ClassNameByTableName[table.FullName];
