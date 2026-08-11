@@ -27,4 +27,15 @@ public interface IDbContextGenerator
 		IReadOnlyList<ICustomRelationship> customRelationships,
 		CancellationToken cancellationToken = default)
 		=> GenerateAsync(generator, databaseName, cancellationToken);
+
+	/// <summary>
+	/// Generates source code with an explicitly assigned, collision-safe DbContext type name.
+	/// </summary>
+	Task<DbContextGeneratorResult> GenerateAsync(
+		IDatabaseQueryGenerator generator,
+		string databaseName,
+		IReadOnlyList<ICustomRelationship> customRelationships,
+		string contextTypeName,
+		CancellationToken cancellationToken = default)
+		=> GenerateAsync(generator, databaseName, customRelationships, cancellationToken);
 }

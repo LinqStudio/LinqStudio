@@ -30,36 +30,29 @@ public class PostgreSqlGenerator : AdoNetDatabaseGeneratorBase
 		if (_explicitDatabaseName is not null)
 			return [new DatabaseInfo { Name = _explicitDatabaseName, IsExplicitlySelected = true }];
 
-		var wasOpen = Connection.State == ConnectionState.Open;
-		if (!wasOpen)
-			await Connection.OpenAsync(cancellationToken);
-		try
+		await using var connection = CreateDatabaseConnection("postgres");
+		await connection.OpenAsync(cancellationToken);
+		const string query = """
+			SELECT datname
+			FROM pg_database
+			WHERE datallowconn = true
+				AND has_database_privilege(current_user, datname, 'CONNECT')
+			ORDER BY datname
+			""";
+		await using var command = connection.CreateCommand();
+		command.CommandText = query;
+		await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+		var result = new List<DatabaseInfo>();
+		while (await reader.ReadAsync(cancellationToken))
 		{
-			const string query = """
-				SELECT datname
-				FROM pg_database
-				WHERE datallowconn = true
-					AND has_database_privilege(current_user, datname, 'CONNECT')
-				ORDER BY datname
-				""";
-			await using var command = Connection.CreateCommand();
-			command.CommandText = query;
-			await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-			var result = new List<DatabaseInfo>();
-			while (await reader.ReadAsync(cancellationToken))
-				result.Add(new DatabaseInfo
-				{
-					Name = reader.GetString(0),
-					IsExplicitlySelected = string.Equals(reader.GetString(0), Connection.Database, StringComparison.OrdinalIgnoreCase)
-				});
-			return result;
+			var databaseName = reader.GetString(0);
+			result.Add(new DatabaseInfo
+			{
+				Name = databaseName,
+				IsExplicitlySelected = false
+			});
 		}
-
-			finally
-		{
-			if (!wasOpen)
-				await Connection.CloseAsync();
-		}
+		return result;
 	}
 
 	public override async Task<IReadOnlyList<DatabaseTableName>> GetTablesAsync(
@@ -67,7 +60,7 @@ public class PostgreSqlGenerator : AdoNetDatabaseGeneratorBase
 			CancellationToken cancellationToken = default)
 		{
 			ArgumentException.ThrowIfNullOrWhiteSpace(databaseName, nameof(databaseName));
-			if (string.Equals(databaseName, Connection.Database, StringComparison.OrdinalIgnoreCase))
+			if (string.Equals(databaseName, Connection.Database, StringComparison.Ordinal))
 				return await GetTablesAsync(cancellationToken);
 
 			await using var connection = CreateDatabaseConnection(databaseName);
@@ -206,7 +199,7 @@ public class PostgreSqlGenerator : AdoNetDatabaseGeneratorBase
 	{
 		ArgumentNullException.ThrowIfNull(table);
 		if (string.IsNullOrWhiteSpace(table.DatabaseName)
-			|| string.Equals(table.DatabaseName, Connection.Database, StringComparison.OrdinalIgnoreCase))
+			|| string.Equals(table.DatabaseName, Connection.Database, StringComparison.Ordinal))
 			return await GetTableAsync(table.FullName, cancellationToken);
 
 		await using var connection = CreateDatabaseConnection(table.DatabaseName);

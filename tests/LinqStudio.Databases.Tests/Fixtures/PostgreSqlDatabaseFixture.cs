@@ -13,6 +13,7 @@ public class PostgreSqlDatabaseFixture : IAsyncLifetime
 	private PostgreSqlContainer? _container;
 	public string ConnectionString { get; private set; } = null!;
 	public string ServerConnectionString { get; private set; } = null!;
+	public string DiscoveryConnectionString { get; private set; } = null!;
 	public string OtherDatabaseName { get; } = "other_linqstudio_database";
 	public TestDbContext DbContext { get; private set; } = null!;
 
@@ -41,7 +42,19 @@ public class PostgreSqlDatabaseFixture : IAsyncLifetime
 			await using var command = adminConnection.CreateCommand();
 			command.CommandText = $"CREATE DATABASE \"{OtherDatabaseName}\"";
 			await command.ExecuteNonQueryAsync();
+
+			await using var roleCommand = adminConnection.CreateCommand();
+			roleCommand.CommandText = "CREATE ROLE discovery_user LOGIN PASSWORD 'StrongPassword123!'";
+			await roleCommand.ExecuteNonQueryAsync();
 		}
+
+		DiscoveryConnectionString = new Npgsql.NpgsqlConnectionStringBuilder(ConnectionString)
+		{
+			Username = "discovery_user"
+		}.ConnectionString;
+		var discoveryConnection = new Npgsql.NpgsqlConnectionStringBuilder(DiscoveryConnectionString);
+		discoveryConnection.Remove("Database");
+		DiscoveryConnectionString = discoveryConnection.ConnectionString;
 
 		var otherConnectionString = new Npgsql.NpgsqlConnectionStringBuilder(ConnectionString)
 		{

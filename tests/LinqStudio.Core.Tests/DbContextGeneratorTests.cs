@@ -1,5 +1,6 @@
 using LinqStudio.Abstractions;
 using LinqStudio.Abstractions.Models;
+using LinqStudio.Core.CodeGeneration;
 using LinqStudio.Core.Models;
 using LinqStudio.Core.Services;
 
@@ -8,6 +9,18 @@ namespace LinqStudio.Core.Tests;
 public class DbContextGeneratorTests
 {
 	private readonly DatabaseScopedGenerator _generator = new(new DbContextGenerator());
+
+	[Fact]
+	public void GetDbContextTypeNames_NormalizedNamesCollide_SuffixesOnlyCollidingNames()
+	{
+		var contextTypeNames = CodeGenerationNaming.GetDbContextTypeNames(
+			["sales-db", "sales_db", "Sales", "sales", "CustomerDB"]);
+
+		Assert.NotEqual(contextTypeNames["sales-db"], contextTypeNames["sales_db"]);
+		Assert.NotEqual(contextTypeNames["Sales"], contextTypeNames["sales"]);
+		Assert.StartsWith("SalesDb_", contextTypeNames["sales-db"], StringComparison.Ordinal);
+		Assert.Equal("CustomerDBDbContext", contextTypeNames["CustomerDB"]);
+	}
 
 	private sealed class DatabaseScopedGenerator(DbContextGenerator generator)
 	{
@@ -85,8 +98,8 @@ public class DbContextGeneratorTests
 		Assert.Contains("[Required]", code);
 		Assert.Contains("[MaxLength(200)]", code);
 		Assert.Contains("modelBuilder.Entity<Orders>().HasKey(e => e.Id);", result.DbContextCode);
-		Assert.Equal("TestDatabaseDbContext", result.ContextTypeName);
-		Assert.Equal("GeneratedModels.TestDatabaseDbContext", result.Namespace);
+		Assert.Equal(CodeGenerationNaming.GetDbContextTypeNames(["TestDatabase"])["TestDatabase"], result.ContextTypeName);
+		Assert.Equal($"GeneratedModels.{result.ContextTypeName}", result.Namespace);
 	}
 
 	[Fact]
@@ -108,8 +121,8 @@ public class DbContextGeneratorTests
 
 		var result = await new DbContextGenerator().GenerateAsync(fake, "Sales");
 
-		Assert.Equal("SalesDbContext", result.ContextTypeName);
-		Assert.Equal("GeneratedModels.SalesDbContext", result.Namespace);
+		Assert.Equal(CodeGenerationNaming.GetDbContextTypeNames(["Sales"])["Sales"], result.ContextTypeName);
+		Assert.Equal($"GeneratedModels.{result.ContextTypeName}", result.Namespace);
 		Assert.True(result.ModelFiles.ContainsKey("Orders.cs"));
 		Assert.DoesNotContain("Warehouse", result.DbContextCode);
 	}
@@ -524,7 +537,7 @@ public class DbContextGeneratorTests
 
 		Assert.Contains("DbSet<Orders>", result.DbContextCode);
 		Assert.Contains("DbSet<Customers>", result.DbContextCode);
-		Assert.Contains("TestDatabaseDbContext", result.DbContextCode);
+		Assert.Contains(CodeGenerationNaming.GetDbContextTypeNames(["TestDatabase"])["TestDatabase"], result.DbContextCode);
 		Assert.Contains("DbContextOptions options", result.DbContextCode);
 		Assert.DoesNotContain("UseInMemoryDatabase", result.DbContextCode);
 		Assert.Contains("namespace GeneratedModels", result.DbContextCode);
@@ -537,7 +550,7 @@ public class DbContextGeneratorTests
 		var result = await _generator.GenerateAsync(fake);
 
 		Assert.Empty(result.ModelFiles);
-		Assert.Contains("TestDatabaseDbContext", result.DbContextCode);
+		Assert.Contains(CodeGenerationNaming.GetDbContextTypeNames(["TestDatabase"])["TestDatabase"], result.DbContextCode);
 	}
 
 	[Fact]

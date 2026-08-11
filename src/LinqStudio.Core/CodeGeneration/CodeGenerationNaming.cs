@@ -1,4 +1,5 @@
 using System.Text;
+using System.Security.Cryptography;
 
 namespace LinqStudio.Core.CodeGeneration;
 
@@ -23,8 +24,10 @@ public static class CodeGenerationNaming
 		return builder.Length > 0 ? builder.ToString() : name;
 	}
 
-	public static string GetDbContextTypeName(string databaseName)
+	private static string GetDbContextTypeName(string databaseName)
 	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(databaseName);
+
 		var identifier = new string(databaseName
 			.Select(character => char.IsLetterOrDigit(character) || character == '_' ? character : '_')
 			.ToArray());
@@ -35,9 +38,36 @@ public static class CodeGenerationNaming
 		return $"{identifier}DbContext";
 	}
 
-	public static string GetDbContextParameterName(string databaseName)
+	public static string GetDbContextParameterName(
+		IReadOnlyDictionary<string, string> contextTypeNames,
+		string databaseName)
+		=> GetDbContextParameterNameFromTypeName(contextTypeNames[databaseName]);
+
+	public static IReadOnlyDictionary<string, string> GetDbContextTypeNames(IEnumerable<string> databaseNames)
 	{
-		var contextTypeName = GetDbContextTypeName(databaseName);
+		var names = databaseNames
+			.Distinct(StringComparer.Ordinal)
+			.ToList();
+		var baseNames = names.ToDictionary(name => name, GetDbContextTypeName, StringComparer.Ordinal);
+		var collisions = baseNames
+			.GroupBy(pair => pair.Value, StringComparer.Ordinal)
+			.Where(group => group.Count() > 1)
+			.SelectMany(group => group)
+			.ToDictionary(
+				pair => pair.Key,
+				pair => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(pair.Key)).AsSpan(..6)),
+				StringComparer.Ordinal);
+
+		return names.ToDictionary(
+			name => name,
+			name => collisions.TryGetValue(name, out var hash)
+				? $"{baseNames[name][..^"DbContext".Length]}_{hash}DbContext"
+				: baseNames[name],
+			StringComparer.Ordinal);
+	}
+
+	public static string GetDbContextParameterNameFromTypeName(string contextTypeName)
+	{
 		return char.ToLowerInvariant(contextTypeName[0]) + contextTypeName[1..];
 	}
 

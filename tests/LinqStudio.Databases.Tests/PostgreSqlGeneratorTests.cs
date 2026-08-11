@@ -67,4 +67,15 @@ public class PostgreSqlGeneratorTests : BaseGeneratorTests, IClassFixture<Postgr
 		Assert.All(tables, t => Assert.Equal(_fixture.DbContext.Database.GetDbConnection().Database, t.DatabaseName));
 		Assert.DoesNotContain(tables, t => t.Name == "OtherOnlyTable");
 	}
+
+	[Fact]
+	public async Task GetDatabasesAsync_WithoutDatabase_UsesMaintenanceDatabase()
+	{
+		await using var connection = new NpgsqlConnection(_fixture.DiscoveryConnectionString);
+		var generator = new PostgreSqlGenerator(connection);
+
+		var databases = await generator.GetDatabasesAsync();
+
+		Assert.Contains(databases, database => database.Name == "postgres");
+	}
 }

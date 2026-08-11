@@ -76,6 +76,7 @@ public sealed class QueryExecutionService(
 			if (databases.Count == 0)
 				return QueryExecutionResult.FromError("No databases are available for this connection", isCompileError: false, stopwatch.Elapsed);
 
+			var contextTypeNames = CodeGenerationNaming.GetDbContextTypeNames(databases.Select(database => database.Name));
 			var generatedContexts = new List<(DatabaseInfo Database, DbContextGeneratorResult Result)>(databases.Count);
 			foreach (var database in databases)
 			{
@@ -85,6 +86,7 @@ public sealed class QueryExecutionService(
 					project.CustomRelationships
 						.Where(relationship => relationship.DatabaseName.Equals(database.Name, StringComparison.OrdinalIgnoreCase))
 						.ToList(),
+					contextTypeNames[database.Name],
 					cancellationToken);
 				generatedContexts.Add((database, result));
 			}
@@ -105,7 +107,7 @@ public sealed class QueryExecutionService(
 					.Select(context => new QueryDbContextParameter(
 						context.Result.ContextTypeName,
 						context.Result.Namespace,
-						CodeGenerationNaming.GetDbContextParameterName(context.Database.Name)))
+						CodeGenerationNaming.GetDbContextParameterNameFromTypeName(context.Result.ContextTypeName)))
 					.ToList(),
 				"GeneratedModels");
 

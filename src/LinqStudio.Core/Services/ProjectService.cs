@@ -1,5 +1,6 @@
 using LinqStudio.Core.Models;
 using LinqStudio.Core.Extensions;
+using LinqStudio.Abstractions.Models;
 using System.Text.Json;
 
 namespace LinqStudio.Core.Services;
@@ -81,6 +82,8 @@ public class ProjectService
 
 			// Validate schema version
 			ValidateSchemaVersion(project, filePath);
+
+			MigrateProject(project);
 
 			// Validate project data
 			ValidateProject(project);
@@ -173,6 +176,37 @@ public class ProjectService
 				$"Project file '{filePath}' version {project.SchemaVersion} is too old to be opened. " +
 				$"Minimum supported version is {_versionConfig.MinSupportedSchemaVersion}.");
 		}
+	}
+
+	private void MigrateProject(Project project)
+	{
+		if (project.SchemaVersion >= ProjectConstants.CurrentSchemaVersion
+			|| project.CustomRelationships.Count == 0)
+			return;
+
+		var databaseName = GetSelectedDatabaseName(project);
+		if (string.IsNullOrWhiteSpace(databaseName))
+			return;
+
+		foreach (var relationship in project.CustomRelationships.Where(relationship => string.IsNullOrWhiteSpace(relationship.DatabaseName)))
+			relationship.DatabaseName = databaseName;
+
+		project.SchemaVersion = ProjectConstants.CurrentSchemaVersion;
+	}
+
+	private static string? GetSelectedDatabaseName(Project project)
+	{
+		if (string.IsNullOrWhiteSpace(project.ConnectionString))
+			return null;
+
+		return project.DatabaseType switch
+		{
+			DatabaseType.Mssql => new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(project.ConnectionString).InitialCatalog,
+			DatabaseType.MySql => new MySql.Data.MySqlClient.MySqlConnectionStringBuilder(project.ConnectionString).Database,
+			DatabaseType.PostgreSql => new Npgsql.NpgsqlConnectionStringBuilder(project.ConnectionString).Database,
+			DatabaseType.Sqlite => new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder(project.ConnectionString).DataSource,
+			_ => throw new NotSupportedException($"Database type {project.DatabaseType} is not supported.")
+		};
 	}
 
 	/// <summary>

@@ -1,5 +1,6 @@
 using LinqStudio.Abstractions;
 using LinqStudio.Abstractions.Models;
+using LinqStudio.Core.CodeGeneration;
 using LinqStudio.Core.Models;
 using LinqStudio.Core.Services;
 using LinqStudio.Core.Settings;
@@ -224,7 +225,7 @@ public class QueryExecutionServiceTests
 			{
 				_ = typeof(RequiredAttribute).Assembly;
 				var result = await service.ExecuteQueryAsync(
-					"mainDbContext.SOMETHINGNAME.Select(row => (object)row.SOMECOLUMN)",
+					$"{CodeGenerationNaming.GetDbContextParameterName(CodeGenerationNaming.GetDbContextTypeNames(["main"]), "main")}.SOMETHINGNAME.Select(row => (object)row.SOMECOLUMN)",
 					new Project
 					{
 						DatabaseType = DatabaseType.Sqlite,

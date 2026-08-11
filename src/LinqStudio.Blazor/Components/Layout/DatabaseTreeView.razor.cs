@@ -467,8 +467,16 @@ public partial class DatabaseTreeView : ComponentBase, IDisposable
 
 		CloseContextMenu();
 		var entitySetName = ToPascalCase(tableNode.TableName.Name);
-		var contextParameterName = CodeGenerationNaming.GetDbContextParameterName(
-			tableNode.TableName.DatabaseName ?? "Database");
+		var databaseName = tableNode.TableName.DatabaseName ?? "Database";
+		var contextTypeNames = CodeGenerationNaming.GetDbContextTypeNames(
+			_rootNodes
+				.SelectMany(connection => connection.Children)
+				.Select(database => database.DatabaseInfo?.Name)
+				.Where(name => !string.IsNullOrWhiteSpace(name))
+				.Select(name => name!)
+				.Append(databaseName));
+		var contextParameterName = CodeGenerationNaming.GetDbContextParameterNameFromTypeName(
+			contextTypeNames[databaseName]);
 		var queryText = $"// Write your EF Core query here as a one-liner:\r\n{contextParameterName}.{entitySetName}.Take(1000)";
 		var queryId = Workspace.Queries.CreateNewQuery(
 			$"Select top 1000 - {tableNode.TableName.Name}",

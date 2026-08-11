@@ -25,10 +25,23 @@ public sealed class DbContextGenerator : IDbContextGenerator
 		string databaseName,
 		IReadOnlyList<ICustomRelationship> customRelationships,
 		CancellationToken cancellationToken = default)
+		=> await GenerateAsync(
+			generator,
+			databaseName,
+			customRelationships,
+			CodeGenerationNaming.GetDbContextTypeNames([databaseName])[databaseName],
+			cancellationToken);
+
+	public async Task<DbContextGeneratorResult> GenerateAsync(
+		IDatabaseQueryGenerator generator,
+		string databaseName,
+		IReadOnlyList<ICustomRelationship> customRelationships,
+		string contextTypeName,
+		CancellationToken cancellationToken = default)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(databaseName);
+		ArgumentException.ThrowIfNullOrWhiteSpace(contextTypeName);
 
-		var contextTypeName = CodeGenerationNaming.GetDbContextTypeName(databaseName);
 		var targetNamespace = $"GeneratedModels.{contextTypeName}";
 		var schema = await _schemaBuilder.BuildAsync(
 			generator,

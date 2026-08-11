@@ -4,6 +4,7 @@ using LinqStudio.Abstractions.Models;
 using LinqStudio.Blazor.Components.Layout;
 using LinqStudio.Blazor.Extensions;
 using LinqStudio.Blazor.Services;
+using LinqStudio.Core.CodeGeneration;
 using LinqStudio.Core.Extensions;
 using LinqStudio.Core.Models;
 using Microsoft.AspNetCore.Components.Web;
@@ -636,7 +637,9 @@ public class DatabaseTreeViewComponentTests : BunitContext
 		// Assert
 		var query = workspace.Queries.GetCurrentQuery();
 		Assert.NotNull(query);
-		Assert.EndsWith("databaseDbContext.SalesOrders.Take(1000)", query.QueryText);
+		Assert.EndsWith(
+			$"{CodeGenerationNaming.GetDbContextParameterName(CodeGenerationNaming.GetDbContextTypeNames(["Database"]), "Database")}.SalesOrders.Take(1000)",
+			query.QueryText);
 		Assert.True(workspace.Queries.CurrentQueryState!.ExecuteOnOpen);
 	}
 }
